@@ -290,11 +290,11 @@ export function MapLocationPickerModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-2.5 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-5 shadow-2xl space-y-3"
+        className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 shadow-2xl space-y-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

@@ -1094,11 +1094,11 @@ export default function App() {
           {/* Search Command Modal */}
           {searchOpen && (
             <div
-              className="fixed inset-0 z-50 bg-black/55 flex items-start justify-center p-4 pt-16 sm:pt-20"
+              className="fixed inset-0 z-50 bg-black/55 flex items-start justify-center p-2.5 pt-16 sm:p-4 sm:pt-20"
               onClick={() => setSearchOpen(false)}
             >
               <div
-                className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 shadow-xl space-y-3"
+                className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4 shadow-xl space-y-3"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center gap-2 border-b border-neutral-100 dark:border-emerald-950 pb-2.5">
@@ -1214,11 +1214,11 @@ export default function App() {
           {/* Notifications Drawer / Modal */}
           {notifOpen && (
             <div
-              className="fixed inset-0 z-50 bg-black/55 flex items-start justify-center sm:justify-end p-4 pt-16 sm:pt-18"
+              className="fixed inset-0 z-50 bg-black/55 flex items-start justify-center sm:justify-end p-2.5 pt-16 sm:p-4 sm:pt-18"
               onClick={() => setNotifOpen(false)}
             >
               <div
-                className="w-full max-w-md rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-5 shadow-xl space-y-4 max-h-[75vh] flex flex-col"
+                className="w-full max-w-md rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 shadow-xl space-y-4 max-h-[78vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between gap-2 border-b border-neutral-100 dark:border-emerald-950 pb-3">

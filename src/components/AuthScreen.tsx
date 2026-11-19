@@ -128,17 +128,22 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-2 bg-[#f6f7f6] dark:bg-[#090e0b]">
-      {/* Brand showcase panel — compact banner on mobile, full panel on desktop */}
-      <div className="relative flex flex-col justify-between bg-[#08291A] text-white px-5 py-4 sm:p-8 lg:p-14 overflow-hidden">
+    <div className="min-h-[100dvh] flex flex-col lg:grid lg:grid-cols-2 bg-white dark:bg-[#121b16] lg:bg-[#f6f7f6] lg:dark:bg-[#090e0b]">
+      {/* Brand showcase panel — compact top header on mobile, full panel on desktop */}
+      <div className="relative flex flex-col justify-between bg-[#08291A] text-white px-4 pt-3.5 pb-6 sm:p-8 lg:p-14 overflow-hidden shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <OilcomCamelMark className="w-8 h-8 sm:w-10 sm:h-10" />
-            <span className="font-display text-base sm:text-xl font-extrabold tracking-tight text-white">
-              OILCOM <span className="text-[#F5B800]">SUPER APP</span>
-            </span>
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <OilcomCamelMark className="w-8 h-7 sm:w-10 sm:h-9 shrink-0" />
+            <div className="leading-none min-w-0">
+              <p className="font-display text-sm sm:text-lg font-extrabold tracking-tight text-white truncate">
+                OILCOM
+              </p>
+              <p className="font-display text-[10px] sm:text-xs font-bold tracking-wider text-[#F5B800] truncate mt-0.5">
+                SUPER APP
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
@@ -163,7 +168,7 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         </div>
 
         {/* Compact mobile tagline */}
-        <p className="mt-2.5 text-xs text-emerald-100/85 lg:hidden">
+        <p className="mt-2 text-xs text-emerald-100/85 lg:hidden truncate">
           {t(lang, 'tagline')}
         </p>
 
@@ -222,175 +227,209 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         </p>
       </div>
 
-      {/* Authentication Form Panel */}
-      <div className="flex-1 flex items-start lg:items-center justify-center p-4 sm:p-10 lg:p-14">
-        <div className="w-full max-w-md bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 rounded-2xl p-5 sm:p-8 shadow-sm">
-          <div className="text-center mb-6">
-            <h2 className="font-display text-2xl font-bold text-neutral-900 dark:text-white">
-              {mode === 'login'
-                ? t(lang, 'welcomeBack')
-                : mode === 'register'
-                  ? t(lang, 'registerTitle')
-                  : t(lang, 'forgotTitle')}
-            </h2>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              {mode === 'login'
-                ? t(lang, 'signInSub')
-                : mode === 'register'
-                  ? t(lang, 'registerSub')
-                  : t(lang, 'forgotSub')}
-            </p>
-          </div>
-
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
-              {errorMsg}
+      {/* Authentication Form Panel — edge-to-edge full sheet on mobile, centered card on desktop */}
+      <div className="flex-1 flex flex-col lg:items-center lg:justify-center -mt-3 lg:mt-0 rounded-t-3xl lg:rounded-none bg-white dark:bg-[#121b16] lg:bg-transparent px-4 pt-5 pb-4 sm:p-8 lg:p-14 shadow-lg lg:shadow-none">
+        <div className="w-full lg:max-w-md flex-1 lg:flex-initial flex flex-col justify-between lg:block lg:bg-white lg:dark:bg-[#121b16] lg:border lg:border-neutral-200 lg:dark:border-emerald-950 lg:rounded-2xl lg:p-8 lg:shadow-sm">
+          <div>
+            <div className="text-center mb-4 sm:mb-6">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">
+                {mode === 'login'
+                  ? t(lang, 'welcomeBack')
+                  : mode === 'register'
+                    ? t(lang, 'registerTitle')
+                    : t(lang, 'forgotTitle')}
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                {mode === 'login'
+                  ? t(lang, 'signInSub')
+                  : mode === 'register'
+                    ? t(lang, 'registerSub')
+                    : t(lang, 'forgotSub')}
+              </p>
             </div>
-          )}
 
-          {infoMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
-              {infoMsg}
+            {errorMsg && (
+              <div className="mb-3.5 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
+                {errorMsg}
+              </div>
+            )}
+
+            {infoMsg && (
+              <div className="mb-3.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
+                {infoMsg}
+              </div>
+            )}
+
+            {/* Primary Google Sign-In */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-semibold text-sm transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="#0b120e"
+                  d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
+                />
+              </svg>
+              {t(lang, 'continueWithGoogle')}
+            </button>
+
+            <div className="my-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-neutral-200 dark:bg-emerald-950" />
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
+                {lang === 'sw' ? 'au tumia barua pepe' : 'or use email'}
+              </span>
+              <div className="h-px flex-1 bg-neutral-200 dark:bg-emerald-950" />
             </div>
-          )}
 
-          {/* Primary Google Sign-In */}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-semibold text-sm transition-colors cursor-pointer disabled:opacity-60"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#0b120e"
-                d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81Z"
-              />
-            </svg>
-            {t(lang, 'continueWithGoogle')}
-          </button>
+            <form onSubmit={handleEmailAuth} className="space-y-3">
+              {mode === 'register' && (
+                <div className="relative">
+                  <User className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
+                  />
+                </div>
+              )}
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-neutral-200 dark:bg-emerald-950" />
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {lang === 'sw' ? 'au tumia barua pepe' : 'or use email'}
-            </span>
-            <div className="h-px flex-1 bg-neutral-200 dark:bg-emerald-950" />
-          </div>
-
-          <form onSubmit={handleEmailAuth} className="space-y-3.5">
-            {mode === 'register' && (
               <div className="relative">
-                <User className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
                 <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={lang === 'sw' ? 'Barua Pepe' : 'Email address'}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
                 />
               </div>
-            )}
 
-            <div className="relative">
-              <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={lang === 'sw' ? 'Barua Pepe' : 'Email address'}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
-              />
-            </div>
+              {mode !== 'forgot' && (
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={lang === 'sw' ? 'Nywila (Password)' : 'Password'}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    aria-label="Toggle password visibility"
+                    className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  >
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              )}
 
-            {mode !== 'forgot' && (
-              <div className="relative">
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={lang === 'sw' ? 'Nywila (Password)' : 'Password'}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  aria-label="Toggle password visibility"
-                  className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            )}
+              {mode === 'register' && (
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder={lang === 'sw' ? 'Thibitisha Nywila' : 'Confirm Password'}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
+                  />
+                </div>
+              )}
 
-            {mode === 'register' && (
-              <div className="relative">
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5" />
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder={lang === 'sw' ? 'Thibitisha Nywila' : 'Confirm Password'}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F5B800]"
-                />
-              </div>
-            )}
+              {mode === 'login' && (
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg('');
+                      setMode('register');
+                    }}
+                    className="text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:underline cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Huna akaunti? Jisajili' : 'New here? Register'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg('');
+                      setMode('forgot');
+                    }}
+                    className="text-xs font-semibold text-[#08291A] dark:text-[#F5B800] hover:underline cursor-pointer shrink-0"
+                  >
+                    {t(lang, 'forgotTitle')}
+                  </button>
+                </div>
+              )}
 
-            {mode === 'login' && (
-              <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full py-3 px-4 rounded-xl bg-[#08291A] hover:bg-[#0d3b26] dark:bg-emerald-900 dark:hover:bg-emerald-800 text-white font-semibold text-sm transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {busy
+                  ? t(lang, 'loading')
+                  : mode === 'login'
+                    ? t(lang, 'signInEmail')
+                    : mode === 'register'
+                      ? t(lang, 'registerTitle')
+                      : t(lang, 'sendReset')}
+              </button>
+            </form>
+
+            {mode !== 'login' && (
+              <div className="mt-4 text-center text-xs text-neutral-600 dark:text-neutral-400">
                 <button
                   type="button"
                   onClick={() => {
                     setErrorMsg('');
-                    setMode('forgot');
+                    setMode('login');
                   }}
-                  className="text-xs font-medium text-[#08291A] dark:text-[#F5B800] hover:underline cursor-pointer"
+                  className="hover:underline font-medium text-neutral-900 dark:text-white cursor-pointer"
                 >
-                  {t(lang, 'forgotTitle')}
+                  {lang === 'sw' ? 'Tayari una akaunti? Ingia hapa' : 'Already have an account? Sign in'}
                 </button>
               </div>
             )}
+          </div>
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#08291A] hover:bg-[#0d3b26] dark:bg-emerald-900 dark:hover:bg-emerald-800 text-white font-semibold text-sm transition-colors cursor-pointer disabled:opacity-60"
-            >
-              {busy
-                ? t(lang, 'loading')
-                : mode === 'login'
-                  ? t(lang, 'signInEmail')
-                  : mode === 'register'
-                    ? t(lang, 'registerTitle')
-                    : t(lang, 'sendReset')}
-            </button>
-          </form>
-
-          <div className="mt-5 text-center text-xs text-neutral-600 dark:text-neutral-400">
-            {mode === 'login' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorMsg('');
-                  setMode('register');
-                }}
-                className="hover:underline font-medium text-neutral-900 dark:text-white cursor-pointer"
-              >
-                {lang === 'sw' ? 'Huna akaunti? Jisajili hapa' : 'No account? Register here'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorMsg('');
-                  setMode('login');
-                }}
-                className="hover:underline font-medium text-neutral-900 dark:text-white cursor-pointer"
-              >
-                {lang === 'sw' ? 'Tayari una akaunti? Ingia hapa' : 'Already have an account? Sign in'}
-              </button>
-            )}
+          {/* Mobile Service Highlights Footer — fills remaining viewport cleanly with zero dead space */}
+          <div className="lg:hidden mt-5 pt-4 border-t border-neutral-100 dark:border-emerald-950 space-y-3">
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-[#f6f7f6] dark:bg-[#0c130f] border border-neutral-200/70 dark:border-emerald-950">
+                <p className="font-bold text-[#08291A] dark:text-[#F5B800]">OILCOM Rewards</p>
+                <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  {lang === 'sw' ? 'QR Salama & Pointi' : 'QR & Loyalty Points'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-[#f6f7f6] dark:bg-[#0c130f] border border-neutral-200/70 dark:border-emerald-950">
+                <p className="font-bold text-[#08291A] dark:text-[#F5B800]">Mafuta & Gesi</p>
+                <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  {lang === 'sw' ? '6kg, 15kg, 38kg & Vocha' : 'LPG & Prepaid Fuel'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-[#f6f7f6] dark:bg-[#0c130f] border border-neutral-200/70 dark:border-emerald-950">
+                <p className="font-bold text-[#08291A] dark:text-[#F5B800]">Business B2B</p>
+                <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  {lang === 'sw' ? 'Oda za Jumla & Ankara' : 'Fleet & Bulk Orders'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-[#f6f7f6] dark:bg-[#0c130f] border border-neutral-200/70 dark:border-emerald-950">
+                <p className="font-bold text-[#08291A] dark:text-[#F5B800]">Ramani & Vituo</p>
+                <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  {lang === 'sw' ? 'Vituo Karibu na GPS' : 'Live Station Locator'}
+                </p>
+              </div>
+            </div>
+            <p className="text-center text-[11px] text-neutral-400 dark:text-neutral-500">
+              OILCOM SUPER APP · Tanzania Energy & LPG Ecosystem
+            </p>
           </div>
         </div>
       </div>
