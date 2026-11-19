@@ -368,7 +368,7 @@ export function OrderTrackingMap({
   }
 
   return (
-    <APIProvider apiKey={googleMapsApiKey} language={lang} region="TZ">
+    <APIProvider apiKey={googleMapsApiKey} version="beta" language={lang} region="TZ">
       <TrackingWorkspace
         lang={lang}
         order={order}

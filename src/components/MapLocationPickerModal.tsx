@@ -315,7 +315,7 @@ export function MapLocationPickerModal({
         </div>
 
         {googleMapsApiKey ? (
-          <APIProvider apiKey={googleMapsApiKey} language={lang} region="TZ">
+          <APIProvider apiKey={googleMapsApiKey} version="beta" language={lang} region="TZ">
             <PickerWorkspace
               lang={lang}
               initialAddress={initialAddress}
