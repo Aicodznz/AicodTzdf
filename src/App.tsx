@@ -1385,6 +1385,7 @@ export default function App() {
                 businessOrders={businessOrders}
                 invoices={invoices}
                 products={products}
+                googleMapsApiKey={googleMapsApiKey}
               />
             )}
 
@@ -1416,6 +1417,7 @@ export default function App() {
                 inventory={inventory}
                 auditLogs={auditLogs}
                 settings={settings}
+                googleMapsApiKey={googleMapsApiKey}
               />
             )}
 

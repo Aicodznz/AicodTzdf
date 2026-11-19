@@ -125,32 +125,53 @@ export function HomeDashboard({
   return (
     <div className="space-y-3 sm:space-y-5">
       {/* Hero Greeting Card */}
-      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-7 flex flex-row items-center justify-between gap-3 sm:gap-6">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] sm:text-xs font-medium text-[#F5B800] truncate">
-            {rewards?.customerCode || 'OILCOM MEMBER'} · {rewards?.tier || 'Bronze'}
-          </p>
-          <h1 className="font-display text-xl sm:text-3xl font-bold mt-0.5 truncate">
-            {t(lang, 'helloCustomer')}, {firstName}!
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-emerald-100/80 max-w-xl leading-snug">
-            {t(lang, 'homeSubtitle')}
-          </p>
+      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-7 flex flex-col gap-3.5 sm:gap-4">
+        <div className="flex flex-row items-center justify-between gap-3 sm:gap-6">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] sm:text-xs font-medium text-[#F5B800] truncate">
+              {rewards?.customerCode || 'OILCOM MEMBER'} · {rewards?.tier || 'Bronze'}
+            </p>
+            <h1 className="font-display text-xl sm:text-3xl font-bold mt-0.5 truncate">
+              {t(lang, 'helloCustomer')}, {firstName}!
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-emerald-100/80 max-w-xl leading-snug">
+              {t(lang, 'homeSubtitle')}
+            </p>
+          </div>
+
+          <div className="flex items-center shrink-0">
+            {user.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt={user.fullName}
+                referrerPolicy="no-referrer"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-[#F5B800]"
+              />
+            ) : (
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F5B800] text-[#08291A] font-display font-extrabold text-lg sm:text-xl flex items-center justify-center">
+                {firstName.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center shrink-0">
-          {user.photoUrl ? (
-            <img
-              src={user.photoUrl}
-              alt={user.fullName}
-              referrerPolicy="no-referrer"
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-[#F5B800]"
-            />
-          ) : (
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F5B800] text-[#08291A] font-display font-extrabold text-lg sm:text-xl flex items-center justify-center">
-              {firstName.slice(0, 1).toUpperCase()}
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => onNavigate('gas')}
+            className="px-3.5 py-2 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#08291A] text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>{lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('stations')}
+            className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+          >
+            <MapPin className="w-3.5 h-3.5 text-[#F5B800]" />
+            <span>{lang === 'sw' ? 'Vituo 3D' : '3D Stations'}</span>
+          </button>
         </div>
       </div>
 
@@ -216,7 +237,7 @@ export function HomeDashboard({
           <h2 className="font-display text-base sm:text-lg font-bold text-neutral-900 dark:text-white">
             {lang === 'sw' ? 'Huduma Kuu za OILCOM' : 'OILCOM Core Services'}
           </h2>
-          <span className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 truncate">
+          <span className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-snug">
             {t(lang, 'demoNotice')}
           </span>
         </div>

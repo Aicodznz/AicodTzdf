@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   Download,
+  MapPin,
+  Pencil,
   Plus,
   ShieldCheck,
 } from 'lucide-react';
@@ -34,6 +36,7 @@ import type {
   SystemSettings,
   UserRole,
 } from '../types/oilcom';
+import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { formatTimestamp, formatTzs } from './OilcomBrand';
 
 interface AdminConsoleModuleProps {
@@ -48,6 +51,7 @@ interface AdminConsoleModuleProps {
   inventory: AgentInventoryItem[];
   auditLogs: AuditLogEntry[];
   settings: SystemSettings;
+  googleMapsApiKey?: string;
 }
 
 export function AdminConsoleModule({
@@ -62,9 +66,17 @@ export function AdminConsoleModule({
   inventory,
   auditLogs,
   settings,
+  googleMapsApiKey = '',
 }: AdminConsoleModuleProps) {
   const [tab, setTab] = useState<
-    'overview' | 'users' | 'businesses' | 'agents' | 'catalog' | 'settings' | 'logs'
+    | 'overview'
+    | 'users'
+    | 'businesses'
+    | 'agents'
+    | 'catalog'
+    | 'stations'
+    | 'settings'
+    | 'logs'
   >('overview');
   const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d'>('all');
   const [settingsForm, setSettingsForm] = useState<SystemSettings>(settings);
@@ -75,6 +87,24 @@ export function AdminConsoleModule({
     unit: 'cylinder',
     priceTzs: 25000,
     roleScope: 'gas' as 'gas' | 'fuel' | 'business',
+  });
+  const [editingStationId, setEditingStationId] = useState<string | null>(null);
+  const [stationMapOpen, setStationMapOpen] = useState(false);
+  const [stationForm, setStationForm] = useState({
+    name: '',
+    code: '',
+    city: 'Dar es Salaam',
+    region: 'Dar es Salaam',
+    address: '',
+    lat: -6.7924,
+    lng: 39.2083,
+    open24Hours: true,
+    hasGas: true,
+    hasFuel: true,
+    hasLubricants: true,
+    petrolPriceTzs: 3150,
+    dieselPriceTzs: 3050,
+    status: 'active' as 'active' | 'maintenance' | 'inactive',
   });
   const [feedback, setFeedback] = useState('');
 
@@ -277,6 +307,109 @@ export function AdminConsoleModule({
     }
   };
 
+  const resetStationForm = () => {
+    setEditingStationId(null);
+    setStationForm({
+      name: '',
+      code: '',
+      city: 'Dar es Salaam',
+      region: 'Dar es Salaam',
+      address: '',
+      lat: -6.7924,
+      lng: 39.2083,
+      open24Hours: true,
+      hasGas: true,
+      hasFuel: true,
+      hasLubricants: true,
+      petrolPriceTzs: 3150,
+      dieselPriceTzs: 3050,
+      status: 'active',
+    });
+  };
+
+  const startEditStation = (st: Station) => {
+    setEditingStationId(st.id);
+    setStationForm({
+      name: st.name,
+      code: st.code,
+      city: st.city,
+      region: st.region,
+      address: st.address,
+      lat: st.lat,
+      lng: st.lng,
+      open24Hours: Boolean(st.open24Hours),
+      hasGas: st.hasGas ?? true,
+      hasFuel: st.hasFuel ?? true,
+      hasLubricants: st.hasLubricants ?? true,
+      petrolPriceTzs: st.petrolPriceTzs ?? 3150,
+      dieselPriceTzs: st.dieselPriceTzs ?? 3050,
+      status: st.status,
+    });
+  };
+
+  const handleSaveStation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      stationForm.name.trim().length < 2 ||
+      stationForm.code.trim().length < 2 ||
+      stationForm.address.trim().length < 2
+    ) {
+      return;
+    }
+
+    const sid = editingStationId || makeId('stn');
+    const payload = {
+      name: stationForm.name.trim().slice(0, 120),
+      code: stationForm.code.trim().toUpperCase().slice(0, 32),
+      city: stationForm.city.trim().slice(0, 80) || 'Dar es Salaam',
+      region: stationForm.region.trim().slice(0, 80) || 'Dar es Salaam',
+      address: stationForm.address.trim().slice(0, 200),
+      lat: Number(stationForm.lat),
+      lng: Number(stationForm.lng),
+      open24Hours: Boolean(stationForm.open24Hours),
+      hasGas: Boolean(stationForm.hasGas),
+      hasFuel: Boolean(stationForm.hasFuel),
+      hasLubricants: Boolean(stationForm.hasLubricants),
+      petrolPriceTzs: Math.max(0, Number(stationForm.petrolPriceTzs) || 0),
+      dieselPriceTzs: Math.max(0, Number(stationForm.dieselPriceTzs) || 0),
+      status: stationForm.status,
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      if (editingStationId) {
+        await updateDoc(doc(db, 'stations', sid), payload);
+        await writeAuditLog({
+          action: 'UPDATE_STATION',
+          targetCollection: 'stations',
+          targetId: sid,
+          summary: `Updated station ${payload.name} (${payload.code})`,
+        });
+        setFeedback(`Station ${payload.name} updated.`);
+      } else {
+        await setDoc(doc(db, 'stations', sid), {
+          ...payload,
+          isDemoData: false,
+          createdAt: serverTimestamp(),
+        });
+        await writeAuditLog({
+          action: 'CREATE_STATION',
+          targetCollection: 'stations',
+          targetId: sid,
+          summary: `Added station ${payload.name} (${payload.code})`,
+        });
+        setFeedback(`Station ${payload.name} created.`);
+      }
+      resetStationForm();
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        editingStationId ? OperationType.UPDATE : OperationType.CREATE,
+        `stations/${sid}`
+      );
+    }
+  };
+
   return (
     <div className="space-y-3.5 sm:space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
@@ -328,6 +461,7 @@ export function AdminConsoleModule({
             ['businesses', `Businesses (${businesses.length})`],
             ['agents', `Agents (${agents.length})`],
             ['catalog', `Catalog (${products.length})`],
+            ['stations', `Stations (${stations.length})`],
             ['settings', 'Rules & Rewards'],
             ['logs', `Audit Logs (${auditLogs.length})`],
           ] as const
@@ -682,6 +816,287 @@ export function AdminConsoleModule({
         </div>
       )}
 
+      {tab === 'stations' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
+          <form
+            onSubmit={handleSaveStation}
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-display font-bold text-base flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#F5B800]" />
+                {editingStationId
+                  ? lang === 'sw'
+                    ? 'Hariri Kituo'
+                    : 'Edit Station'
+                  : lang === 'sw'
+                    ? 'Ongeza Kituo Kipya'
+                    : 'Add OILCOM Station'}
+              </h3>
+              {editingStationId && (
+                <button
+                  type="button"
+                  onClick={resetStationForm}
+                  className="text-xs font-semibold text-neutral-500 hover:underline cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Ghairi' : 'Cancel'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                required
+                value={stationForm.name}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, name: e.target.value })
+                }
+                placeholder="OILCOM Kibaha Hub"
+                className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+              <input
+                type="text"
+                required
+                value={stationForm.code}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, code: e.target.value })
+                }
+                placeholder="Code (e.g. KBH-01)"
+                className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                required
+                value={stationForm.city}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, city: e.target.value })
+                }
+                placeholder="City"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+              <input
+                type="text"
+                required
+                value={stationForm.region}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, region: e.target.value })
+                }
+                placeholder="Region"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-neutral-500">
+                  {lang === 'sw' ? 'Anwani & Viwianishi' : 'Address & Coordinates'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setStationMapOpen(true)}
+                  className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <MapPin className="w-3 h-3" />
+                  <span>
+                    {lang === 'sw' ? 'Chagua Kwenye Ramani' : 'Pick on Map'}
+                  </span>
+                </button>
+              </div>
+              <input
+                type="text"
+                required
+                value={stationForm.address}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, address: e.target.value })
+                }
+                placeholder="Morogoro Rd, Kibaha"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                step="0.00001"
+                required
+                value={stationForm.lat}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, lat: Number(e.target.value) })
+                }
+                placeholder="Lat"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+              />
+              <input
+                type="number"
+                step="0.00001"
+                required
+                value={stationForm.lng}
+                onChange={(e) =>
+                  setStationForm({ ...stationForm, lng: Number(e.target.value) })
+                }
+                placeholder="Lng"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                  Petrol (TZS/L)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={stationForm.petrolPriceTzs}
+                  onChange={(e) =>
+                    setStationForm({
+                      ...stationForm,
+                      petrolPriceTzs: Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                  Diesel (TZS/L)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={stationForm.dieselPriceTzs}
+                  onChange={(e) =>
+                    setStationForm({
+                      ...stationForm,
+                      dieselPriceTzs: Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationForm.open24Hours}
+                  onChange={(e) =>
+                    setStationForm({
+                      ...stationForm,
+                      open24Hours: e.target.checked,
+                    })
+                  }
+                />
+                <span>24/7 Open</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationForm.hasGas}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, hasGas: e.target.checked })
+                  }
+                />
+                <span>OILCOM Gas</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationForm.hasFuel}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, hasFuel: e.target.checked })
+                  }
+                />
+                <span>Fuel Pumps</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationForm.hasLubricants}
+                  onChange={(e) =>
+                    setStationForm({
+                      ...stationForm,
+                      hasLubricants: e.target.checked,
+                    })
+                  }
+                />
+                <span>Lubricants</span>
+              </label>
+            </div>
+
+            <select
+              value={stationForm.status}
+              onChange={(e) =>
+                setStationForm({
+                  ...stationForm,
+                  status: e.target.value as 'active' | 'maintenance' | 'inactive',
+                })
+              }
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+            >
+              <option value="active">Active</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
+            >
+              {editingStationId
+                ? lang === 'sw'
+                  ? 'Hifadhi Mabadiliko'
+                  : 'Save Changes'
+                : lang === 'sw'
+                  ? 'Ongeza Kituo'
+                  : 'Create Station'}
+            </button>
+          </form>
+
+          <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+            {stations.map((st) => (
+              <div
+                key={st.id}
+                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+              >
+                <div className="min-w-0">
+                  <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
+                    {st.code} · {st.status.toUpperCase()} ·{' '}
+                    {st.open24Hours ? '24/7' : 'Day'}
+                  </p>
+                  <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                    {st.name}
+                  </p>
+                  <p className="text-neutral-500 truncate">
+                    {st.address}, {st.city} ({st.lat.toFixed(4)},{' '}
+                    {st.lng.toFixed(4)})
+                  </p>
+                </div>
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                  <div className="text-right font-mono-num text-[11px] text-neutral-600 dark:text-neutral-300">
+                    {st.petrolPriceTzs ? `P: ${formatTzs(st.petrolPriceTzs)}` : ''}{' '}
+                    {st.dieselPriceTzs ? `· D: ${formatTzs(st.dieselPriceTzs)}` : ''}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startEditStation(st)}
+                    className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>{lang === 'sw' ? 'Hariri' : 'Edit'}</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tab === 'settings' && (
         <form
           onSubmit={handleSaveSettings}
@@ -785,6 +1200,24 @@ export function AdminConsoleModule({
           )}
         </div>
       )}
+      <MapLocationPickerModal
+        lang={lang}
+        open={stationMapOpen}
+        googleMapsApiKey={googleMapsApiKey}
+        initialAddress={stationForm.address}
+        initialCoords={{ lat: stationForm.lat, lng: stationForm.lng }}
+        onClose={() => setStationMapOpen(false)}
+        onConfirm={({ street, city, lat, lng }) => {
+          setStationForm((prev) => ({
+            ...prev,
+            address: street.slice(0, 200),
+            city: city.slice(0, 80) || prev.city,
+            region: city.slice(0, 80) || prev.region,
+            lat,
+            lng,
+          }));
+        }}
+      />
     </div>
   );
 }

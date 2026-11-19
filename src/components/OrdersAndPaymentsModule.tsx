@@ -5,6 +5,7 @@ import {
   CreditCard,
   Download,
   MapPin,
+  Phone,
   ShieldAlert,
   Truck,
   XCircle,
@@ -50,11 +51,11 @@ const STATUS_LABELS: Record<
   { sw: string; en: string }
 > = {
   pending: { sw: 'Subiri', en: 'Pending' },
-  confirmed: { sw: 'Thibit.', en: 'Confirmed' },
-  processing: { sw: 'Inaandaa', en: 'Prep' },
-  dispatched: { sw: 'Njiani', en: 'Sent' },
+  confirmed: { sw: 'Thibitishwa', en: 'Confirmed' },
+  processing: { sw: 'Andaliwa', en: 'Prep' },
+  dispatched: { sw: 'Njiani', en: 'On Way' },
   delivered: { sw: 'Imefika', en: 'Arrived' },
-  cancelled: { sw: 'Imeghairi', en: 'Cancelled' },
+  cancelled: { sw: 'Imeghairiwa', en: 'Cancelled' },
 };
 
 export function OrdersAndPaymentsModule({
@@ -70,6 +71,13 @@ export function OrdersAndPaymentsModule({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
+
+  const activeCount = orders.filter(
+    (o) => !['delivered', 'cancelled'].includes(o.status)
+  ).length;
+  const completedCount = orders.filter((o) =>
+    ['delivered', 'cancelled'].includes(o.status)
+  ).length;
 
   const filteredOrders = orders.filter((o) => {
     if (filter === 'active') {
@@ -143,23 +151,17 @@ export function OrdersAndPaymentsModule({
               key={tab}
               type="button"
               onClick={() => setFilter(tab)}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold text-center whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold text-center whitespace-nowrap transition-colors cursor-pointer ${
                 filter === tab
                   ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800] shadow-xs'
                   : 'text-neutral-600 dark:text-neutral-400'
               }`}
             >
               {tab === 'all'
-                ? lang === 'sw'
-                  ? 'Zote'
-                  : 'All'
+                ? `${lang === 'sw' ? 'Zote' : 'All'} (${orders.length})`
                 : tab === 'active'
-                  ? lang === 'sw'
-                    ? 'Zinazoendelea'
-                    : 'Active'
-                  : lang === 'sw'
-                    ? 'Zilizokamilika'
-                    : 'Completed'}
+                  ? `${lang === 'sw' ? 'Hivi Sasa' : 'Active'} (${activeCount})`
+                  : `${lang === 'sw' ? 'Kamili' : 'Done'} (${completedCount})`}
             </button>
           ))}
         </div>
@@ -235,7 +237,7 @@ export function OrdersAndPaymentsModule({
                             }`}
                           />
                           <p
-                            className={`text-[10px] sm:text-[11px] font-medium text-center whitespace-nowrap ${
+                            className={`text-[9.5px] sm:text-[11px] font-medium text-center leading-tight ${
                               done
                                 ? 'text-neutral-900 dark:text-white'
                                 : 'text-neutral-400'
@@ -250,18 +252,28 @@ export function OrdersAndPaymentsModule({
                 )}
 
                 {delivery && (
-                  <div className="p-2.5 sm:p-3 rounded-xl bg-neutral-50 dark:bg-emerald-950/40 text-xs flex items-center justify-between gap-2">
+                  <div className="p-2.5 sm:p-3 rounded-xl bg-neutral-50 dark:bg-emerald-950/40 text-xs flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2 font-medium text-neutral-800 dark:text-neutral-200 min-w-0">
                       <Truck className="w-4 h-4 text-[#F5B800] shrink-0" />
                       <span className="truncate">
                         {delivery.driverName} ({delivery.vehiclePlate || 'OILCOM'})
-                        {delivery.driverPhone ? ` · ${delivery.driverPhone}` : ''}
                       </span>
                     </span>
-                    <span className="font-mono-num text-[11px] font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap shrink-0">
-                      {delivery.status.toUpperCase()}
-                      {delivery.etaMinutes ? ` · ETA ${delivery.etaMinutes}m` : ''}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-mono-num text-[11px] font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+                        {delivery.status.toUpperCase()}
+                        {delivery.etaMinutes ? ` · ETA ${delivery.etaMinutes}m` : ''}
+                      </span>
+                      {delivery.driverPhone && (
+                        <a
+                          href={`tel:${delivery.driverPhone}`}
+                          className="px-2 py-1 rounded-lg bg-[#08291A] text-[#F5B800] text-[11px] font-bold inline-flex items-center gap-1 whitespace-nowrap"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{lang === 'sw' ? 'Piga' : 'Call'}</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
 

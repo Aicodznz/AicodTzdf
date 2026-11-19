@@ -3,7 +3,9 @@ import {
   Banknote,
   Building2,
   CheckCircle2,
+  Clock,
   Fuel,
+  Globe,
   MapPin,
   Minus,
   Plus,
@@ -13,6 +15,11 @@ import {
   Trash2,
   Truck,
 } from 'lucide-react';
+import {
+  findGisZoneForCoords,
+  haversineDistanceKm,
+  type MatchedGisZone,
+} from '../data/oilcomGeoJson';
 import { t } from '../i18n/translations';
 import { placeCustomerOrder } from '../lib/firestoreActions';
 import type {
@@ -124,6 +131,13 @@ export function FuelAndGasModule({
       ''
   );
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [matchedGisZone, setMatchedGisZone] = useState<MatchedGisZone | null>(
+    null
+  );
+  const [nearestStationMeta, setNearestStationMeta] = useState<{
+    name: string;
+    distanceKm: number;
+  } | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>('mpesa');
   const [phoneOrRef, setPhoneOrRef] = useState(user.phone || '+255 712 000 000');
   const [fuelLiters, setFuelLiters] = useState<number>(20);
@@ -591,6 +605,39 @@ export function FuelAndGasModule({
                   className="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs text-neutral-900 dark:text-white"
                 />
               </div>
+              {(matchedGisZone || nearestStationMeta) && (
+                <div className="mt-2 p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-900 text-[11px] space-y-1">
+                  {matchedGisZone && (
+                    <p className="font-semibold text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-[#F5B800] shrink-0" />
+                      <span className="truncate">
+                        {lang === 'sw'
+                          ? matchedGisZone.nameSw
+                          : matchedGisZone.nameEn}
+                      </span>
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-emerald-800 dark:text-emerald-300">
+                    {matchedGisZone && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 shrink-0" />
+                        ETA {matchedGisZone.eta} ·{' '}
+                        {lang === 'sw' ? 'Usafiri' : 'Fee'}:{' '}
+                        <strong className="font-mono-num">
+                          {formatTzs(matchedGisZone.feeTzs)}
+                        </strong>
+                      </span>
+                    )}
+                    {nearestStationMeta && (
+                      <span className="flex items-center gap-1 truncate">
+                        <Store className="w-3 h-3 shrink-0" />
+                        {nearestStationMeta.name} (
+                        {nearestStationMeta.distanceKm.toFixed(1)} km)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -694,8 +741,26 @@ export function FuelAndGasModule({
         googleMapsApiKey={googleMapsApiKey}
         initialAddress={deliveryAddress}
         onClose={() => setMapPickerOpen(false)}
-        onConfirm={({ street, city }) => {
+        onConfirm={({ street, city, lat, lng, gisZone }) => {
           setDeliveryAddress(`${street}, ${city}`.slice(0, 220));
+          const resolvedZone =
+            gisZone !== undefined ? gisZone : findGisZoneForCoords(lat, lng);
+          setMatchedGisZone(resolvedZone);
+          if (stations.length > 0) {
+            const activeStations = stations.filter((s) => s.status === 'active');
+            const pool = activeStations.length > 0 ? activeStations : stations;
+            let closest = pool[0];
+            let bestDist = haversineDistanceKm(lat, lng, closest.lat, closest.lng);
+            for (const st of pool) {
+              const dist = haversineDistanceKm(lat, lng, st.lat, st.lng);
+              if (dist < bestDist) {
+                bestDist = dist;
+                closest = st;
+              }
+            }
+            setSelectedStationId(closest.id);
+            setNearestStationMeta({ name: closest.name, distanceKm: bestDist });
+          }
         }}
       />
     </div>

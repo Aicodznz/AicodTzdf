@@ -579,3 +579,91 @@ export function extractGeoJsonPoints(
   fc.features.forEach((f) => collect(f.geometry));
   return pts;
 }
+
+export interface MatchedGisZone {
+  id: string;
+  nameSw: string;
+  nameEn: string;
+  eta: string;
+  feeTzs: number;
+  strokeColor: string;
+}
+
+function pointInRing(lat: number, lng: number, ring: GeoJsonCoordinate[]): boolean {
+  if (ring.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    const intersect =
+      yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi + 1e-12) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInPolygonRings(
+  lat: number,
+  lng: number,
+  rings: GeoJsonCoordinate[][]
+): boolean {
+  if (rings.length === 0 || !pointInRing(lat, lng, rings[0])) return false;
+  for (let h = 1; h < rings.length; h++) {
+    if (pointInRing(lat, lng, rings[h])) return false;
+  }
+  return true;
+}
+
+export function findGisZoneForCoords(
+  lat: number,
+  lng: number,
+  fc: GeoJsonFeatureCollection = OILCOM_GIS_FEATURE_COLLECTION
+): MatchedGisZone | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  for (const feat of fc.features) {
+    const geom = feat.geometry;
+    if (!geom) continue;
+    let matched = false;
+    if (geom.type === 'Polygon') {
+      matched = pointInPolygonRings(lat, lng, geom.coordinates);
+    } else if (geom.type === 'MultiPolygon') {
+      matched = geom.coordinates.some((poly) =>
+        pointInPolygonRings(lat, lng, poly)
+      );
+    }
+    if (matched) {
+      const p = feat.properties || {};
+      return {
+        id: String(p.id || feat.id || 'zone'),
+        nameSw: String(p.nameSw || p.name || 'Kanda ya OILCOM'),
+        nameEn: String(p.nameEn || p.name || 'OILCOM Delivery Zone'),
+        eta: String(p.eta || '25–40 min'),
+        feeTzs: typeof p.feeTzs === 'number' ? p.feeTzs : 2500,
+        strokeColor:
+          typeof p.strokeColor === 'string' ? p.strokeColor : '#10B981',
+      };
+    }
+  }
+  return null;
+}
+
+export function haversineDistanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
