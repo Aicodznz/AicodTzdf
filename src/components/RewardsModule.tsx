@@ -217,10 +217,17 @@ export function RewardsModule({
           <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm">
             {qrToken ? (
               <QRCodeCanvas value={qrToken} size={184} level="M" />
-            ) : (
-              <div className="w-[184px] h-[184px] flex items-center justify-center text-xs text-neutral-500">
-                {qrError || t(lang, 'loading')}
+            ) : qrLoading ? (
+              <div className="w-[184px] h-[184px] flex flex-col items-center justify-center gap-2 text-xs text-neutral-500">
+                <RefreshCw className="w-5 h-5 animate-spin text-[#08291A]" />
+                <span>{t(lang, 'loading')}</span>
               </div>
+            ) : (
+              <QRCodeCanvas
+                value={`OILCOM-ID:${customerCode}`}
+                size={184}
+                level="M"
+              />
             )}
           </div>
 
@@ -229,11 +236,15 @@ export function RewardsModule({
               {customerCode}
             </p>
             <p className="text-xs text-emerald-100/75 mt-1">
-              {expiresAt
+              {qrToken && expiresAt
                 ? `${lang === 'sw' ? 'Inaisha' : 'Expires'}: ${new Date(expiresAt).toLocaleTimeString()}`
-                : ''}
+                : qrError
+                  ? lang === 'sw'
+                    ? 'QR ya Msimbo wa Mteja (Bofya Sasisha QR kupata token iliyosainiwa)'
+                    : 'Customer ID QR active (Tap Refresh QR for signed HMAC token)'
+                  : ''}
             </p>
-            {qrToken && (
+            {qrToken ? (
               <button
                 type="button"
                 onClick={() => copyText('qr', qrToken)}
@@ -248,6 +259,18 @@ export function RewardsModule({
                   ? 'Nakili Token ya QR kwa Wakala'
                   : 'Copy Signed QR Token'}
               </button>
+            ) : (
+              qrError && (
+                <button
+                  type="button"
+                  onClick={loadSignedQr}
+                  disabled={qrLoading}
+                  className="mt-3 w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-medium flex items-center justify-center gap-1.5 cursor-pointer text-[#F5B800]"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${qrLoading ? 'animate-spin' : ''}`} />
+                  {lang === 'sw' ? 'Jaribu Kupata QR Iliyosainiwa' : 'Retry Signed QR'}
+                </button>
+              )
             )}
           </div>
         </div>

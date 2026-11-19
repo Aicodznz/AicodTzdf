@@ -330,6 +330,15 @@ async function startServer(): Promise<void> {
     res.status(404).json({ error: 'API endpoint not found.' });
   });
 
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/api/')) {
+      const msg = err instanceof Error ? err.message : 'Internal server error.';
+      res.status(500).json({ error: msg });
+      return;
+    }
+    next(err);
+  });
+
   const httpServer = http.createServer(app);
 
   if (process.env.NODE_ENV !== 'production') {

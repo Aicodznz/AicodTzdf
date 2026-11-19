@@ -14,15 +14,42 @@ async function getBearerHeaders(extra?: Record<string, string>): Promise<Record<
   };
 }
 
+async function parseJsonResponse<T>(
+  res: Response,
+  fallbackError: string
+): Promise<T> {
+  const raw = await res.text();
+  if (!raw || !raw.trim()) {
+    throw new Error(`${fallbackError} (HTTP ${res.status || 0})`);
+  }
+  let parsed: (T & { error?: string }) | null = null;
+  try {
+    parsed = JSON.parse(raw) as T & { error?: string };
+  } catch {
+    throw new Error(`${fallbackError} (HTTP ${res.status || 0})`);
+  }
+  if (!res.ok) {
+    throw new Error(parsed?.error || `${fallbackError} (HTTP ${res.status})`);
+  }
+  return parsed;
+}
+
 export async function fetchPublicConfig(): Promise<{
   googleMapsApiKey: string;
   sandboxMode: boolean;
 }> {
-  const res = await fetch('/api/public-config');
-  if (!res.ok) {
+  try {
+    const res = await fetch('/api/public-config');
+    if (!res.ok) {
+      return { googleMapsApiKey: '', sandboxMode: true };
+    }
+    return await parseJsonResponse<{
+      googleMapsApiKey: string;
+      sandboxMode: boolean;
+    }>(res, 'Config unavailable');
+  } catch {
     return { googleMapsApiKey: '', sandboxMode: true };
   }
-  return res.json();
 }
 
 export async function issueSignedQr(customerCode: string): Promise<{
@@ -31,14 +58,29 @@ export async function issueSignedQr(customerCode: string): Promise<{
   nonce: string;
 }> {
   const headers = await getBearerHeaders();
-  const res = await fetch('/api/qr/issue', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ customerCode }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to issue QR code.');
-  return data;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const res = await fetch('/api/qr/issue', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ customerCode }),
+      });
+      return await parseJsonResponse<{
+        qrToken: string;
+        expiresAt: number;
+        nonce: string;
+      }>(res, 'Failed to issue QR code.');
+    } catch (err) {
+      lastError = err;
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Failed to issue QR code.');
 }
 
 export async function verifySignedQr(params: {
@@ -59,9 +101,14 @@ export async function verifySignedQr(params: {
     headers,
     body: JSON.stringify(params),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'QR verification failed.');
-  return data;
+  return parseJsonResponse<{
+    verified: boolean;
+    customerUid: string;
+    customerCode: string;
+    nonce: string;
+    pointsAwarded: number;
+    verifiedAt: string;
+  }>(res, 'QR verification failed.');
 }
 
 export async function initiateSandboxPayment(
@@ -88,9 +135,16 @@ export async function initiateSandboxPayment(
     headers,
     body: JSON.stringify(params),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to initiate sandbox payment.');
-  return data;
+  return parseJsonResponse<{
+    mode: 'SANDBOX_TEST';
+    status: 'pending';
+    sandboxRef: string;
+    provider: PaymentProvider;
+    amountTzs: number;
+    issuedAt: number;
+    callbackSignature: string;
+    notice: string;
+  }>(res, 'Failed to initiate sandbox payment.');
 }
 
 export async function verifySandboxCallback(params: {
@@ -113,7 +167,11 @@ export async function verifySandboxCallback(params: {
     headers,
     body: JSON.stringify(params),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Callback verification failed.');
-  return data;
+  return parseJsonResponse<{
+    verified: boolean;
+    mode: 'SANDBOX_TEST';
+    sandboxRef: string;
+    status: 'successful' | 'failed';
+    verifiedAt: string;
+  }>(res, 'Callback verification failed.');
 }
