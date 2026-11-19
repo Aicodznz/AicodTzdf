@@ -1,0 +1,470 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered OILCOM Super App user profile and RBAC role assignment.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 0, "maxLength": 32 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "role": { "type": "string", "enum": ["customer", "business", "agent", "admin"] },
+        "language": { "type": "string", "enum": ["sw", "en"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["uid", "fullName", "email", "role", "language", "status", "createdAt", "updatedAt"]
+    },
+    "AdminRegistry": {
+      "title": "AdminRegistry",
+      "description": "Trusted admin UID registry.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "CustomerProfile": {
+      "title": "CustomerProfile",
+      "description": "Extended customer loyalty and vehicle preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "referredBy": { "type": "string", "maxLength": 32 },
+        "vehiclePlate": { "type": "string", "maxLength": 24 },
+        "preferredFuel": { "type": "string", "enum": ["Petrol", "Diesel", "LPG", "All"] },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "customerCode", "referralCode", "createdAt", "updatedAt"]
+    },
+    "CustomerAddress": {
+      "title": "CustomerAddress",
+      "description": "Saved customer delivery address.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "street": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "isDefault": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "label", "street", "city", "region", "isDefault", "createdAt", "updatedAt"]
+    },
+    "Station": {
+      "title": "Station",
+      "description": "Authorized OILCOM service station or gas dealer.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "code": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "address": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "open24Hours": { "type": "boolean" },
+        "hasGas": { "type": "boolean" },
+        "hasFuel": { "type": "boolean" },
+        "hasLubricants": { "type": "boolean" },
+        "petrolPriceTzs": { "type": "number" },
+        "dieselPriceTzs": { "type": "number" },
+        "isDemoData": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "maintenance", "inactive"] },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["name", "code", "city", "region", "address", "lat", "lng", "open24Hours", "status", "createdAt", "updatedAt"]
+    },
+    "ProductCategory": {
+      "title": "ProductCategory",
+      "description": "Product catalog category.",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[a-z0-9_\\-]+$" },
+        "nameSw": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "nameEn": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "sortOrder": { "type": "number" }
+      },
+      "required": ["slug", "nameSw", "nameEn", "sortOrder"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Fuel, LPG gas cylinder, lubricant, or bulk B2B product.",
+      "type": "object",
+      "properties": {
+        "categorySlug": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[a-z0-9_\\-]+$" },
+        "sku": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[A-Z0-9_\\-]+$" },
+        "nameSw": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "nameEn": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "descriptionSw": { "type": "string", "maxLength": 300 },
+        "descriptionEn": { "type": "string", "maxLength": 300 },
+        "unit": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "sizeKg": { "type": "number" },
+        "priceTzs": { "type": "number" },
+        "isDemoPlaceholderPrice": { "type": "boolean" },
+        "roleScope": { "type": "string", "enum": ["gas", "fuel", "business", "all"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["categorySlug", "sku", "nameSw", "nameEn", "unit", "priceTzs", "roleScope", "active", "createdAt", "updatedAt"]
+    },
+    "RewardsAccount": {
+      "title": "RewardsAccount",
+      "description": "Authoritative customer loyalty points account.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "pointsBalance": { "type": "number" },
+        "lifetimePoints": { "type": "number" },
+        "tier": { "type": "string", "enum": ["Bronze", "Silver", "Gold", "Camel VIP"] },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "customerCode", "pointsBalance", "lifetimePoints", "tier", "updatedAt"]
+    },
+    "RewardsTransaction": {
+      "title": "RewardsTransaction",
+      "description": "Points earn, redemption request, or referral bonus entry.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerCode": { "type": "string", "minLength": 4, "maxLength": 32 },
+        "type": { "type": "string", "enum": ["earn", "redeem_request", "redeem_approved", "referral_bonus"] },
+        "points": { "type": "number" },
+        "description": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "stationId": { "type": "string", "maxLength": 128 },
+        "qrNonce": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"] },
+        "processedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "customerCode", "type", "points", "description", "status", "createdAt", "updatedAt"]
+    },
+    "Promotion": {
+      "title": "Promotion",
+      "description": "Active OILCOM loyalty or gas promotion.",
+      "type": "object",
+      "properties": {
+        "titleSw": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "titleEn": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "descriptionSw": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "descriptionEn": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "pointsMultiplier": { "type": "number" },
+        "minSpendTzs": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["titleSw", "titleEn", "descriptionSw", "descriptionEn", "pointsMultiplier", "active", "createdAt"]
+    },
+    "Voucher": {
+      "title": "Voucher",
+      "description": "Digital loyalty reward voucher.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "promoCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "pointsCost": { "type": "number" },
+        "discountTzs": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending_approval", "active", "used", "expired"] },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "promoCode", "title", "pointsCost", "discountTzs", "status", "createdAt", "updatedAt"]
+    },
+    "GasOrder": {
+      "title": "GasOrder",
+      "description": "Customer LPG gas or fuel retail order.",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "minLength": 4, "maxLength": 40, "pattern": "^[A-Z0-9\\-]+$" },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "customerPhone": { "type": "string", "maxLength": 32 },
+        "agentId": { "type": "string", "maxLength": 128 },
+        "stationId": { "type": "string", "maxLength": 128 },
+        "orderKind": { "type": "string", "enum": ["gas", "fuel"] },
+        "fulfillmentType": { "type": "string", "enum": ["delivery", "pickup"] },
+        "deliveryAddress": { "type": "string", "minLength": 2, "maxLength": 240 },
+        "itemsSummary": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "itemsCount": { "type": "number" },
+        "totalTzs": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["mpesa", "airtel_money", "mixx_by_yas", "bank", "cod"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "successful", "failed", "refunded"] },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "processing", "dispatched", "delivered", "cancelled"] },
+        "cancelReason": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["orderNumber", "customerId", "customerName", "orderKind", "fulfillmentType", "deliveryAddress", "itemsSummary", "itemsCount", "totalTzs", "paymentMethod", "paymentStatus", "status", "createdAt", "updatedAt"]
+    },
+    "OrderItem": {
+      "title": "OrderItem",
+      "description": "Line item linked to a gas or business order.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderType": { "type": "string", "enum": ["gas", "business"] },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "productName": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "quantity": { "type": "number" },
+        "unitPriceTzs": { "type": "number" },
+        "subtotalTzs": { "type": "number" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["orderId", "orderType", "customerId", "productId", "productName", "quantity", "unitPriceTzs", "subtotalTzs", "createdAt"]
+    },
+    "Business": {
+      "title": "Business",
+      "description": "Registered B2B corporate or institutional account.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "companyName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "tinNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "contactEmail": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "contactPhone": { "type": "string", "minLength": 5, "maxLength": 32 },
+        "industry": { "type": "string", "maxLength": 80 },
+        "creditLimitTzs": { "type": "number" },
+        "creditUsedTzs": { "type": "number" },
+        "paymentTermsDays": { "type": "number" },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "rejected", "suspended"] },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["ownerId", "companyName", "tinNumber", "contactEmail", "contactPhone", "creditLimitTzs", "creditUsedTzs", "paymentTermsDays", "approvalStatus", "createdAt", "updatedAt"]
+    },
+    "BusinessMember": {
+      "title": "BusinessMember",
+      "description": "Employee member linked to a B2B business account.",
+      "type": "object",
+      "properties": {
+        "businessId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "memberRole": { "type": "string", "enum": ["owner", "approver", "buyer"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["businessId", "ownerId", "email", "fullName", "memberRole", "status", "createdAt"]
+    },
+    "BusinessOrder": {
+      "title": "BusinessOrder",
+      "description": "Bulk fuel and lubricant B2B order.",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string", "minLength": 4, "maxLength": 40, "pattern": "^[A-Z0-9\\-]+$" },
+        "businessId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "requesterId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "requesterName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "productSummary": { "type": "string", "minLength": 2, "maxLength": 240 },
+        "quantityUnits": { "type": "number" },
+        "totalTzs": { "type": "number" },
+        "approvalStatus": { "type": "string", "enum": ["pending_approval", "approved", "rejected"] },
+        "deliveryStatus": { "type": "string", "enum": ["pending", "scheduled", "dispatched", "delivered", "cancelled"] },
+        "deliveryAddress": { "type": "string", "minLength": 2, "maxLength": 240 },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["orderNumber", "businessId", "ownerId", "requesterId", "requesterName", "productSummary", "quantityUnits", "totalTzs", "approvalStatus", "deliveryStatus", "deliveryAddress", "createdAt", "updatedAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "B2B tax invoice generated for an approved bulk order.",
+      "type": "object",
+      "properties": {
+        "invoiceNumber": { "type": "string", "minLength": 4, "maxLength": 40, "pattern": "^[A-Z0-9\\-]+$" },
+        "businessId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "amountTzs": { "type": "number" },
+        "taxTzs": { "type": "number" },
+        "totalTzs": { "type": "number" },
+        "dueDate": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["unpaid", "paid", "overdue"] },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["invoiceNumber", "businessId", "ownerId", "orderId", "amountTzs", "taxTzs", "totalTzs", "dueDate", "status", "createdAt", "updatedAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Sandbox payment transaction awaiting or verified via callback.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderType": { "type": "string", "enum": ["gas", "fuel", "business", "invoice"] },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "provider": { "type": "string", "enum": ["mpesa", "airtel_money", "mixx_by_yas", "bank", "cod"] },
+        "amountTzs": { "type": "number" },
+        "phoneOrRef": { "type": "string", "minLength": 3, "maxLength": 80 },
+        "sandboxRef": { "type": "string", "minLength": 4, "maxLength": 80 },
+        "mode": { "type": "string", "enum": ["SANDBOX_TEST"] },
+        "status": { "type": "string", "enum": ["pending", "successful", "failed", "refunded"] },
+        "callbackVerified": { "type": "boolean" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["orderId", "orderType", "userId", "provider", "amountTzs", "phoneOrRef", "sandboxRef", "mode", "status", "callbackVerified", "createdAt", "updatedAt"]
+    },
+    "Agent": {
+      "title": "Agent",
+      "description": "Authorized OILCOM LPG dealer or station agent.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "businessName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "licenseNumber": { "type": "string", "minLength": 3, "maxLength": 60 },
+        "stationId": { "type": "string", "maxLength": 128 },
+        "region": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "phone": { "type": "string", "minLength": 5, "maxLength": 32 },
+        "approvalStatus": { "type": "string", "enum": ["pending", "approved", "suspended"] },
+        "commissionRatePct": { "type": "number" },
+        "totalSalesTzs": { "type": "number" },
+        "totalCommissionTzs": { "type": "number" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["userId", "businessName", "licenseNumber", "region", "phone", "approvalStatus", "commissionRatePct", "totalSalesTzs", "totalCommissionTzs", "createdAt", "updatedAt"]
+    },
+    "AgentInventory": {
+      "title": "AgentInventory",
+      "description": "Cylinder and product stock maintained by an agent.",
+      "type": "object",
+      "properties": {
+        "agentUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "productName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "cylinderSizeKg": { "type": "number" },
+        "quantityOnHand": { "type": "number" },
+        "reorderLevel": { "type": "number" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["agentUid", "productId", "productName", "quantityOnHand", "reorderLevel", "updatedAt"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Agent stock adjustment and movement ledger.",
+      "type": "object",
+      "properties": {
+        "agentUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "productName": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "type": { "type": "string", "enum": ["restock", "sale", "adjustment", "return"] },
+        "quantityDelta": { "type": "number" },
+        "note": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["agentUid", "productId", "productName", "type", "quantityDelta", "createdAt"]
+    },
+    "Delivery": {
+      "title": "Delivery",
+      "description": "Active gas or fuel delivery dispatch record.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "orderNumber": { "type": "string", "minLength": 4, "maxLength": 40 },
+        "customerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "agentUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "driverName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "driverPhone": { "type": "string", "maxLength": 32 },
+        "vehiclePlate": { "type": "string", "maxLength": 24 },
+        "status": { "type": "string", "enum": ["assigned", "en_route", "arrived", "delivered"] },
+        "etaMinutes": { "type": "number" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["orderId", "orderNumber", "customerId", "agentUid", "driverName", "status", "createdAt", "updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User-scoped in-app alert.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "titleSw": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "titleEn": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "bodySw": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "bodyEn": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "category": { "type": "string", "enum": ["order", "rewards", "business", "agent", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["userId", "titleSw", "titleEn", "bodySw", "bodyEn", "category", "read", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and administrative audit trail.",
+      "type": "object",
+      "properties": {
+        "actorId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorEmail": { "type": "string", "maxLength": 160 },
+        "action": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "targetCollection": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "targetId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "summary": { "type": "string", "minLength": 2, "maxLength": 300 },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["actorId", "action", "targetCollection", "targetId", "summary", "createdAt"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Configurable platform policies, reward rates, and sandbox flags.",
+      "type": "object",
+      "properties": {
+        "pointsPer1000Tzs": { "type": "number" },
+        "pointRedemptionValueTzs": { "type": "number" },
+        "gasCancelWindowMinutes": { "type": "number" },
+        "sandboxModeEnabled": { "type": "boolean" },
+        "supportPhone": { "type": "string", "maxLength": 32 },
+        "supportEmail": { "type": "string", "maxLength": 160 },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["pointsPer1000Tzs", "pointRedemptionValueTzs", "gasCancelWindowMinutes", "sandboxModeEnabled", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "User accounts and RBAC roles." },
+    "/admins/{userId}": { "schema": { "$ref": "#/entities/AdminRegistry" }, "description": "Trusted admin registry." },
+    "/customer_profiles/{userId}": { "schema": { "$ref": "#/entities/CustomerProfile" }, "description": "Customer loyalty profile." },
+    "/customer_addresses/{addressId}": { "schema": { "$ref": "#/entities/CustomerAddress" }, "description": "Customer saved delivery addresses." },
+    "/stations/{stationId}": { "schema": { "$ref": "#/entities/Station" }, "description": "OILCOM fuel stations and gas dealers." },
+    "/product_categories/{categoryId}": { "schema": { "$ref": "#/entities/ProductCategory" }, "description": "Catalog categories." },
+    "/products/{productId}": { "schema": { "$ref": "#/entities/Product" }, "description": "Fuel, LPG cylinders, lubricants, and B2B bulk products." },
+    "/rewards_accounts/{userId}": { "schema": { "$ref": "#/entities/RewardsAccount" }, "description": "Authoritative customer loyalty point balances." },
+    "/rewards_transactions/{txId}": { "schema": { "$ref": "#/entities/RewardsTransaction" }, "description": "Points earn and redemption transactions." },
+    "/promotions/{promoId}": { "schema": { "$ref": "#/entities/Promotion" }, "description": "Promotional campaigns." },
+    "/vouchers/{voucherId}": { "schema": { "$ref": "#/entities/Voucher" }, "description": "Customer reward vouchers." },
+    "/gas_orders/{orderId}": { "schema": { "$ref": "#/entities/GasOrder" }, "description": "Customer LPG gas and fuel orders." },
+    "/order_items/{itemId}": { "schema": { "$ref": "#/entities/OrderItem" }, "description": "Order line items." },
+    "/businesses/{businessId}": { "schema": { "$ref": "#/entities/Business" }, "description": "B2B corporate accounts." },
+    "/business_members/{memberId}": { "schema": { "$ref": "#/entities/BusinessMember" }, "description": "Employees under B2B accounts." },
+    "/business_orders/{orderId}": { "schema": { "$ref": "#/entities/BusinessOrder" }, "description": "B2B bulk fuel and lubricant orders." },
+    "/invoices/{invoiceId}": { "schema": { "$ref": "#/entities/Invoice" }, "description": "B2B invoices." },
+    "/payments/{paymentId}": { "schema": { "$ref": "#/entities/Payment" }, "description": "Sandbox payment records." },
+    "/agents/{agentId}": { "schema": { "$ref": "#/entities/Agent" }, "description": "Authorized LPG dealers and agents." },
+    "/agent_inventory/{invId}": { "schema": { "$ref": "#/entities/AgentInventory" }, "description": "Agent LPG cylinder stock." },
+    "/stock_movements/{moveId}": { "schema": { "$ref": "#/entities/StockMovement" }, "description": "Agent stock movement logs." },
+    "/deliveries/{deliveryId}": { "schema": { "$ref": "#/entities/Delivery" }, "description": "Order delivery tracking." },
+    "/notifications/{notifId}": { "schema": { "$ref": "#/entities/Notification" }, "description": "User notifications." },
+    "/audit_logs/{logId}": { "schema": { "$ref": "#/entities/AuditLog" }, "description": "Immutable admin and security audit log." },
+    "/system_settings/{settingId}": { "schema": { "$ref": "#/entities/SystemSettings" }, "description": "Configurable global OILCOM platform settings." }
+  }
+}
