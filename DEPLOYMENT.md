@@ -20,6 +20,31 @@ NODE_ENV=production npm run start
 ### Health Check
 - `GET /api/health` returns `{ "status": "ok", "service": "oilcom-super-app" }`.
 
+## 2B. Hosting on Render.com
+This repository includes `render.yaml` and `.node-version` (`Node 22`) ready for Render.com.
+
+### Option A: Blueprint Deploy (Recommended)
+1. Push this project to GitHub/GitLab.
+2. In Render Dashboard, click **New + -> Blueprint** and select your repository.
+3. Render automatically reads `render.yaml`, generates `OILCOM_HMAC_SECRET`, and installs Node 22.
+4. Enter `VITE_GOOGLE_MAPS_API_KEY` and `APP_URL` (your `https://<service>.onrender.com` URL) when prompted.
+
+### Option B: Manual Web Service
+- **Runtime:** Node (uses `.node-version` = `22`)
+- **Build Command:** `npm install --include=dev && npm run build`
+- **Start Command:** `npm run start`
+- **Health Check Path:** `/api/health`
+- **Environment Variables:**
+  - `NODE_ENV=production`
+  - `NODE_VERSION=22`
+  - `OILCOM_HMAC_SECRET=<random-64-char-hex>`
+  - `VITE_GOOGLE_MAPS_API_KEY=<your-google-maps-key>`
+  - `APP_URL=https://<your-service>.onrender.com`
+
+### Post-Deploy Domain Allowlist (Required for Login & Maps)
+1. **Firebase Auth:** In Firebase Console -> **Authentication -> Settings -> Authorized domains**, add `<your-service>.onrender.com` so Google Sign-In works.
+2. **Google Maps API Key:** If using HTTP referrer restrictions in Google Cloud Console, allow `https://<your-service>.onrender.com/*`.
+
 ## 3. Firebase Security Rules Deployment
 Firestore security rules (`firestore.rules`) are validated with `@firebase/eslint-plugin-security-rules`:
 

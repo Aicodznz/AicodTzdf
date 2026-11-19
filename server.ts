@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -6,7 +7,6 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { createServer as createViteServer } from 'vite';
 
 const firebaseConfigPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
 const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8')) as {
@@ -98,6 +98,7 @@ function safeCompareHex(a: string, b: string): boolean {
 
 async function startServer(): Promise<void> {
   const app = express();
+  app.set('trust proxy', 1);
   app.use(express.json({ limit: '256kb' }));
 
   app.get('/api/health', (_req: Request, res: Response) => {
@@ -325,9 +326,14 @@ async function startServer(): Promise<void> {
     }
   );
 
+  app.all('/api/*', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'API endpoint not found.' });
+  });
+
   const httpServer = http.createServer(app);
 
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
