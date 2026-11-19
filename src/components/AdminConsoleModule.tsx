@@ -5,6 +5,9 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
+  Trash2,
+  UserPlus,
+  Users,
 } from 'lucide-react';
 import {
   Bar,
@@ -18,10 +21,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { t } from '../i18n/translations';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { makeId, writeAuditLog } from '../lib/firestoreActions';
+import {
+  addStationStaffMember,
+  deleteStationStaffMember,
+  makeId,
+  provisionRoleAccount,
+  updateStationStaffMember,
+  writeAuditLog,
+} from '../lib/firestoreActions';
 import type {
   AgentInventoryItem,
   AgentProfile,
@@ -31,8 +41,12 @@ import type {
   Language,
   OilcomUser,
   Product,
+  ProvisionedRole,
   RewardsTransaction,
+  RoleProvision,
   Station,
+  StationStaffMember,
+  StationStaffRole,
   SystemSettings,
   UserRole,
 } from '../types/oilcom';
@@ -47,6 +61,8 @@ interface AdminConsoleModuleProps {
   orders: GasOrder[];
   products: Product[];
   stations: Station[];
+  stationStaff: StationStaffMember[];
+  provisions: RoleProvision[];
   rewardsTx: RewardsTransaction[];
   inventory: AgentInventoryItem[];
   auditLogs: AuditLogEntry[];
@@ -62,6 +78,8 @@ export function AdminConsoleModule({
   orders,
   products,
   stations,
+  stationStaff,
+  provisions,
   rewardsTx,
   inventory,
   auditLogs,
@@ -88,11 +106,40 @@ export function AdminConsoleModule({
     priceTzs: 25000,
     roleScope: 'gas' as 'gas' | 'fuel' | 'business',
   });
+
+  // Admin Account Provisioning state
+  const [provBusy, setProvBusy] = useState(false);
+  const [provForm, setProvForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '+255 ',
+    role: 'agent' as ProvisionedRole,
+    assignedStationId: stations[0]?.id || '',
+    region: 'Dar es Salaam',
+    businessName: '',
+    licenseNumber: '',
+    initialPassword: '',
+  });
+
+  // Station + Staff management state
   const [editingStationId, setEditingStationId] = useState<string | null>(null);
   const [stationMapOpen, setStationMapOpen] = useState(false);
+  const [staffModalStationId, setStaffModalStationId] = useState<string | null>(null);
+  const [newStaffForm, setNewStaffForm] = useState<{
+    fullName: string;
+    phone: string;
+    staffRole: StationStaffRole;
+    shift: 'morning' | 'evening' | 'night';
+  }>({
+    fullName: '',
+    phone: '+255 ',
+    staffRole: 'attendant',
+    shift: 'morning',
+  });
   const [stationForm, setStationForm] = useState({
     name: '',
     code: '',
+    stationKind: 'both' as 'fuel' | 'gas' | 'both',
     city: 'Dar es Salaam',
     region: 'Dar es Salaam',
     address: '',
@@ -104,6 +151,11 @@ export function AdminConsoleModule({
     hasLubricants: true,
     petrolPriceTzs: 3150,
     dieselPriceTzs: 3050,
+    pumpsCount: 6,
+    lpg6kgStock: 30,
+    lpg15kgStock: 25,
+    lpg38kgStock: 10,
+    managerUid: '',
     status: 'active' as 'active' | 'maintenance' | 'inactive',
   });
   const [feedback, setFeedback] = useState('');
@@ -177,13 +229,33 @@ export function AdminConsoleModule({
 
   const handleUserUpdate = async (
     targetUser: OilcomUser,
-    updates: { role?: UserRole; status?: 'active' | 'suspended' }
+    updates: {
+      role?: UserRole;
+      status?: 'active' | 'suspended';
+      assignedStationId?: string;
+    }
   ) => {
     try {
       await updateDoc(doc(db, 'users', targetUser.uid), {
         ...updates,
         updatedAt: serverTimestamp(),
       });
+      const stationIdToBind =
+        updates.assignedStationId !== undefined
+          ? updates.assignedStationId
+          : targetUser.assignedStationId || '';
+      const targetRole = updates.role || targetUser.role;
+      if (
+        (targetRole === 'station_manager' || targetRole === 'gas_manager') &&
+        stationIdToBind
+      ) {
+        await updateDoc(doc(db, 'stations', stationIdToBind), {
+          managerUid: targetUser.uid,
+          managerName: targetUser.fullName,
+          managerEmail: targetUser.email.toLowerCase(),
+          updatedAt: serverTimestamp(),
+        });
+      }
       await writeAuditLog({
         action: 'UPDATE_USER_RBAC',
         targetCollection: 'users',
@@ -193,6 +265,70 @@ export function AdminConsoleModule({
       setFeedback(`Updated user ${targetUser.email}`);
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${targetUser.uid}`);
+    }
+  };
+
+  const handleProvisionAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!provForm.email.trim() || !provForm.fullName.trim()) return;
+    setProvBusy(true);
+    setFeedback('');
+    try {
+      const cleanEmail = provForm.email.trim().toLowerCase();
+      const matchedUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
+      const chosenStation = stations.find((s) => s.id === provForm.assignedStationId);
+      const res = await provisionRoleAccount({
+        email: cleanEmail,
+        fullName: provForm.fullName,
+        phone: provForm.phone,
+        role: provForm.role,
+        assignedStationId:
+          provForm.role === 'station_manager' ||
+          provForm.role === 'gas_manager' ||
+          provForm.role === 'agent'
+            ? provForm.assignedStationId
+            : '',
+        assignedStationName: chosenStation?.name || '',
+        region: provForm.region,
+        businessName: provForm.businessName,
+        licenseNumber: provForm.licenseNumber,
+        initialPassword: provForm.initialPassword,
+        existingUserUid: matchedUser?.uid,
+      });
+
+      setFeedback(
+        res.authCreated
+          ? lang === 'sw'
+            ? `Akaunti ya ${cleanEmail} (${provForm.role}) imeundwa kikamilifu na neno la siri!`
+            : `Account ${cleanEmail} (${provForm.role}) created with password!`
+          : lang === 'sw'
+            ? `Akaunti ya ${cleanEmail} (${provForm.role}) imeidhinishwa! Akishabonyeza "Ingia kwa Google" na barua pepe hii, ataingia moja kwa moja kwenye dashibodi yake.`
+            : `Provisioned ${cleanEmail} as ${provForm.role}. They will land in their role workspace automatically upon Google Sign-In.`
+      );
+      setProvForm({
+        fullName: '',
+        email: '',
+        phone: '+255 ',
+        role: 'agent',
+        assignedStationId: stations[0]?.id || '',
+        region: 'Dar es Salaam',
+        businessName: '',
+        licenseNumber: '',
+        initialPassword: '',
+      });
+    } catch (err) {
+      setFeedback(err instanceof Error ? err.message : 'Provision failed');
+    } finally {
+      setProvBusy(false);
+    }
+  };
+
+  const handleDeleteProvision = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'role_provisions', id));
+      setFeedback('Provision removed.');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `role_provisions/${id}`);
     }
   };
 
@@ -312,6 +448,7 @@ export function AdminConsoleModule({
     setStationForm({
       name: '',
       code: '',
+      stationKind: 'both',
       city: 'Dar es Salaam',
       region: 'Dar es Salaam',
       address: '',
@@ -323,6 +460,11 @@ export function AdminConsoleModule({
       hasLubricants: true,
       petrolPriceTzs: 3150,
       dieselPriceTzs: 3050,
+      pumpsCount: 6,
+      lpg6kgStock: 30,
+      lpg15kgStock: 25,
+      lpg38kgStock: 10,
+      managerUid: '',
       status: 'active',
     });
   };
@@ -332,6 +474,9 @@ export function AdminConsoleModule({
     setStationForm({
       name: st.name,
       code: st.code,
+      stationKind:
+        st.stationKind ||
+        (st.hasFuel && st.hasGas ? 'both' : st.hasGas ? 'gas' : 'fuel'),
       city: st.city,
       region: st.region,
       address: st.address,
@@ -343,6 +488,11 @@ export function AdminConsoleModule({
       hasLubricants: st.hasLubricants ?? true,
       petrolPriceTzs: st.petrolPriceTzs ?? 3150,
       dieselPriceTzs: st.dieselPriceTzs ?? 3050,
+      pumpsCount: st.pumpsCount ?? 6,
+      lpg6kgStock: st.lpg6kgStock ?? 0,
+      lpg15kgStock: st.lpg15kgStock ?? 0,
+      lpg38kgStock: st.lpg38kgStock ?? 0,
+      managerUid: st.managerUid || '',
       status: st.status,
     });
   };
@@ -358,20 +508,30 @@ export function AdminConsoleModule({
     }
 
     const sid = editingStationId || makeId('stn');
+    const selectedManager = users.find((u) => u.uid === stationForm.managerUid);
+    const kind = stationForm.stationKind;
     const payload = {
       name: stationForm.name.trim().slice(0, 120),
       code: stationForm.code.trim().toUpperCase().slice(0, 32),
+      stationKind: kind,
       city: stationForm.city.trim().slice(0, 80) || 'Dar es Salaam',
       region: stationForm.region.trim().slice(0, 80) || 'Dar es Salaam',
       address: stationForm.address.trim().slice(0, 200),
       lat: Number(stationForm.lat),
       lng: Number(stationForm.lng),
       open24Hours: Boolean(stationForm.open24Hours),
-      hasGas: Boolean(stationForm.hasGas),
-      hasFuel: Boolean(stationForm.hasFuel),
+      hasGas: kind === 'gas' || kind === 'both' ? true : Boolean(stationForm.hasGas),
+      hasFuel: kind === 'fuel' || kind === 'both' ? true : Boolean(stationForm.hasFuel),
       hasLubricants: Boolean(stationForm.hasLubricants),
       petrolPriceTzs: Math.max(0, Number(stationForm.petrolPriceTzs) || 0),
       dieselPriceTzs: Math.max(0, Number(stationForm.dieselPriceTzs) || 0),
+      pumpsCount: Math.max(0, Number(stationForm.pumpsCount) || 0),
+      lpg6kgStock: Math.max(0, Number(stationForm.lpg6kgStock) || 0),
+      lpg15kgStock: Math.max(0, Number(stationForm.lpg15kgStock) || 0),
+      lpg38kgStock: Math.max(0, Number(stationForm.lpg38kgStock) || 0),
+      managerUid: selectedManager?.uid || '',
+      managerName: selectedManager?.fullName || '',
+      managerEmail: selectedManager?.email.toLowerCase() || '',
       status: stationForm.status,
       updatedAt: serverTimestamp(),
     };
@@ -379,6 +539,12 @@ export function AdminConsoleModule({
     try {
       if (editingStationId) {
         await updateDoc(doc(db, 'stations', sid), payload);
+        if (selectedManager) {
+          await updateDoc(doc(db, 'users', selectedManager.uid), {
+            assignedStationId: sid,
+            updatedAt: serverTimestamp(),
+          });
+        }
         await writeAuditLog({
           action: 'UPDATE_STATION',
           targetCollection: 'stations',
@@ -392,6 +558,12 @@ export function AdminConsoleModule({
           isDemoData: false,
           createdAt: serverTimestamp(),
         });
+        if (selectedManager) {
+          await updateDoc(doc(db, 'users', selectedManager.uid), {
+            assignedStationId: sid,
+            updatedAt: serverTimestamp(),
+          });
+        }
         await writeAuditLog({
           action: 'CREATE_STATION',
           targetCollection: 'stations',
@@ -409,6 +581,56 @@ export function AdminConsoleModule({
       );
     }
   };
+
+  const handleAddAdminStationStaff = async (e: React.FormEvent, st: Station) => {
+    e.preventDefault();
+    if (
+      newStaffForm.fullName.trim().length < 2 ||
+      newStaffForm.phone.trim().length < 5
+    ) {
+      return;
+    }
+    await addStationStaffMember({
+      stationId: st.id,
+      stationName: st.name,
+      managerUid: st.managerUid || '',
+      fullName: newStaffForm.fullName,
+      phone: newStaffForm.phone,
+      staffRole: newStaffForm.staffRole,
+      shift: newStaffForm.shift,
+    });
+    setNewStaffForm({
+      fullName: '',
+      phone: '+255 ',
+      staffRole: st.stationKind === 'gas' ? 'gas_filler' : 'attendant',
+      shift: 'morning',
+    });
+    setFeedback(`Added staff member to ${st.name}.`);
+  };
+
+  const stationManagerCandidates = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          u.role === 'station_manager' ||
+          u.role === 'gas_manager' ||
+          u.role === 'admin'
+      ),
+    [users]
+  );
+
+  const staffModalStation = useMemo(
+    () => stations.find((s) => s.id === staffModalStationId) || null,
+    [stations, staffModalStationId]
+  );
+
+  const staffForSelectedStation = useMemo(
+    () =>
+      staffModalStation
+        ? stationStaff.filter((m) => m.stationId === staffModalStation.id)
+        : [],
+    [stationStaff, staffModalStation]
+  );
 
   return (
     <div className="space-y-3.5 sm:space-y-5">
@@ -556,100 +778,335 @@ export function AdminConsoleModule({
       )}
 
       {tab === 'users' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
-          {/* Mobile Compact User Cards */}
-          <div className="md:hidden divide-y divide-neutral-100 dark:divide-emerald-950">
-            {users.map((u) => (
-              <div key={u.uid} className="py-3 space-y-2.5 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
-                      {u.fullName}
-                    </p>
-                    <p className="text-neutral-500 truncate">{u.email}</p>
-                  </div>
-                  <span className="font-mono-num text-[11px] uppercase font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
-                    {u.status}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={u.role}
-                    onChange={(e) =>
-                      handleUserUpdate(u, { role: e.target.value as UserRole })
-                    }
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
-                  >
-                    <option value="customer">customer</option>
-                    <option value="business">business</option>
-                    <option value="agent">agent</option>
-                    <option value="admin">admin</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleUserUpdate(u, {
-                        status: u.status === 'active' ? 'suspended' : 'active',
-                      })
-                    }
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold text-center cursor-pointer"
-                  >
-                    {u.status === 'active' ? 'Suspend' : 'Activate'}
-                  </button>
-                </div>
+        <div className="space-y-4">
+          {/* Admin Account Provisioning Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <form
+              onSubmit={handleProvisionAccount}
+              className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 space-y-3"
+            >
+              <h3 className="font-display font-bold text-sm sm:text-base flex items-center gap-2 text-neutral-900 dark:text-white">
+                <UserPlus className="w-4 h-4 text-[#F5B800]" />
+                <span>
+                  {lang === 'sw'
+                    ? 'Tengeneza Akaunti (Wakala / Meneja / B2B)'
+                    : 'Provision Staff / Agent / Manager Account'}
+                </span>
+              </h3>
+              <p className="text-[11px] text-neutral-500 leading-snug">
+                {lang === 'sw'
+                  ? 'Wateja hujisajili wenyewe. Mawakala, Mameneja wa Vituo (Mafuta/Gesi), na B2B huundwa hapa na Admin.'
+                  : 'Customers self-register. Agents, Fuel/Gas Station Managers & B2B accounts are provisioned here by Admin.'}
+              </p>
+
+              <input
+                type="text"
+                required
+                value={provForm.fullName}
+                onChange={(e) => setProvForm({ ...provForm, fullName: e.target.value })}
+                placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+              <input
+                type="email"
+                required
+                value={provForm.email}
+                onChange={(e) => setProvForm({ ...provForm, email: e.target.value })}
+                placeholder="email@gmail.com"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="tel"
+                  value={provForm.phone}
+                  onChange={(e) => setProvForm({ ...provForm, phone: e.target.value })}
+                  placeholder="+255 7XX..."
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+                <select
+                  value={provForm.role}
+                  onChange={(e) =>
+                    setProvForm({ ...provForm, role: e.target.value as ProvisionedRole })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-semibold"
+                >
+                  <option value="agent">Wakala (Agent)</option>
+                  <option value="station_manager">Meneja Kituo cha Mafuta</option>
+                  <option value="gas_manager">Meneja Kituo cha Gesi</option>
+                  <option value="business">Biashara (B2B)</option>
+                  <option value="admin">Admin Msaidizi</option>
+                </select>
               </div>
-            ))}
+
+              {(provForm.role === 'station_manager' ||
+                provForm.role === 'gas_manager' ||
+                provForm.role === 'agent') && (
+                <select
+                  value={provForm.assignedStationId}
+                  onChange={(e) =>
+                    setProvForm({ ...provForm, assignedStationId: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                >
+                  <option value="">
+                    {lang === 'sw' ? '-- Chagua Kituo Husika --' : '-- Assign Station --'}
+                  </option>
+                  {stations.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {provForm.role === 'agent' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={provForm.businessName}
+                    onChange={(e) =>
+                      setProvForm({ ...provForm, businessName: e.target.value })
+                    }
+                    placeholder={lang === 'sw' ? 'Jina la Duka / Wakala' : 'Dealer Shop Name'}
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={provForm.licenseNumber}
+                    onChange={(e) =>
+                      setProvForm({ ...provForm, licenseNumber: e.target.value })
+                    }
+                    placeholder="License No."
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  />
+                </div>
+              )}
+
+              <input
+                type="password"
+                value={provForm.initialPassword}
+                onChange={(e) =>
+                  setProvForm({ ...provForm, initialPassword: e.target.value })
+                }
+                placeholder={
+                  lang === 'sw'
+                    ? 'Nywila ya awali (hiari kama anatumia Google)'
+                    : 'Initial password (optional if using Google)'
+                }
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              />
+
+              <button
+                type="submit"
+                disabled={provBusy}
+                className="w-full py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#08291A] font-bold text-xs cursor-pointer disabled:opacity-60"
+              >
+                {provBusy
+                  ? t(lang, 'loading')
+                  : lang === 'sw'
+                    ? 'Idhinisha & Tengeneza Akaunti'
+                    : 'Provision Account'}
+              </button>
+            </form>
+
+            {/* Provisioned Accounts List */}
+            <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5">
+              <h4 className="font-display font-bold text-sm mb-3 text-neutral-900 dark:text-white">
+                {lang === 'sw'
+                  ? `Akaunti Zilizoidhinishwa na Admin (${provisions.length})`
+                  : `Admin Role Provisions (${provisions.length})`}
+              </h4>
+              {provisions.length === 0 ? (
+                <p className="py-8 text-center text-xs text-neutral-500">
+                  {lang === 'sw'
+                    ? 'Bado hujatengeneza akaunti ya wakala au meneja yeyote.'
+                    : 'No provisioned staff/agent accounts yet.'}
+                </p>
+              ) : (
+                <div className="divide-y divide-neutral-100 dark:divide-emerald-950 max-h-80 overflow-y-auto">
+                  {provisions.map((p) => (
+                    <div
+                      key={p.id}
+                      className="py-2.5 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-neutral-900 dark:text-white truncate">
+                          {p.fullName} ·{' '}
+                          <span className="font-mono-num text-[#08291A] dark:text-[#F5B800]">
+                            {p.role}
+                          </span>
+                        </p>
+                        <p className="text-neutral-500 truncate">
+                          {p.email}
+                          {p.assignedStationName ? ` · ${p.assignedStationName}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className={`font-mono-num text-[11px] font-bold uppercase ${
+                            p.status === 'claimed'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-amber-600 dark:text-[#F5B800]'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProvision(p.id)}
+                          aria-label="Delete provision"
+                          className="p-1 rounded-lg border border-red-200 dark:border-red-900 text-red-600 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Desktop Users Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-neutral-200 dark:border-emerald-950 text-neutral-500">
-                  <th className="py-2 pr-4">User</th>
-                  <th className="py-2 pr-4">Email</th>
-                  <th className="py-2 pr-4">Role</th>
-                  <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-emerald-950">
-                {users.map((u) => (
-                  <tr key={u.uid}>
-                    <td className="py-3 pr-4 font-semibold">{u.fullName}</td>
-                    <td className="py-3 pr-4">{u.email}</td>
-                    <td className="py-3 pr-4">
-                      <select
-                        value={u.role}
-                        onChange={(e) =>
-                          handleUserUpdate(u, { role: e.target.value as UserRole })
-                        }
-                        className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
-                      >
-                        <option value="customer">customer</option>
-                        <option value="business">business</option>
-                        <option value="agent">agent</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    </td>
-                    <td className="py-3 pr-4">{u.status}</td>
-                    <td className="py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleUserUpdate(u, {
-                            status: u.status === 'active' ? 'suspended' : 'active',
-                          })
-                        }
-                        className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold cursor-pointer"
-                      >
-                        {u.status === 'active' ? 'Suspend' : 'Activate'}
-                      </button>
-                    </td>
+          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+            {/* Mobile Compact User Cards */}
+            <div className="md:hidden divide-y divide-neutral-100 dark:divide-emerald-950">
+              {users.map((u) => (
+                <div key={u.uid} className="py-3 space-y-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                        {u.fullName}
+                      </p>
+                      <p className="text-neutral-500 truncate">{u.email}</p>
+                    </div>
+                    <span className="font-mono-num text-[11px] uppercase font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                      {u.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={u.role}
+                      onChange={(e) =>
+                        handleUserUpdate(u, { role: e.target.value as UserRole })
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                    >
+                      <option value="customer">customer</option>
+                      <option value="agent">agent</option>
+                      <option value="station_manager">station_manager</option>
+                      <option value="gas_manager">gas_manager</option>
+                      <option value="business">business</option>
+                      <option value="admin">admin</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleUserUpdate(u, {
+                          status: u.status === 'active' ? 'suspended' : 'active',
+                        })
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold text-center cursor-pointer"
+                    >
+                      {u.status === 'active' ? 'Suspend' : 'Activate'}
+                    </button>
+                  </div>
+                  {(u.role === 'station_manager' ||
+                    u.role === 'gas_manager' ||
+                    u.role === 'agent') && (
+                    <select
+                      value={u.assignedStationId || ''}
+                      onChange={(e) =>
+                        handleUserUpdate(u, { assignedStationId: e.target.value })
+                      }
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                    >
+                      <option value="">-- Assign Station --</option>
+                      {stations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.code})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Users Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-200 dark:border-emerald-950 text-neutral-500">
+                    <th className="py-2 pr-4">User</th>
+                    <th className="py-2 pr-4">Email</th>
+                    <th className="py-2 pr-4">Role</th>
+                    <th className="py-2 pr-4">Assigned Station</th>
+                    <th className="py-2 pr-4">Status</th>
+                    <th className="py-2 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 dark:divide-emerald-950">
+                  {users.map((u) => (
+                    <tr key={u.uid}>
+                      <td className="py-3 pr-4 font-semibold">{u.fullName}</td>
+                      <td className="py-3 pr-4">{u.email}</td>
+                      <td className="py-3 pr-4">
+                        <select
+                          value={u.role}
+                          onChange={(e) =>
+                            handleUserUpdate(u, { role: e.target.value as UserRole })
+                          }
+                          className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                        >
+                          <option value="customer">customer</option>
+                          <option value="agent">agent</option>
+                          <option value="station_manager">station_manager</option>
+                          <option value="gas_manager">gas_manager</option>
+                          <option value="business">business</option>
+                          <option value="admin">admin</option>
+                        </select>
+                      </td>
+                      <td className="py-3 pr-4">
+                        {u.role === 'station_manager' ||
+                        u.role === 'gas_manager' ||
+                        u.role === 'agent' ? (
+                          <select
+                            value={u.assignedStationId || ''}
+                            onChange={(e) =>
+                              handleUserUpdate(u, { assignedStationId: e.target.value })
+                            }
+                            className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] max-w-[180px]"
+                          >
+                            <option value="">-- Select Station --</option>
+                            {stations.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-neutral-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4">{u.status}</td>
+                      <td className="py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUserUpdate(u, {
+                              status: u.status === 'active' ? 'suspended' : 'active',
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold cursor-pointer"
+                        >
+                          {u.status === 'active' ? 'Suspend' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -817,283 +1274,557 @@ export function AdminConsoleModule({
       )}
 
       {tab === 'stations' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
-          <form
-            onSubmit={handleSaveStation}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-display font-bold text-base flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#F5B800]" />
-                {editingStationId
-                  ? lang === 'sw'
-                    ? 'Hariri Kituo'
-                    : 'Edit Station'
-                  : lang === 'sw'
-                    ? 'Ongeza Kituo Kipya'
-                    : 'Add OILCOM Station'}
-              </h3>
-              {editingStationId && (
-                <button
-                  type="button"
-                  onClick={resetStationForm}
-                  className="text-xs font-semibold text-neutral-500 hover:underline cursor-pointer"
-                >
-                  {lang === 'sw' ? 'Ghairi' : 'Cancel'}
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                required
-                value={stationForm.name}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, name: e.target.value })
-                }
-                placeholder="OILCOM Kibaha Hub"
-                className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
-              />
-              <input
-                type="text"
-                required
-                value={stationForm.code}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, code: e.target.value })
-                }
-                placeholder="Code (e.g. KBH-01)"
-                className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                required
-                value={stationForm.city}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, city: e.target.value })
-                }
-                placeholder="City"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
-              />
-              <input
-                type="text"
-                required
-                value={stationForm.region}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, region: e.target.value })
-                }
-                placeholder="Region"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-neutral-500">
-                  {lang === 'sw' ? 'Anwani & Viwianishi' : 'Address & Coordinates'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setStationMapOpen(true)}
-                  className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
-                >
-                  <MapPin className="w-3 h-3" />
-                  <span>
-                    {lang === 'sw' ? 'Chagua Kwenye Ramani' : 'Pick on Map'}
-                  </span>
-                </button>
-              </div>
-              <input
-                type="text"
-                required
-                value={stationForm.address}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, address: e.target.value })
-                }
-                placeholder="Morogoro Rd, Kibaha"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                step="0.00001"
-                required
-                value={stationForm.lat}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, lat: Number(e.target.value) })
-                }
-                placeholder="Lat"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
-              />
-              <input
-                type="number"
-                step="0.00001"
-                required
-                value={stationForm.lng}
-                onChange={(e) =>
-                  setStationForm({ ...stationForm, lng: Number(e.target.value) })
-                }
-                placeholder="Lng"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
-                  Petrol (TZS/L)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={stationForm.petrolPriceTzs}
-                  onChange={(e) =>
-                    setStationForm({
-                      ...stationForm,
-                      petrolPriceTzs: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
-                  Diesel (TZS/L)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={stationForm.dieselPriceTzs}
-                  onChange={(e) =>
-                    setStationForm({
-                      ...stationForm,
-                      dieselPriceTzs: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stationForm.open24Hours}
-                  onChange={(e) =>
-                    setStationForm({
-                      ...stationForm,
-                      open24Hours: e.target.checked,
-                    })
-                  }
-                />
-                <span>24/7 Open</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stationForm.hasGas}
-                  onChange={(e) =>
-                    setStationForm({ ...stationForm, hasGas: e.target.checked })
-                  }
-                />
-                <span>OILCOM Gas</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stationForm.hasFuel}
-                  onChange={(e) =>
-                    setStationForm({ ...stationForm, hasFuel: e.target.checked })
-                  }
-                />
-                <span>Fuel Pumps</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={stationForm.hasLubricants}
-                  onChange={(e) =>
-                    setStationForm({
-                      ...stationForm,
-                      hasLubricants: e.target.checked,
-                    })
-                  }
-                />
-                <span>Lubricants</span>
-              </label>
-            </div>
-
-            <select
-              value={stationForm.status}
-              onChange={(e) =>
-                setStationForm({
-                  ...stationForm,
-                  status: e.target.value as 'active' | 'maintenance' | 'inactive',
-                })
-              }
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
+            <form
+              onSubmit={handleSaveStation}
+              className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3 h-fit"
             >
-              <option value="active">Active</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="inactive">Inactive</option>
-            </select>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
-            >
-              {editingStationId
-                ? lang === 'sw'
-                  ? 'Hifadhi Mabadiliko'
-                  : 'Save Changes'
-                : lang === 'sw'
-                  ? 'Ongeza Kituo'
-                  : 'Create Station'}
-            </button>
-          </form>
-
-          <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
-            {stations.map((st) => (
-              <div
-                key={st.id}
-                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
-              >
-                <div className="min-w-0">
-                  <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
-                    {st.code} · {st.status.toUpperCase()} ·{' '}
-                    {st.open24Hours ? '24/7' : 'Day'}
-                  </p>
-                  <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
-                    {st.name}
-                  </p>
-                  <p className="text-neutral-500 truncate">
-                    {st.address}, {st.city} ({st.lat.toFixed(4)},{' '}
-                    {st.lng.toFixed(4)})
-                  </p>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                  <div className="text-right font-mono-num text-[11px] text-neutral-600 dark:text-neutral-300">
-                    {st.petrolPriceTzs ? `P: ${formatTzs(st.petrolPriceTzs)}` : ''}{' '}
-                    {st.dieselPriceTzs ? `· D: ${formatTzs(st.dieselPriceTzs)}` : ''}
-                  </div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-display font-bold text-base flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#F5B800]" />
+                  {editingStationId
+                    ? lang === 'sw'
+                      ? 'Hariri Kituo'
+                      : 'Edit Station'
+                    : lang === 'sw'
+                      ? 'Ongeza Kituo cha Mafuta / Gesi'
+                      : 'Add Fuel Station / Gas Depot'}
+                </h3>
+                {editingStationId && (
                   <button
                     type="button"
-                    onClick={() => startEditStation(st)}
-                    className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                    onClick={resetStationForm}
+                    className="text-xs font-semibold text-neutral-500 hover:underline cursor-pointer"
                   >
-                    <Pencil className="w-3 h-3" />
-                    <span>{lang === 'sw' ? 'Hariri' : 'Edit'}</span>
+                    {lang === 'sw' ? 'Ghairi' : 'Cancel'}
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={stationForm.stationKind}
+                onChange={(e) => {
+                  const k = e.target.value as 'fuel' | 'gas' | 'both';
+                  setStationForm({
+                    ...stationForm,
+                    stationKind: k,
+                    hasFuel: k === 'fuel' || k === 'both',
+                    hasGas: k === 'gas' || k === 'both',
+                  });
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-semibold"
+              >
+                <option value="both">
+                  {lang === 'sw' ? 'Mafuta & Gesi (Hybrid)' : 'Fuel & Gas (Hybrid)'}
+                </option>
+                <option value="fuel">
+                  {lang === 'sw' ? 'Kituo cha Mafuta Pekee' : 'Fuel Station Only'}
+                </option>
+                <option value="gas">
+                  {lang === 'sw' ? 'Kituo / Bohari ya Gesi Pekee' : 'Gas Station / Depot'}
+                </option>
+              </select>
+
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  value={stationForm.name}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, name: e.target.value })
+                  }
+                  placeholder="OILCOM Kibaha Hub"
+                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                />
+                <input
+                  type="text"
+                  required
+                  value={stationForm.code}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, code: e.target.value })
+                  }
+                  placeholder="Code (e.g. KBH-01)"
+                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  value={stationForm.city}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, city: e.target.value })
+                  }
+                  placeholder="City"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                />
+                <input
+                  type="text"
+                  required
+                  value={stationForm.region}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, region: e.target.value })
+                  }
+                  placeholder="Region"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                  {lang === 'sw' ? 'Meneja wa Kituo' : 'Assigned Manager'}
+                </label>
+                <select
+                  value={stationForm.managerUid}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, managerUid: e.target.value })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                >
+                  <option value="">
+                    {lang === 'sw'
+                      ? '-- Hakuna Meneja Aliyepangiwa --'
+                      : '-- No Manager Assigned --'}
+                  </option>
+                  {stationManagerCandidates.map((m) => (
+                    <option key={m.uid} value={m.uid}>
+                      {m.fullName} ({m.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-neutral-500">
+                    {lang === 'sw' ? 'Anwani & Viwianishi' : 'Address & Coordinates'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStationMapOpen(true)}
+                    className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>
+                      {lang === 'sw' ? 'Chagua Kwenye Ramani' : 'Pick on Map'}
+                    </span>
                   </button>
                 </div>
+                <input
+                  type="text"
+                  required
+                  value={stationForm.address}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, address: e.target.value })
+                  }
+                  placeholder="Morogoro Rd, Kibaha"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                />
               </div>
-            ))}
+
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="0.00001"
+                  required
+                  value={stationForm.lat}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, lat: Number(e.target.value) })
+                  }
+                  placeholder="Lat"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+                <input
+                  type="number"
+                  step="0.00001"
+                  required
+                  value={stationForm.lng}
+                  onChange={(e) =>
+                    setStationForm({ ...stationForm, lng: Number(e.target.value) })
+                  }
+                  placeholder="Lng"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+              </div>
+
+              {(stationForm.stationKind === 'fuel' ||
+                stationForm.stationKind === 'both') && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      Petrol
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.petrolPriceTzs}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          petrolPriceTzs: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      Diesel
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.dieselPriceTzs}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          dieselPriceTzs: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      Pumps
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.pumpsCount}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          pumpsCount: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(stationForm.stationKind === 'gas' ||
+                stationForm.stationKind === 'both') && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      LPG 6kg
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.lpg6kgStock}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          lpg6kgStock: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      LPG 15kg
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.lpg15kgStock}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          lpg15kgStock: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-neutral-500 mb-0.5">
+                      LPG 38kg
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={stationForm.lpg38kgStock}
+                      onChange={(e) =>
+                        setStationForm({
+                          ...stationForm,
+                          lpg38kgStock: Number(e.target.value),
+                        })
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={stationForm.open24Hours}
+                    onChange={(e) =>
+                      setStationForm({
+                        ...stationForm,
+                        open24Hours: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>24/7 Open</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={stationForm.hasLubricants}
+                    onChange={(e) =>
+                      setStationForm({
+                        ...stationForm,
+                        hasLubricants: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>Lubricants</span>
+                </label>
+              </div>
+
+              <select
+                value={stationForm.status}
+                onChange={(e) =>
+                  setStationForm({
+                    ...stationForm,
+                    status: e.target.value as 'active' | 'maintenance' | 'inactive',
+                  })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              >
+                <option value="active">Active</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
+              >
+                {editingStationId
+                  ? lang === 'sw'
+                    ? 'Hifadhi Mabadiliko'
+                    : 'Save Changes'
+                  : lang === 'sw'
+                    ? 'Ongeza Kituo'
+                    : 'Create Station'}
+              </button>
+            </form>
+
+            <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+              {stations.map((st) => {
+                const stStaff = stationStaff.filter((m) => m.stationId === st.id);
+                const activeCount = stStaff.filter((m) => m.status === 'active').length;
+                const stOrdersCount = orders.filter((o) => o.stationId === st.id).length;
+                const kindLabel =
+                  st.stationKind === 'gas'
+                    ? 'GAS DEPOT'
+                    : st.stationKind === 'fuel'
+                      ? 'FUEL STATION'
+                      : 'FUEL & GAS';
+                return (
+                  <div
+                    key={st.id}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
+                        {st.code} · {kindLabel} · {st.status.toUpperCase()}
+                      </p>
+                      <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                        {st.name}
+                      </p>
+                      <p className="text-neutral-500 truncate">
+                        {st.address}, {st.city} ·{' '}
+                        {lang === 'sw' ? 'Meneja:' : 'Manager:'}{' '}
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                          {st.managerName || (lang === 'sw' ? 'Hajapangiwa' : 'Unassigned')}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-neutral-500 font-mono-num mt-0.5">
+                        {lang === 'sw' ? 'Wafanyakazi:' : 'Staff:'}{' '}
+                        <span className="font-bold text-neutral-800 dark:text-white">
+                          {activeCount}/{stStaff.length}
+                        </span>{' '}
+                        · {lang === 'sw' ? 'Oda:' : 'Orders:'} {stOrdersCount}
+                        {(st.lpg6kgStock || st.lpg15kgStock || st.lpg38kgStock)
+                          ? ` · LPG ${(st.lpg6kgStock || 0) + (st.lpg15kgStock || 0) + (st.lpg38kgStock || 0)}`
+                          : ''}
+                        {st.pumpsCount ? ` · ${st.pumpsCount} Pumps` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStaffModalStationId(
+                            staffModalStationId === st.id ? null : st.id
+                          )
+                        }
+                        className="px-2.5 py-1.5 rounded-lg bg-[#08291A] text-[#F5B800] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Users className="w-3 h-3" />
+                        <span>
+                          {lang === 'sw' ? 'Wafanyakazi' : 'Staff'} ({stStaff.length})
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEditStation(st)}
+                        className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>{lang === 'sw' ? 'Hariri' : 'Edit'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Station Staff Management Drawer/Panel inside Admin Stations Tab */}
+          {staffModalStation && (
+            <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-[#F5B800]/60 p-4 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
+                    {staffModalStation.code} · {lang === 'sw' ? 'USIMAMIZI WA WAFANYAKAZI' : 'STATION STAFF'}
+                  </p>
+                  <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+                    {staffModalStation.name} ({staffForSelectedStation.length}{' '}
+                    {lang === 'sw' ? 'wafanyakazi' : 'staff'})
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStaffModalStationId(null)}
+                  className="px-3 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 text-xs font-semibold cursor-pointer"
+                >
+                  {t(lang, 'close')}
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => handleAddAdminStationStaff(e, staffModalStation)}
+                className="grid grid-cols-1 sm:grid-cols-5 gap-2"
+              >
+                <input
+                  type="text"
+                  required
+                  value={newStaffForm.fullName}
+                  onChange={(e) =>
+                    setNewStaffForm({ ...newStaffForm, fullName: e.target.value })
+                  }
+                  placeholder={lang === 'sw' ? 'Jina la mfanyakazi' : 'Staff name'}
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                />
+                <input
+                  type="tel"
+                  required
+                  value={newStaffForm.phone}
+                  onChange={(e) =>
+                    setNewStaffForm({ ...newStaffForm, phone: e.target.value })
+                  }
+                  placeholder="+255 7XX..."
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                />
+                <select
+                  value={newStaffForm.staffRole}
+                  onChange={(e) =>
+                    setNewStaffForm({
+                      ...newStaffForm,
+                      staffRole: e.target.value as StationStaffRole,
+                    })
+                  }
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                >
+                  <option value="attendant">Attendant (Pampu)</option>
+                  <option value="gas_filler">Gas Filler (Mitungi)</option>
+                  <option value="cashier">Cashier (Keshia)</option>
+                  <option value="driver">Driver (Dereva)</option>
+                  <option value="supervisor">Supervisor (Msimamizi)</option>
+                </select>
+                <select
+                  value={newStaffForm.shift}
+                  onChange={(e) =>
+                    setNewStaffForm({
+                      ...newStaffForm,
+                      shift: e.target.value as 'morning' | 'evening' | 'night',
+                    })
+                  }
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                >
+                  <option value="morning">Morning</option>
+                  <option value="evening">Evening</option>
+                  <option value="night">Night</option>
+                </select>
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-xl bg-[#F5B800] text-[#08291A] font-bold text-xs cursor-pointer"
+                >
+                  + {lang === 'sw' ? 'Ongeza' : 'Add Staff'}
+                </button>
+              </form>
+
+              <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+                {staffForSelectedStation.length === 0 ? (
+                  <p className="py-4 text-center text-xs text-neutral-500">
+                    {lang === 'sw'
+                      ? 'Hakuna wafanyakazi katika kituo hiki bado.'
+                      : 'No staff members assigned to this station yet.'}
+                  </p>
+                ) : (
+                  staffForSelectedStation.map((member) => (
+                    <div
+                      key={member.id}
+                      className="py-2.5 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-neutral-900 dark:text-white truncate">
+                          {member.fullName}
+                        </p>
+                        <p className="text-neutral-500 font-mono-num truncate">
+                          {member.staffRole} · {member.shift} · {member.phone}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateStationStaffMember(member.id, {
+                              status: member.status === 'active' ? 'inactive' : 'active',
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold cursor-pointer"
+                        >
+                          {member.status}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteStationStaffMember(member.id)}
+                          aria-label="Remove staff"
+                          className="p-1 rounded-lg border border-red-200 dark:border-red-900 text-red-600 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

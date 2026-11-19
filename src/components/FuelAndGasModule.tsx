@@ -222,6 +222,7 @@ export function FuelAndGasModule({
         customerPhone: user.phone || phoneOrRef,
         agentId: selectedDealerUid || '',
         stationId: selectedStationId || '',
+        stationManagerUid: station?.managerUid || '',
         orderKind: mode,
         fulfillmentType,
         deliveryAddress: resolvedAddress,

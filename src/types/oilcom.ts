@@ -1,4 +1,10 @@
-export type UserRole = 'customer' | 'business' | 'agent' | 'admin';
+export type UserRole =
+  | 'customer'
+  | 'business'
+  | 'agent'
+  | 'station_manager'
+  | 'gas_manager'
+  | 'admin';
 export type Language = 'sw' | 'en';
 export type ThemeMode = 'light' | 'dark';
 
@@ -25,6 +31,9 @@ export interface OilcomUser {
   phone?: string;
   email: string;
   role: UserRole;
+  assignedStationId?: string;
+  provisionedBy?: string;
+  provisionId?: string;
   language: Language;
   status: 'active' | 'suspended';
   photoUrl?: string;
@@ -59,6 +68,7 @@ export interface Station {
   id: string;
   name: string;
   code: string;
+  stationKind?: 'fuel' | 'gas' | 'both';
   city: string;
   region: string;
   address: string;
@@ -70,6 +80,13 @@ export interface Station {
   hasLubricants?: boolean;
   petrolPriceTzs?: number;
   dieselPriceTzs?: number;
+  pumpsCount?: number;
+  lpg6kgStock?: number;
+  lpg15kgStock?: number;
+  lpg38kgStock?: number;
+  managerUid?: string;
+  managerName?: string;
+  managerEmail?: string;
   isDemoData?: boolean;
   status: 'active' | 'maintenance' | 'inactive';
 }
@@ -143,6 +160,7 @@ export interface GasOrder {
   customerPhone?: string;
   agentId?: string;
   stationId?: string;
+  stationManagerUid?: string;
   orderKind: 'gas' | 'fuel';
   fulfillmentType: 'delivery' | 'pickup';
   deliveryAddress: string;
@@ -309,6 +327,54 @@ export interface SystemSettings {
   supportEmail?: string;
 }
 
+export type ProvisionedRole =
+  | 'agent'
+  | 'station_manager'
+  | 'gas_manager'
+  | 'business'
+  | 'admin';
+
+export interface RoleProvision {
+  id: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  role: ProvisionedRole;
+  assignedStationId?: string;
+  assignedStationName?: string;
+  region?: string;
+  businessName?: string;
+  licenseNumber?: string;
+  tinNumber?: string;
+  status: 'pending' | 'claimed' | 'revoked';
+  claimedUid?: string;
+  createdBy: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+export type StationStaffRole =
+  | 'attendant'
+  | 'gas_filler'
+  | 'cashier'
+  | 'driver'
+  | 'supervisor';
+
+export interface StationStaffMember {
+  id: string;
+  stationId: string;
+  stationName: string;
+  managerUid?: string;
+  fullName: string;
+  phone: string;
+  staffRole: StationStaffRole;
+  shift: 'morning' | 'evening' | 'night';
+  status: 'active' | 'inactive';
+  createdBy: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
 export type AppRoute =
   | 'home'
   | 'fuel'
@@ -318,5 +384,6 @@ export type AppRoute =
   | 'orders'
   | 'stations'
   | 'agent'
+  | 'station_manager'
   | 'admin'
   | 'profile';

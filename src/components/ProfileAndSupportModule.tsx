@@ -189,19 +189,28 @@ export function ProfileAndSupportModule({
               ? 'Jaribu mwonekano wa kila jukumu'
               : 'Preview role-scoped navigation'}
           </div>
-          <div className="grid grid-cols-4 sm:flex gap-1.5 w-full sm:w-auto">
-            {(['admin', 'customer', 'business', 'agent'] as const).map((r) => (
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-1.5 w-full sm:w-auto">
+            {(
+              [
+                ['admin', 'Admin'],
+                ['customer', 'Customer'],
+                ['agent', 'Wakala'],
+                ['station_manager', 'Meneja Mafuta'],
+                ['gas_manager', 'Meneja Gesi'],
+                ['business', 'Biashara'],
+              ] as const
+            ).map(([r, label]) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setPreviewRole(r === 'admin' ? null : r)}
-                className={`px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg text-xs font-semibold capitalize text-center cursor-pointer ${
+                className={`px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[11px] font-semibold text-center cursor-pointer ${
                   effectiveRole === r
                     ? 'bg-[#F5B800] text-[#0b120e]'
                     : 'bg-white/10 text-white'
                 }`}
               >
-                {r}
+                {label}
               </button>
             ))}
           </div>
@@ -218,7 +227,9 @@ export function ProfileAndSupportModule({
             {(
               [
                 ['info', t(lang, 'myInfo'), User],
-                ['addresses', `${t(lang, 'myAddresses')} (${addresses.length})`, MapPin],
+                ...(effectiveRole === 'customer' || effectiveRole === 'admin'
+                  ? ([['addresses', `${t(lang, 'myAddresses')} (${addresses.length})`, MapPin]] as const)
+                  : []),
                 ['notifications', `${t(lang, 'notifications')} (${notifications.filter((n) => !n.read).length})`, Bell],
                 ['help', t(lang, 'supportFaq'), HelpCircle],
                 ['legal', t(lang, 'termsConditions'), FileText],
@@ -339,7 +350,9 @@ export function ProfileAndSupportModule({
         {(
           [
             ['info', t(lang, 'myInfo'), User],
-            ['addresses', t(lang, 'myAddresses'), MapPin],
+            ...(effectiveRole === 'customer' || effectiveRole === 'admin'
+              ? ([['addresses', t(lang, 'myAddresses'), MapPin]] as const)
+              : []),
             ['notifications', `${t(lang, 'notifications')} (${notifications.filter((n) => !n.read).length})`, Bell],
             ['help', t(lang, 'supportFaq'), HelpCircle],
             ['legal', t(lang, 'termsConditions'), FileText],
@@ -395,18 +408,20 @@ export function ProfileAndSupportModule({
               className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">
-              {lang === 'sw' ? 'Namba ya Gari (Hiari)' : 'Vehicle Plate (Optional)'}
-            </label>
-            <input
-              type="text"
-              value={vehiclePlate}
-              onChange={(e) => setVehiclePlate(e.target.value)}
-              placeholder="T 123 ABC"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num uppercase"
-            />
-          </div>
+          {(effectiveRole === 'customer' || effectiveRole === 'admin') && (
+            <div>
+              <label className="block text-xs font-semibold mb-1">
+                {lang === 'sw' ? 'Namba ya Gari (Hiari)' : 'Vehicle Plate (Optional)'}
+              </label>
+              <input
+                type="text"
+                value={vehiclePlate}
+                onChange={(e) => setVehiclePlate(e.target.value)}
+                placeholder="T 123 ABC"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num uppercase"
+              />
+            </div>
+          )}
           <button
             type="submit"
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"

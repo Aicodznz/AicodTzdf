@@ -49,6 +49,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/agents/$(request.auth.uid)).data.approvalStatus == 'approved';
     }
 
+    function hasValidPendingProvision(provisionId, targetRole) {
+      return isValidId(provisionId)
+        && exists(/databases/$(database)/documents/role_provisions/$(provisionId))
+        && get(/databases/$(database)/documents/role_provisions/$(provisionId)).data.status == 'pending'
+        && get(/databases/$(database)/documents/role_provisions/$(provisionId)).data.email == request.auth.token.email.lower()
+        && get(/databases/$(database)/documents/role_provisions/$(provisionId)).data.role == targetRole;
+    }
+
     function isValidString(val, minLen, maxLen) {
       return val is string && val.size() >= minLen && val.size() <= maxLen;
     }
@@ -60,11 +68,14 @@ service cloud.firestore {
     // --- Validation Blueprints ---
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'fullName', 'email', 'role', 'language', 'status', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['uid', 'fullName', 'phone', 'email', 'role', 'language', 'status', 'photoUrl', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'fullName', 'phone', 'email', 'role', 'assignedStationId', 'provisionedBy', 'provisionId', 'language', 'status', 'photoUrl', 'createdAt', 'updatedAt'])
         && isValidId(data.uid)
         && isValidString(data.fullName, 1, 120)
         && isValidString(data.email, 3, 160)
-        && data.role in ['customer', 'business', 'agent', 'admin']
+        && data.role in ['customer', 'business', 'agent', 'station_manager', 'gas_manager', 'admin']
+        && (!('assignedStationId' in data) || isValidString(data.assignedStationId, 0, 128))
+        && (!('provisionedBy' in data) || isValidString(data.provisionedBy, 0, 128))
+        && (!('provisionId' in data) || isValidString(data.provisionId, 0, 128))
         && data.language in ['sw', 'en']
         && data.status in ['active', 'suspended']
         && (!('phone' in data) || isValidString(data.phone, 0, 32))
@@ -75,9 +86,10 @@ service cloud.firestore {
 
     function isValidAdmin(data) {
       return data.keys().hasAll(['uid', 'email', 'createdAt'])
-        && data.keys().hasOnly(['uid', 'email', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'provisionId', 'createdAt'])
         && isValidId(data.uid)
         && isValidString(data.email, 3, 160)
+        && (!('provisionId' in data) || isValidString(data.provisionId, 0, 128))
         && data.createdAt is timestamp;
     }
 
@@ -111,9 +123,10 @@ service cloud.firestore {
 
     function isValidStation(data) {
       return data.keys().hasAll(['name', 'code', 'city', 'region', 'address', 'lat', 'lng', 'open24Hours', 'status', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['name', 'code', 'city', 'region', 'address', 'lat', 'lng', 'open24Hours', 'hasGas', 'hasFuel', 'hasLubricants', 'petrolPriceTzs', 'dieselPriceTzs', 'isDemoData', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'code', 'stationKind', 'city', 'region', 'address', 'lat', 'lng', 'open24Hours', 'hasGas', 'hasFuel', 'hasLubricants', 'petrolPriceTzs', 'dieselPriceTzs', 'pumpsCount', 'lpg6kgStock', 'lpg15kgStock', 'lpg38kgStock', 'managerUid', 'managerName', 'managerEmail', 'isDemoData', 'status', 'createdAt', 'updatedAt'])
         && isValidString(data.name, 2, 120)
         && isValidString(data.code, 2, 32)
+        && (!('stationKind' in data) || data.stationKind in ['fuel', 'gas', 'both'])
         && isValidString(data.city, 2, 80)
         && isValidString(data.region, 2, 80)
         && isValidString(data.address, 2, 200)
@@ -126,6 +139,13 @@ service cloud.firestore {
         && (!('hasLubricants' in data) || data.hasLubricants is bool)
         && (!('petrolPriceTzs' in data) || isNonNegNumber(data.petrolPriceTzs))
         && (!('dieselPriceTzs' in data) || isNonNegNumber(data.dieselPriceTzs))
+        && (!('pumpsCount' in data) || isNonNegNumber(data.pumpsCount))
+        && (!('lpg6kgStock' in data) || isNonNegNumber(data.lpg6kgStock))
+        && (!('lpg15kgStock' in data) || isNonNegNumber(data.lpg15kgStock))
+        && (!('lpg38kgStock' in data) || isNonNegNumber(data.lpg38kgStock))
+        && (!('managerUid' in data) || isValidString(data.managerUid, 0, 128))
+        && (!('managerName' in data) || isValidString(data.managerName, 0, 120))
+        && (!('managerEmail' in data) || isValidString(data.managerEmail, 0, 160))
         && (!('isDemoData' in data) || data.isDemoData is bool)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
@@ -216,7 +236,7 @@ service cloud.firestore {
 
     function isValidGasOrder(data) {
       return data.keys().hasAll(['orderNumber', 'customerId', 'customerName', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'paymentMethod', 'paymentStatus', 'status', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['orderNumber', 'customerId', 'customerName', 'customerPhone', 'agentId', 'stationId', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'paymentMethod', 'paymentStatus', 'status', 'cancelReason', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['orderNumber', 'customerId', 'customerName', 'customerPhone', 'agentId', 'stationId', 'stationManagerUid', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'paymentMethod', 'paymentStatus', 'status', 'cancelReason', 'createdAt', 'updatedAt'])
         && isValidString(data.orderNumber, 4, 40)
         && data.orderNumber.matches('^[A-Z0-9\\-]+$')
         && isValidId(data.customerId)
@@ -224,6 +244,7 @@ service cloud.firestore {
         && (!('customerPhone' in data) || isValidString(data.customerPhone, 0, 32))
         && (!('agentId' in data) || isValidString(data.agentId, 0, 128))
         && (!('stationId' in data) || isValidString(data.stationId, 0, 128))
+        && (!('stationManagerUid' in data) || isValidString(data.stationManagerUid, 0, 128))
         && data.orderKind in ['gas', 'fuel']
         && data.fulfillmentType in ['delivery', 'pickup']
         && isValidString(data.deliveryAddress, 2, 240)
@@ -337,11 +358,12 @@ service cloud.firestore {
 
     function isValidAgent(data) {
       return data.keys().hasAll(['userId', 'businessName', 'licenseNumber', 'region', 'phone', 'approvalStatus', 'commissionRatePct', 'totalSalesTzs', 'totalCommissionTzs', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['userId', 'businessName', 'licenseNumber', 'stationId', 'region', 'phone', 'approvalStatus', 'commissionRatePct', 'totalSalesTzs', 'totalCommissionTzs', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'businessName', 'licenseNumber', 'stationId', 'provisionId', 'region', 'phone', 'approvalStatus', 'commissionRatePct', 'totalSalesTzs', 'totalCommissionTzs', 'createdAt', 'updatedAt'])
         && isValidId(data.userId)
         && isValidString(data.businessName, 2, 140)
         && isValidString(data.licenseNumber, 3, 60)
         && (!('stationId' in data) || isValidString(data.stationId, 0, 128))
+        && (!('provisionId' in data) || isValidString(data.provisionId, 0, 128))
         && isValidString(data.region, 2, 80)
         && isValidString(data.phone, 5, 32)
         && data.approvalStatus in ['pending', 'approved', 'suspended']
@@ -429,9 +451,45 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidRoleProvision(data) {
+      return data.keys().hasAll(['email', 'fullName', 'role', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['email', 'fullName', 'phone', 'role', 'assignedStationId', 'assignedStationName', 'region', 'businessName', 'licenseNumber', 'tinNumber', 'status', 'claimedUid', 'createdBy', 'createdAt', 'updatedAt'])
+        && isValidString(data.email, 3, 160)
+        && isValidString(data.fullName, 1, 120)
+        && (!('phone' in data) || isValidString(data.phone, 0, 32))
+        && data.role in ['agent', 'station_manager', 'gas_manager', 'business', 'admin']
+        && (!('assignedStationId' in data) || isValidString(data.assignedStationId, 0, 128))
+        && (!('assignedStationName' in data) || isValidString(data.assignedStationName, 0, 120))
+        && (!('region' in data) || isValidString(data.region, 0, 80))
+        && (!('businessName' in data) || isValidString(data.businessName, 0, 140))
+        && (!('licenseNumber' in data) || isValidString(data.licenseNumber, 0, 60))
+        && (!('tinNumber' in data) || isValidString(data.tinNumber, 0, 40))
+        && data.status in ['pending', 'claimed', 'revoked']
+        && (!('claimedUid' in data) || isValidString(data.claimedUid, 0, 128))
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStationStaff(data) {
+      return data.keys().hasAll(['stationId', 'stationName', 'fullName', 'phone', 'staffRole', 'shift', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['stationId', 'stationName', 'managerUid', 'fullName', 'phone', 'staffRole', 'shift', 'status', 'createdBy', 'createdAt', 'updatedAt'])
+        && isValidId(data.stationId)
+        && isValidString(data.stationName, 1, 120)
+        && (!('managerUid' in data) || isValidString(data.managerUid, 0, 128))
+        && isValidString(data.fullName, 2, 120)
+        && isValidString(data.phone, 5, 32)
+        && data.staffRole in ['attendant', 'gas_filler', 'cashier', 'driver', 'supervisor']
+        && data.shift in ['morning', 'evening', 'night']
+        && data.status in ['active', 'inactive']
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // --- Collection Rules ---
 
-    // 1. Users (PII isolated)
+    // 1. Users (PII isolated; non-customer roles MUST come from Admin or verified RoleProvision)
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
       allow list: if isBootstrappedAdmin();
@@ -441,7 +499,8 @@ service cloud.firestore {
         && incoming().updatedAt == request.time
         && (
           isAdmin() ||
-          (isOwner(userId) && incoming().role == 'customer' && incoming().status == 'active')
+          (isOwner(userId) && incoming().role == 'customer' && incoming().status == 'active' && !('assignedStationId' in incoming())) ||
+          (isOwner(userId) && incoming().status == 'active' && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, incoming().role))
         );
       allow update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming())
         && incoming().uid == existing().uid
@@ -459,7 +518,12 @@ service cloud.firestore {
     match /admins/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
       allow list: if isBootstrappedAdmin();
-      allow create, update: if isValidId(userId) && isAdmin() && isValidAdmin(incoming()) && incoming().createdAt == request.time;
+      allow create: if isValidId(userId) && isValidAdmin(incoming()) && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(userId) && incoming().uid == request.auth.uid && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, 'admin'))
+        );
+      allow update: if isValidId(userId) && isAdmin() && isValidAdmin(incoming()) && incoming().createdAt == request.time;
       allow delete: if isValidId(userId) && isAdmin();
     }
 
@@ -499,14 +563,27 @@ service cloud.firestore {
       allow delete: if isValidId(addressId) && (isOwner(existing().userId) || isAdmin());
     }
 
-    // 5. Stations (Public OILCOM station catalog, non-PII)
+    // 5. Stations (Public OILCOM station & gas depot catalog; managers can claim & operate their station)
     match /stations/{stationId} {
       allow get: if isValidId(stationId) && isSignedIn();
       allow list: if isSignedIn();
       allow create: if isValidId(stationId) && isAdmin() && isValidStation(incoming())
         && incoming().createdAt == request.time && incoming().updatedAt == request.time;
-      allow update: if isValidId(stationId) && isAdmin() && isValidStation(incoming())
-        && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow update: if isValidId(stationId) && isValidStation(incoming())
+        && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isVerifiedUser()
+            && ('managerEmail' in existing())
+            && existing().managerEmail == request.auth.token.email.lower()
+            && (!('managerUid' in existing()) || existing().managerUid == '')
+            && incoming().managerUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['managerUid', 'managerName', 'updatedAt'])) ||
+          (isVerifiedUser()
+            && ('managerUid' in existing())
+            && existing().managerUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['open24Hours', 'petrolPriceTzs', 'dieselPriceTzs', 'pumpsCount', 'lpg6kgStock', 'lpg15kgStock', 'lpg38kgStock', 'status', 'updatedAt']))
+        );
       allow delete: if isValidId(stationId) && isAdmin();
     }
 
@@ -592,8 +669,8 @@ service cloud.firestore {
 
     // 12. Gas Orders
     match /gas_orders/{orderId} {
-      allow get: if isValidId(orderId) && (isOwner(existing().customerId) || isOwner(existing().agentId) || isAdmin());
-      allow list: if isSignedIn() && (existing().customerId == request.auth.uid || existing().agentId == request.auth.uid || isBootstrappedAdmin());
+      allow get: if isValidId(orderId) && (isOwner(existing().customerId) || isOwner(existing().agentId) || (('stationManagerUid' in existing()) && isOwner(existing().stationManagerUid)) || isAdmin());
+      allow list: if isSignedIn() && (existing().customerId == request.auth.uid || existing().agentId == request.auth.uid || existing().stationManagerUid == request.auth.uid || isBootstrappedAdmin());
       allow create: if isVerifiedUser() && isValidId(orderId) && isValidGasOrder(incoming())
         && incoming().customerId == request.auth.uid
         && incoming().status == 'pending'
@@ -613,7 +690,9 @@ service cloud.firestore {
               && incoming().status == 'cancelled'
               && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'cancelReason', 'updatedAt'])) ||
             ((isApprovedAgent() && (existing().agentId == request.auth.uid || existing().agentId == ''))
-              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentStatus', 'agentId', 'updatedAt']))
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentStatus', 'agentId', 'updatedAt'])) ||
+            ((('stationManagerUid' in existing()) && isOwner(existing().stationManagerUid))
+              && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentStatus', 'updatedAt']))
           ))
         );
       allow delete: if isValidId(orderId) && isAdmin();
@@ -726,15 +805,19 @@ service cloud.firestore {
       allow delete: if isValidId(paymentId) && isAdmin();
     }
 
-    // 19. Agents / Authorized Dealers
+    // 19. Agents / Authorized Dealers (Provisioned strictly by Admin)
     match /agents/{agentId} {
       allow get: if isValidId(agentId) && (existing().approvalStatus == 'approved' || isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (existing().approvalStatus == 'approved' || existing().userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isVerifiedUser() && isValidId(agentId) && isValidAgent(incoming())
-        && incoming().userId == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
-        && (isAdmin() || (agentId == request.auth.uid && incoming().approvalStatus == 'pending' && incoming().totalSalesTzs == 0 && incoming().totalCommissionTzs == 0));
+        && (
+          isAdmin() ||
+          (agentId == request.auth.uid && incoming().userId == request.auth.uid
+            && ('provisionId' in incoming())
+            && hasValidPendingProvision(incoming().provisionId, 'agent'))
+        );
       allow update: if isVerifiedUser() && isValidId(agentId) && isValidAgent(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
@@ -823,6 +906,56 @@ service cloud.firestore {
       allow create, update: if isValidId(settingId) && isAdmin() && isValidSystemSettings(incoming())
         && incoming().updatedAt == request.time;
       allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    // 26. Role Provisions (Admin-created invitations claimed on verified email login)
+    match /role_provisions/{provisionId} {
+      allow get: if isValidId(provisionId) && (
+        isAdmin() ||
+        (isVerifiedUser() && (resource == null || existing().email == request.auth.token.email.lower()))
+      );
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(provisionId) && isAdmin() && isValidRoleProvision(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(provisionId) && isValidRoleProvision(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isVerifiedUser()
+            && existing().status == 'pending'
+            && existing().email == request.auth.token.email.lower()
+            && incoming().status == 'claimed'
+            && incoming().claimedUid == request.auth.uid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'claimedUid', 'updatedAt']))
+        );
+      allow delete: if isValidId(provisionId) && isAdmin();
+    }
+
+    // 27. Station Staff (Strictly scoped to Admin and the assigned Station/Gas Manager)
+    match /station_staff/{staffId} {
+      allow get: if isValidId(staffId) && (isAdmin() || (isVerifiedUser() && existing().managerUid == request.auth.uid));
+      allow list: if isSignedIn() && (existing().managerUid == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser() && isValidId(staffId) && isValidStationStaff(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (incoming().managerUid == request.auth.uid
+            && get(/databases/$(database)/documents/stations/$(incoming().stationId)).data.managerUid == request.auth.uid)
+        );
+      allow update: if isVerifiedUser() && isValidId(staffId) && isValidStationStaff(incoming())
+        && incoming().stationId == existing().stationId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (existing().managerUid == request.auth.uid
+            && incoming().managerUid == existing().managerUid
+            && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone', 'staffRole', 'shift', 'status', 'updatedAt']))
+        );
+      allow delete: if isValidId(staffId) && (isAdmin() || (isVerifiedUser() && existing().managerUid == request.auth.uid));
     }
   }
 }

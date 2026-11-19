@@ -9,7 +9,10 @@
         "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
         "phone": { "type": "string", "minLength": 0, "maxLength": 32 },
         "email": { "type": "string", "minLength": 3, "maxLength": 160 },
-        "role": { "type": "string", "enum": ["customer", "business", "agent", "admin"] },
+        "role": { "type": "string", "enum": ["customer", "business", "agent", "station_manager", "gas_manager", "admin"] },
+        "assignedStationId": { "type": "string", "maxLength": 128 },
+        "provisionedBy": { "type": "string", "maxLength": 128 },
+        "provisionId": { "type": "string", "maxLength": 128 },
         "language": { "type": "string", "enum": ["sw", "en"] },
         "status": { "type": "string", "enum": ["active", "suspended"] },
         "photoUrl": { "type": "string", "maxLength": 500 },
@@ -25,6 +28,7 @@
       "properties": {
         "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
         "email": { "type": "string", "maxLength": 160 },
+        "provisionId": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "object" }
       },
       "required": ["uid", "email", "createdAt"]
@@ -63,11 +67,12 @@
     },
     "Station": {
       "title": "Station",
-      "description": "Authorized OILCOM service station or gas dealer.",
+      "description": "Authorized OILCOM service station or gas depot.",
       "type": "object",
       "properties": {
         "name": { "type": "string", "minLength": 2, "maxLength": 120 },
         "code": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "stationKind": { "type": "string", "enum": ["fuel", "gas", "both"] },
         "city": { "type": "string", "minLength": 2, "maxLength": 80 },
         "region": { "type": "string", "minLength": 2, "maxLength": 80 },
         "address": { "type": "string", "minLength": 2, "maxLength": 200 },
@@ -79,6 +84,13 @@
         "hasLubricants": { "type": "boolean" },
         "petrolPriceTzs": { "type": "number" },
         "dieselPriceTzs": { "type": "number" },
+        "pumpsCount": { "type": "number" },
+        "lpg6kgStock": { "type": "number" },
+        "lpg15kgStock": { "type": "number" },
+        "lpg38kgStock": { "type": "number" },
+        "managerUid": { "type": "string", "maxLength": 128 },
+        "managerName": { "type": "string", "maxLength": 120 },
+        "managerEmail": { "type": "string", "maxLength": 160 },
         "isDemoData": { "type": "boolean" },
         "status": { "type": "string", "enum": ["active", "maintenance", "inactive"] },
         "createdAt": { "type": "object" },
@@ -196,6 +208,7 @@
         "customerPhone": { "type": "string", "maxLength": 32 },
         "agentId": { "type": "string", "maxLength": 128 },
         "stationId": { "type": "string", "maxLength": 128 },
+        "stationManagerUid": { "type": "string", "maxLength": 128 },
         "orderKind": { "type": "string", "enum": ["gas", "fuel"] },
         "fulfillmentType": { "type": "string", "enum": ["delivery", "pickup"] },
         "deliveryAddress": { "type": "string", "minLength": 2, "maxLength": 240 },
@@ -333,6 +346,7 @@
         "businessName": { "type": "string", "minLength": 2, "maxLength": 140 },
         "licenseNumber": { "type": "string", "minLength": 3, "maxLength": 60 },
         "stationId": { "type": "string", "maxLength": 128 },
+        "provisionId": { "type": "string", "maxLength": 128 },
         "region": { "type": "string", "minLength": 2, "maxLength": 80 },
         "phone": { "type": "string", "minLength": 5, "maxLength": 32 },
         "approvalStatus": { "type": "string", "enum": ["pending", "approved", "suspended"] },
@@ -438,6 +452,48 @@
         "updatedAt": { "type": "object" }
       },
       "required": ["pointsPer1000Tzs", "pointRedemptionValueTzs", "gasCancelWindowMinutes", "sandboxModeEnabled", "updatedAt"]
+    },
+    "RoleProvision": {
+      "title": "RoleProvision",
+      "description": "Admin-provisioned role invitation claimed by matching verified email upon login.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "role": { "type": "string", "enum": ["agent", "station_manager", "gas_manager", "business", "admin"] },
+        "assignedStationId": { "type": "string", "maxLength": 128 },
+        "assignedStationName": { "type": "string", "maxLength": 120 },
+        "region": { "type": "string", "maxLength": 80 },
+        "businessName": { "type": "string", "maxLength": 140 },
+        "licenseNumber": { "type": "string", "maxLength": 60 },
+        "tinNumber": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["pending", "claimed", "revoked"] },
+        "claimedUid": { "type": "string", "maxLength": 128 },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["email", "fullName", "role", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "StationStaff": {
+      "title": "StationStaff",
+      "description": "Employee assigned to an OILCOM fuel station or gas depot.",
+      "type": "object",
+      "properties": {
+        "stationId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "stationName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "managerUid": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "phone": { "type": "string", "minLength": 5, "maxLength": 32 },
+        "staffRole": { "type": "string", "enum": ["attendant", "gas_filler", "cashier", "driver", "supervisor"] },
+        "shift": { "type": "string", "enum": ["morning", "evening", "night"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["stationId", "stationName", "fullName", "phone", "staffRole", "shift", "status", "createdBy", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -465,6 +521,8 @@
     "/deliveries/{deliveryId}": { "schema": { "$ref": "#/entities/Delivery" }, "description": "Order delivery tracking." },
     "/notifications/{notifId}": { "schema": { "$ref": "#/entities/Notification" }, "description": "User notifications." },
     "/audit_logs/{logId}": { "schema": { "$ref": "#/entities/AuditLog" }, "description": "Immutable admin and security audit log." },
-    "/system_settings/{settingId}": { "schema": { "$ref": "#/entities/SystemSettings" }, "description": "Configurable global OILCOM platform settings." }
+    "/system_settings/{settingId}": { "schema": { "$ref": "#/entities/SystemSettings" }, "description": "Configurable global OILCOM platform settings." },
+    "/role_provisions/{provisionId}": { "schema": { "$ref": "#/entities/RoleProvision" }, "description": "Admin-created role invitations claimed on verified login." },
+    "/station_staff/{staffId}": { "schema": { "$ref": "#/entities/StationStaff" }, "description": "Staff members assigned to specific OILCOM fuel or gas stations." }
   }
 }

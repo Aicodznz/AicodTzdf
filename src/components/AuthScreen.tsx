@@ -236,17 +236,29 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
                 {mode === 'login'
                   ? t(lang, 'welcomeBack')
                   : mode === 'register'
-                    ? t(lang, 'registerTitle')
+                    ? lang === 'sw'
+                      ? 'Jisajili Kama Mteja'
+                      : 'Customer Registration'
                     : t(lang, 'forgotTitle')}
               </h2>
               <p className="mt-1 text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
                 {mode === 'login'
                   ? t(lang, 'signInSub')
                   : mode === 'register'
-                    ? t(lang, 'registerSub')
+                    ? lang === 'sw'
+                      ? 'Wateja wanaweza kujisajili hapa. Mawakala na Mameneja wa Vituo hutengenezewa akaunti na Admin.'
+                      : 'Customers can register here. Agents & Station Managers sign in using Admin-provisioned accounts.'
                     : t(lang, 'forgotSub')}
               </p>
             </div>
+
+            {mode === 'login' && (
+              <div className="mb-3.5 px-3 py-2 rounded-xl bg-neutral-100 dark:bg-emerald-950/50 border border-neutral-200 dark:border-emerald-900 text-[11px] text-neutral-600 dark:text-emerald-100/80 text-center">
+                {lang === 'sw'
+                  ? 'Ukishalogin, utapelekwa moja kwa moja kwenye ukurasa wako (Mteja, Wakala, Meneja wa Kituo/Gesi, Biashara, au Utawala).'
+                  : 'Upon sign-in, you are routed exclusively to your assigned role workspace.'}
+              </div>
+            )}
 
             {errorMsg && (
               <div className="mb-3.5 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">

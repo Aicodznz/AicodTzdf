@@ -7,6 +7,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -15,9 +16,11 @@ import {
   handleFirestoreError,
   OperationType,
 } from './firebase';
+import { sha256Hex } from './firestoreActions';
 import type {
   Product,
   Promotion,
+  RoleProvision,
   Station,
   SystemSettings,
 } from '../types/oilcom';
@@ -35,6 +38,7 @@ export const DEMO_STATIONS: Omit<Station, 'id'>[] = [
   {
     name: 'OILCOM Station — Mkubashini (Demo)',
     code: 'OIL-DSM-01',
+    stationKind: 'both',
     city: 'Dar es Salaam',
     region: 'Dar es Salaam',
     address: 'Ali Hassan Mwinyi Rd, Kinondoni',
@@ -46,12 +50,20 @@ export const DEMO_STATIONS: Omit<Station, 'id'>[] = [
     hasLubricants: true,
     petrolPriceTzs: 3150,
     dieselPriceTzs: 3040,
+    pumpsCount: 8,
+    lpg6kgStock: 42,
+    lpg15kgStock: 35,
+    lpg38kgStock: 12,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
     isDemoData: true,
     status: 'active',
   },
   {
     name: 'OILCOM Station — Kariakoo Hub (Demo)',
     code: 'OIL-DSM-02',
+    stationKind: 'gas',
     city: 'Dar es Salaam',
     region: 'Dar es Salaam',
     address: 'Uhuru Street, Ilala',
@@ -59,33 +71,49 @@ export const DEMO_STATIONS: Omit<Station, 'id'>[] = [
     lng: 39.2766,
     open24Hours: true,
     hasGas: true,
-    hasFuel: true,
+    hasFuel: false,
     hasLubricants: true,
-    petrolPriceTzs: 3150,
-    dieselPriceTzs: 3040,
+    petrolPriceTzs: 0,
+    dieselPriceTzs: 0,
+    pumpsCount: 0,
+    lpg6kgStock: 85,
+    lpg15kgStock: 60,
+    lpg38kgStock: 24,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
     isDemoData: true,
     status: 'active',
   },
   {
     name: 'OILCOM Station — Mbezi Beach (Demo)',
     code: 'OIL-DSM-03',
+    stationKind: 'fuel',
     city: 'Dar es Salaam',
     region: 'Dar es Salaam',
     address: 'Bagamoyo Road, Mbezi',
     lat: -6.7124,
     lng: 39.2228,
     open24Hours: false,
-    hasGas: true,
+    hasGas: false,
     hasFuel: true,
-    hasLubricants: false,
+    hasLubricants: true,
     petrolPriceTzs: 3150,
     dieselPriceTzs: 3040,
+    pumpsCount: 6,
+    lpg6kgStock: 0,
+    lpg15kgStock: 0,
+    lpg38kgStock: 0,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
     isDemoData: true,
     status: 'active',
   },
   {
     name: 'OILCOM Station — Arusha Clock Tower (Demo)',
     code: 'OIL-ARU-01',
+    stationKind: 'both',
     city: 'Arusha',
     region: 'Arusha',
     address: 'Sokoine Road, Arusha CBD',
@@ -97,12 +125,20 @@ export const DEMO_STATIONS: Omit<Station, 'id'>[] = [
     hasLubricants: true,
     petrolPriceTzs: 3220,
     dieselPriceTzs: 3110,
+    pumpsCount: 6,
+    lpg6kgStock: 36,
+    lpg15kgStock: 28,
+    lpg38kgStock: 10,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
     isDemoData: true,
     status: 'active',
   },
   {
     name: 'OILCOM Station — Mwanza Nyamagana (Demo)',
     code: 'OIL-MWZ-01',
+    stationKind: 'both',
     city: 'Mwanza',
     region: 'Mwanza',
     address: 'Kenyatta Road, Nyamagana',
@@ -114,6 +150,13 @@ export const DEMO_STATIONS: Omit<Station, 'id'>[] = [
     hasLubricants: true,
     petrolPriceTzs: 3280,
     dieselPriceTzs: 3160,
+    pumpsCount: 8,
+    lpg6kgStock: 40,
+    lpg15kgStock: 32,
+    lpg38kgStock: 14,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
     isDemoData: true,
     status: 'active',
   },
@@ -256,67 +299,178 @@ export async function ensureUserDocuments(
   preferredLang: 'sw' | 'en' = 'sw'
 ): Promise<{ isBootstrappedAdmin: boolean }> {
   const uid = fbUser.uid;
-  const email = (fbUser.email || '').toLowerCase();
+  const email = (fbUser.email || '').trim().toLowerCase();
   const isBootstrappedAdmin = email === 'amytzee@gmail.com' && fbUser.emailVerified;
 
+  let resolvedRole:
+    | 'customer'
+    | 'business'
+    | 'agent'
+    | 'station_manager'
+    | 'gas_manager'
+    | 'admin' = isBootstrappedAdmin ? 'admin' : 'customer';
+
   const userRef = doc(db, 'users', uid);
+  let snapExists = false;
   try {
     const snap = await getDoc(userRef);
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        uid,
-        fullName: fbUser.displayName || email.split('@')[0] || 'Mteja wa OILCOM',
-        phone: fbUser.phoneNumber || '',
-        email: fbUser.email || 'unknown@oilcom.tz',
-        role: isBootstrappedAdmin ? 'admin' : 'customer',
-        language: preferredLang,
-        status: 'active',
-        photoUrl: fbUser.photoURL || '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+    snapExists = snap.exists();
+    if (snapExists) {
+      resolvedRole = (snap.data() as { role: typeof resolvedRole }).role;
+    } else {
+      let provision: (RoleProvision & { id: string }) | null = null;
+      if (!isBootstrappedAdmin && email && fbUser.emailVerified) {
+        try {
+          const provisionId = await sha256Hex(email);
+          const pSnap = await getDoc(doc(db, 'role_provisions', provisionId));
+          if (pSnap.exists()) {
+            const pData = pSnap.data() as Omit<RoleProvision, 'id'>;
+            if (pData.status === 'pending' && pData.email === email) {
+              provision = { id: provisionId, ...pData };
+            }
+          }
+        } catch {
+          provision = null;
+        }
+      }
+
+      if (provision) {
+        resolvedRole = provision.role;
+        await setDoc(userRef, {
+          uid,
+          fullName: fbUser.displayName || provision.fullName || email.split('@')[0],
+          phone: fbUser.phoneNumber || provision.phone || '',
+          email,
+          role: provision.role,
+          assignedStationId: provision.assignedStationId || '',
+          provisionedBy: provision.createdBy,
+          provisionId: provision.id,
+          language: preferredLang,
+          status: 'active',
+          photoUrl: fbUser.photoURL || '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        // Claim role provision & bind any assigned agent/station/admin record
+        try {
+          await updateDoc(doc(db, 'role_provisions', provision.id), {
+            status: 'claimed',
+            claimedUid: uid,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.error('Claim provision status error:', err);
+        }
+
+        if (provision.role === 'agent') {
+          try {
+            await setDoc(doc(db, 'agents', uid), {
+              userId: uid,
+              businessName: provision.businessName || provision.fullName,
+              licenseNumber:
+                provision.licenseNumber || `OIL-LIC-${uid.slice(0, 6).toUpperCase()}`,
+              stationId: provision.assignedStationId || '',
+              provisionId: provision.id,
+              region: provision.region || 'Dar es Salaam',
+              phone: fbUser.phoneNumber || provision.phone || '+255700000000',
+              approvalStatus: 'approved',
+              commissionRatePct: 5,
+              totalSalesTzs: 0,
+              totalCommissionTzs: 0,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+          } catch (err) {
+            console.error('Auto-create provisioned agent error:', err);
+          }
+        }
+
+        if (
+          (provision.role === 'station_manager' || provision.role === 'gas_manager') &&
+          provision.assignedStationId
+        ) {
+          try {
+            await updateDoc(doc(db, 'stations', provision.assignedStationId), {
+              managerUid: uid,
+              managerName: fbUser.displayName || provision.fullName,
+              updatedAt: serverTimestamp(),
+            });
+          } catch (err) {
+            console.error('Auto-claim station manager error:', err);
+          }
+        }
+
+        if (provision.role === 'admin') {
+          try {
+            await setDoc(doc(db, 'admins', uid), {
+              uid,
+              email,
+              provisionId: provision.id,
+              createdAt: serverTimestamp(),
+            });
+          } catch (err) {
+            console.error('Auto-create provisioned admin error:', err);
+          }
+        }
+      } else {
+        await setDoc(userRef, {
+          uid,
+          fullName: fbUser.displayName || email.split('@')[0] || 'Mteja wa OILCOM',
+          phone: fbUser.phoneNumber || '',
+          email: fbUser.email || 'unknown@oilcom.tz',
+          role: isBootstrappedAdmin ? 'admin' : 'customer',
+          language: preferredLang,
+          status: 'active',
+          photoUrl: fbUser.photoURL || '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `users/${uid}`);
   }
 
-  const custCode = `OIL-${uid.slice(0, 6).toUpperCase()}`;
-  const refCode = `CAMEL-${uid.slice(0, 5).toUpperCase()}`;
+  if (resolvedRole === 'customer' || resolvedRole === 'admin') {
+    const custCode = `OIL-${uid.slice(0, 6).toUpperCase()}`;
+    const refCode = `CAMEL-${uid.slice(0, 5).toUpperCase()}`;
 
-  const profileRef = doc(db, 'customer_profiles', uid);
-  try {
-    const pSnap = await getDoc(profileRef);
-    if (!pSnap.exists()) {
-      await setDoc(profileRef, {
-        userId: uid,
-        customerCode: custCode,
-        referralCode: refCode,
-        referredBy: '',
-        vehiclePlate: '',
-        preferredFuel: 'Petrol',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+    const profileRef = doc(db, 'customer_profiles', uid);
+    try {
+      const pSnap = await getDoc(profileRef);
+      if (!pSnap.exists()) {
+        await setDoc(profileRef, {
+          userId: uid,
+          customerCode: custCode,
+          referralCode: refCode,
+          referredBy: '',
+          vehiclePlate: '',
+          preferredFuel: 'Petrol',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `customer_profiles/${uid}`);
     }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `customer_profiles/${uid}`);
-  }
 
-  const rewardsRef = doc(db, 'rewards_accounts', uid);
-  try {
-    const rSnap = await getDoc(rewardsRef);
-    if (!rSnap.exists()) {
-      await setDoc(rewardsRef, {
-        userId: uid,
-        customerCode: custCode,
-        pointsBalance: 0,
-        lifetimePoints: 0,
-        tier: 'Bronze',
-        updatedAt: serverTimestamp(),
-      });
+    const rewardsRef = doc(db, 'rewards_accounts', uid);
+    try {
+      const rSnap = await getDoc(rewardsRef);
+      if (!rSnap.exists()) {
+        await setDoc(rewardsRef, {
+          userId: uid,
+          customerCode: custCode,
+          pointsBalance: 0,
+          lifetimePoints: 0,
+          tier: 'Bronze',
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `rewards_accounts/${uid}`);
     }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `rewards_accounts/${uid}`);
   }
 
   if (isBootstrappedAdmin) {

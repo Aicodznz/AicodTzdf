@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import {
   collection,
@@ -11,6 +11,7 @@ import {
 import {
   Bell,
   Briefcase,
+  Building2,
   Flame,
   Fuel,
   Gift,
@@ -38,6 +39,7 @@ import { OrdersAndPaymentsModule } from './components/OrdersAndPaymentsModule';
 import { ProfileAndSupportModule } from './components/ProfileAndSupportModule';
 import { OfflineIndicator, PWAInstallButton } from './components/PwaControls';
 import { RewardsModule } from './components/RewardsModule';
+import { StationManagerModule } from './components/StationManagerModule';
 import { StationsMapModule } from './components/StationsMapModule';
 import { t } from './i18n/translations';
 import { fetchPublicConfig } from './lib/api';
@@ -71,7 +73,9 @@ import type {
   Promotion,
   RewardsAccount,
   RewardsTransaction,
+  RoleProvision,
   Station,
+  StationStaffMember,
   StockMovement,
   SystemSettings,
   ThemeMode,
@@ -108,6 +112,22 @@ function sortByCreatedDesc<T extends { createdAt?: unknown }>(items: T[]): T[] {
   });
 }
 
+function getDefaultRouteForRole(role: UserRole): AppRoute {
+  switch (role) {
+    case 'agent':
+      return 'agent';
+    case 'station_manager':
+    case 'gas_manager':
+      return 'station_manager';
+    case 'business':
+      return 'business';
+    case 'admin':
+      return 'admin';
+    default:
+      return 'home';
+  }
+}
+
 export default function App() {
   const [mapsQuotaExceeded, setMapsQuotaExceeded] = useState(false);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>(
@@ -129,8 +149,10 @@ export default function App() {
 
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [bootstrappedAdmin, setBootstrappedAdmin] = useState(false);
   const [previewRole, setPreviewRole] = useState<UserRole | null>(null);
+  const lastAutoRouteKeyRef = useRef<string>('');
 
   const [userDoc, setUserDoc] = useState<OilcomUser | null>(null);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
@@ -143,6 +165,7 @@ export default function App() {
 
   const [orders, setOrders] = useState<GasOrder[]>([]);
   const [agentOrders, setAgentOrders] = useState<GasOrder[]>([]);
+  const [managerOrders, setManagerOrders] = useState<GasOrder[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
   const [agentDeliveries, setAgentDeliveries] = useState<DeliveryRecord[]>([]);
@@ -161,6 +184,8 @@ export default function App() {
   const [inventory, setInventory] = useState<AgentInventoryItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
 
+  const [stationStaff, setStationStaff] = useState<StationStaffMember[]>([]);
+  const [provisions, setProvisions] = useState<RoleProvision[]>([]);
   const [allUsersAdmin, setAllUsersAdmin] = useState<OilcomUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
@@ -195,6 +220,7 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setFbUser(u);
+      setProfileLoaded(false);
       if (u) {
         try {
           const { isBootstrappedAdmin } = await ensureUserDocuments(u, lang);
@@ -211,13 +237,15 @@ export default function App() {
         setCustomerProfile(null);
         setRewardsAccount(null);
         setPreviewRole(null);
+        setProfileLoaded(true);
+        lastAutoRouteKeyRef.current = '';
       }
       setAuthReady(true);
     });
     return unsub;
   }, []);
 
-  // Core user + catalog Firestore subscriptions (guarded by authReady && fbUser)
+  // Core user document, shared station/product catalog & personal notifications
   useEffect(() => {
     if (!authReady || !fbUser) return;
     const uid = fbUser.uid;
@@ -230,34 +258,12 @@ export default function App() {
           if (snap.exists()) {
             setUserDoc(snap.data() as OilcomUser);
           }
+          setProfileLoaded(true);
         },
-        (err) => handleFirestoreError(err, OperationType.GET, `users/${uid}`)
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
-        doc(db, 'customer_profiles', uid),
-        (snap) => {
-          if (snap.exists()) {
-            setCustomerProfile(snap.data() as CustomerProfile);
-          }
-        },
-        (err) =>
-          handleFirestoreError(err, OperationType.GET, `customer_profiles/${uid}`)
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
-        doc(db, 'rewards_accounts', uid),
-        (snap) => {
-          if (snap.exists()) {
-            setRewardsAccount(snap.data() as RewardsAccount);
-          }
-        },
-        (err) =>
-          handleFirestoreError(err, OperationType.GET, `rewards_accounts/${uid}`)
+        (err) => {
+          setProfileLoaded(true);
+          handleFirestoreError(err, OperationType.GET, `users/${uid}`);
+        }
       )
     );
 
@@ -308,55 +314,6 @@ export default function App() {
 
     unsubs.push(
       onSnapshot(
-        collection(db, 'promotions'),
-        (snap) => {
-          if (!snap.empty) {
-            setPromotions(
-              snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Promotion, 'id'>) }))
-            );
-          } else {
-            setPromotions(FALLBACK_PROMOTIONS);
-          }
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'promotions')
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
-        query(collection(db, 'customer_addresses'), where('userId', '==', uid)),
-        (snap) => {
-          setAddresses(
-            snap.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<CustomerAddress, 'id'>),
-            }))
-          );
-        },
-        (err) =>
-          handleFirestoreError(err, OperationType.LIST, 'customer_addresses')
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
-        query(collection(db, 'vouchers'), where('userId', '==', uid)),
-        (snap) => {
-          setVouchers(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<Voucher, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'vouchers')
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
         query(collection(db, 'notifications'), where('userId', '==', uid)),
         (snap) => {
           setNotifications(
@@ -372,69 +329,246 @@ export default function App() {
       )
     );
 
-    unsubs.push(
-      onSnapshot(
-        query(collection(db, 'agents'), where('approvalStatus', '==', 'approved')),
-        (snap) => {
-          setApprovedDealers(
-            snap.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<AgentProfile, 'id'>),
-            }))
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'agents')
-      )
-    );
-
-    unsubs.push(
-      onSnapshot(
-        query(collection(db, 'agents'), where('userId', '==', uid)),
-        (snap) => {
-          setMyAgents(
-            snap.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<AgentProfile, 'id'>),
-            }))
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'agents/mine')
-      )
-    );
-
     return () => {
       unsubs.forEach((u) => u());
     };
   }, [authReady, fbUser]);
 
-  // Role-scoped & admin-scoped Firestore queries aligned strictly with firestore.rules
+  const trueRole: UserRole = useMemo(() => {
+    if (userDoc?.role) return userDoc.role;
+    return bootstrappedAdmin ? 'admin' : 'customer';
+  }, [userDoc, bootstrappedAdmin]);
+
+  // Strict Role-Scoped Firestore Subscriptions — users ONLY subscribe to data belonging to their role/station
   useEffect(() => {
-    if (!authReady || !fbUser) return;
+    if (!authReady || !fbUser || !profileLoaded) {
+      setCustomerProfile(null);
+      setRewardsAccount(null);
+      setAddresses([]);
+      setPromotions(FALLBACK_PROMOTIONS);
+      setApprovedDealers([]);
+      setMyAgents([]);
+      setOrders([]);
+      setAgentOrders([]);
+      setManagerOrders([]);
+      setPayments([]);
+      setDeliveries([]);
+      setAgentDeliveries([]);
+      setRewardsTx([]);
+      setVouchers([]);
+      setBusinesses([]);
+      setBusinessMembers([]);
+      setBusinessOrders([]);
+      setInvoices([]);
+      setInventory([]);
+      setMovements([]);
+      setStationStaff([]);
+      setProvisions([]);
+      setAllUsersAdmin([]);
+      setAllAgentsAdmin([]);
+      setAuditLogs([]);
+      return;
+    }
+
     const uid = fbUser.uid;
     const isBAdmin = bootstrappedAdmin;
+    const isCustomerOrAdmin = trueRole === 'customer' || isBAdmin;
+    const isAgent = trueRole === 'agent';
+    const isManager = trueRole === 'station_manager' || trueRole === 'gas_manager';
+    const isBusinessOrAdmin = trueRole === 'business' || isBAdmin;
     const unsubs: (() => void)[] = [];
 
-    const ordersQuery = isBAdmin
-      ? collection(db, 'gas_orders')
-      : query(collection(db, 'gas_orders'), where('customerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        ordersQuery,
-        (snap) => {
-          setOrders(
-            sortByCreatedDesc(
+    if (isCustomerOrAdmin) {
+      unsubs.push(
+        onSnapshot(
+          doc(db, 'customer_profiles', uid),
+          (snap) => {
+            setCustomerProfile(snap.exists() ? (snap.data() as CustomerProfile) : null);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, `customer_profiles/${uid}`)
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          doc(db, 'rewards_accounts', uid),
+          (snap) => {
+            setRewardsAccount(snap.exists() ? (snap.data() as RewardsAccount) : null);
+          },
+          (err) => handleFirestoreError(err, OperationType.GET, `rewards_accounts/${uid}`)
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'customer_addresses'), where('userId', '==', uid)),
+          (snap) => {
+            setAddresses(
               snap.docs.map((d) => ({
                 id: d.id,
-                ...(d.data() as Omit<GasOrder, 'id'>),
+                ...(d.data() as Omit<CustomerAddress, 'id'>),
               }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'gas_orders')
-      )
-    );
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'customer_addresses')
+        )
+      );
 
-    if (!isBAdmin) {
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'vouchers'), where('userId', '==', uid)),
+          (snap) => {
+            setVouchers(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<Voucher, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'vouchers')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'promotions'),
+          (snap) => {
+            if (!snap.empty) {
+              setPromotions(
+                snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Promotion, 'id'>) }))
+              );
+            } else {
+              setPromotions(FALLBACK_PROMOTIONS);
+            }
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'promotions')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'agents'), where('approvalStatus', '==', 'approved')),
+          (snap) => {
+            setApprovedDealers(
+              snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as Omit<AgentProfile, 'id'>),
+              }))
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'agents')
+        )
+      );
+
+      const ordersQuery = isBAdmin
+        ? collection(db, 'gas_orders')
+        : query(collection(db, 'gas_orders'), where('customerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          ordersQuery,
+          (snap) => {
+            setOrders(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<GasOrder, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'gas_orders')
+        )
+      );
+
+      const paymentsQuery = isBAdmin
+        ? collection(db, 'payments')
+        : query(collection(db, 'payments'), where('userId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          paymentsQuery,
+          (snap) => {
+            setPayments(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<PaymentRecord, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'payments')
+        )
+      );
+
+      const deliveriesQuery = isBAdmin
+        ? collection(db, 'deliveries')
+        : query(collection(db, 'deliveries'), where('customerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          deliveriesQuery,
+          (snap) => {
+            setDeliveries(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<DeliveryRecord, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'deliveries')
+        )
+      );
+
+      const rtxQuery = isBAdmin
+        ? collection(db, 'rewards_transactions')
+        : query(collection(db, 'rewards_transactions'), where('userId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          rtxQuery,
+          (snap) => {
+            setRewardsTx(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<RewardsTransaction, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'rewards_transactions')
+        )
+      );
+    } else {
+      setCustomerProfile(null);
+      setRewardsAccount(null);
+      setAddresses([]);
+      setVouchers([]);
+      setApprovedDealers([]);
+      setOrders([]);
+      setPayments([]);
+      setDeliveries([]);
+      setRewardsTx([]);
+    }
+
+    if (isAgent) {
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'agents'), where('userId', '==', uid)),
+          (snap) => {
+            setMyAgents(
+              snap.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as Omit<AgentProfile, 'id'>),
+              }))
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'agents/mine')
+        )
+      );
+
       unsubs.push(
         onSnapshot(
           query(collection(db, 'gas_orders'), where('agentId', '==', uid)),
@@ -448,55 +582,10 @@ export default function App() {
               )
             );
           },
-          (err) =>
-            handleFirestoreError(err, OperationType.LIST, 'gas_orders/agent')
+          (err) => handleFirestoreError(err, OperationType.LIST, 'gas_orders/agent')
         )
       );
-    } else {
-      setAgentOrders([]);
-    }
 
-    const paymentsQuery = isBAdmin
-      ? collection(db, 'payments')
-      : query(collection(db, 'payments'), where('userId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        paymentsQuery,
-        (snap) => {
-          setPayments(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<PaymentRecord, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'payments')
-      )
-    );
-
-    const deliveriesQuery = isBAdmin
-      ? collection(db, 'deliveries')
-      : query(collection(db, 'deliveries'), where('customerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        deliveriesQuery,
-        (snap) => {
-          setDeliveries(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<DeliveryRecord, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'deliveries')
-      )
-    );
-
-    if (!isBAdmin) {
       unsubs.push(
         onSnapshot(
           query(collection(db, 'deliveries'), where('agentUid', '==', uid)),
@@ -510,160 +599,190 @@ export default function App() {
               )
             );
           },
-          (err) =>
-            handleFirestoreError(err, OperationType.LIST, 'deliveries/agent')
+          (err) => handleFirestoreError(err, OperationType.LIST, 'deliveries/agent')
         )
       );
     } else {
+      setMyAgents([]);
+      setAgentOrders([]);
       setAgentDeliveries([]);
     }
 
-    const rtxQuery = isBAdmin
-      ? collection(db, 'rewards_transactions')
-      : query(collection(db, 'rewards_transactions'), where('userId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        rtxQuery,
-        (snap) => {
-          setRewardsTx(
-            sortByCreatedDesc(
+    if (isAgent || isBAdmin) {
+      const invStockQuery = isBAdmin
+        ? collection(db, 'agent_inventory')
+        : query(collection(db, 'agent_inventory'), where('agentUid', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          invStockQuery,
+          (snap) => {
+            setInventory(
               snap.docs.map((d) => ({
                 id: d.id,
-                ...(d.data() as Omit<RewardsTransaction, 'id'>),
+                ...(d.data() as Omit<AgentInventoryItem, 'id'>),
               }))
-            )
-          );
-        },
-        (err) =>
-          handleFirestoreError(err, OperationType.LIST, 'rewards_transactions')
-      )
-    );
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'agent_inventory')
+        )
+      );
 
-    const bizQuery = isBAdmin
-      ? collection(db, 'businesses')
-      : query(collection(db, 'businesses'), where('ownerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        bizQuery,
-        (snap) => {
-          setBusinesses(
-            sortByCreatedDesc(
+      const moveQuery = isBAdmin
+        ? collection(db, 'stock_movements')
+        : query(collection(db, 'stock_movements'), where('agentUid', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          moveQuery,
+          (snap) => {
+            setMovements(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<StockMovement, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'stock_movements')
+        )
+      );
+    } else {
+      setInventory([]);
+      setMovements([]);
+    }
+
+    if (isManager && !isBAdmin) {
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'gas_orders'), where('stationManagerUid', '==', uid)),
+          (snap) => {
+            setManagerOrders(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<GasOrder, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'gas_orders/manager')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          query(collection(db, 'station_staff'), where('managerUid', '==', uid)),
+          (snap) => {
+            setStationStaff(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<StationStaffMember, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'station_staff/manager')
+        )
+      );
+    } else {
+      setManagerOrders([]);
+      if (!isBAdmin) {
+        setStationStaff([]);
+      }
+    }
+
+    if (isBusinessOrAdmin) {
+      const bizQuery = isBAdmin
+        ? collection(db, 'businesses')
+        : query(collection(db, 'businesses'), where('ownerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          bizQuery,
+          (snap) => {
+            setBusinesses(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<BusinessAccount, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'businesses')
+        )
+      );
+
+      const membersQuery = isBAdmin
+        ? collection(db, 'business_members')
+        : query(collection(db, 'business_members'), where('ownerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          membersQuery,
+          (snap) => {
+            setBusinessMembers(
               snap.docs.map((d) => ({
                 id: d.id,
-                ...(d.data() as Omit<BusinessAccount, 'id'>),
+                ...(d.data() as Omit<BusinessMember, 'id'>),
               }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'businesses')
-      )
-    );
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'business_members')
+        )
+      );
 
-    const membersQuery = isBAdmin
-      ? collection(db, 'business_members')
-      : query(collection(db, 'business_members'), where('ownerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        membersQuery,
-        (snap) => {
-          setBusinessMembers(
-            snap.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<BusinessMember, 'id'>),
-            }))
-          );
-        },
-        (err) =>
-          handleFirestoreError(err, OperationType.LIST, 'business_members')
-      )
-    );
+      const bOrdersQuery = isBAdmin
+        ? collection(db, 'business_orders')
+        : query(collection(db, 'business_orders'), where('ownerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          bOrdersQuery,
+          (snap) => {
+            setBusinessOrders(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<BusinessOrder, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'business_orders')
+        )
+      );
 
-    const bOrdersQuery = isBAdmin
-      ? collection(db, 'business_orders')
-      : query(collection(db, 'business_orders'), where('ownerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        bOrdersQuery,
-        (snap) => {
-          setBusinessOrders(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<BusinessOrder, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'business_orders')
-      )
-    );
-
-    const invQuery = isBAdmin
-      ? collection(db, 'invoices')
-      : query(collection(db, 'invoices'), where('ownerId', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        invQuery,
-        (snap) => {
-          setInvoices(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<Invoice, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'invoices')
-      )
-    );
-
-    const invStockQuery = isBAdmin
-      ? collection(db, 'agent_inventory')
-      : query(collection(db, 'agent_inventory'), where('agentUid', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        invStockQuery,
-        (snap) => {
-          setInventory(
-            snap.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<AgentInventoryItem, 'id'>),
-            }))
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'agent_inventory')
-      )
-    );
-
-    const moveQuery = isBAdmin
-      ? collection(db, 'stock_movements')
-      : query(collection(db, 'stock_movements'), where('agentUid', '==', uid));
-    unsubs.push(
-      onSnapshot(
-        moveQuery,
-        (snap) => {
-          setMovements(
-            sortByCreatedDesc(
-              snap.docs.map((d) => ({
-                id: d.id,
-                ...(d.data() as Omit<StockMovement, 'id'>),
-              }))
-            )
-          );
-        },
-        (err) => handleFirestoreError(err, OperationType.LIST, 'stock_movements')
-      )
-    );
+      const invQuery = isBAdmin
+        ? collection(db, 'invoices')
+        : query(collection(db, 'invoices'), where('ownerId', '==', uid));
+      unsubs.push(
+        onSnapshot(
+          invQuery,
+          (snap) => {
+            setInvoices(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<Invoice, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'invoices')
+        )
+      );
+    } else {
+      setBusinesses([]);
+      setBusinessMembers([]);
+      setBusinessOrders([]);
+      setInvoices([]);
+    }
 
     if (isBAdmin) {
       unsubs.push(
         onSnapshot(
           collection(db, 'users'),
           (snap) => {
-            setAllUsersAdmin(
-              snap.docs.map((d) => d.data() as OilcomUser)
-            );
+            setAllUsersAdmin(snap.docs.map((d) => d.data() as OilcomUser));
           },
           (err) => handleFirestoreError(err, OperationType.LIST, 'users')
         )
@@ -686,6 +805,40 @@ export default function App() {
 
       unsubs.push(
         onSnapshot(
+          collection(db, 'station_staff'),
+          (snap) => {
+            setStationStaff(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<StationStaffMember, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'station_staff/all')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'role_provisions'),
+          (snap) => {
+            setProvisions(
+              sortByCreatedDesc(
+                snap.docs.map((d) => ({
+                  id: d.id,
+                  ...(d.data() as Omit<RoleProvision, 'id'>),
+                }))
+              )
+            );
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'role_provisions')
+        )
+      );
+
+      unsubs.push(
+        onSnapshot(
           collection(db, 'audit_logs'),
           (snap) => {
             setAuditLogs(
@@ -700,12 +853,17 @@ export default function App() {
           (err) => handleFirestoreError(err, OperationType.LIST, 'audit_logs')
         )
       );
+    } else {
+      setAllUsersAdmin([]);
+      setAllAgentsAdmin([]);
+      setProvisions([]);
+      setAuditLogs([]);
     }
 
     return () => {
       unsubs.forEach((u) => u());
     };
-  }, [authReady, fbUser, bootstrappedAdmin]);
+  }, [authReady, fbUser, bootstrappedAdmin, trueRole, profileLoaded]);
 
   const effectiveUser: OilcomUser | null = useMemo(() => {
     if (!fbUser) return null;
@@ -734,8 +892,9 @@ export default function App() {
     const map = new Map<string, GasOrder>();
     orders.forEach((o) => map.set(o.id, o));
     agentOrders.forEach((o) => map.set(o.id, o));
+    managerOrders.forEach((o) => map.set(o.id, o));
     return sortByCreatedDesc(Array.from(map.values()));
-  }, [orders, agentOrders]);
+  }, [orders, agentOrders, managerOrders]);
 
   const mergedDeliveries = useMemo(() => {
     const map = new Map<string, DeliveryRecord>();
@@ -749,6 +908,7 @@ export default function App() {
     [notifications]
   );
 
+  // Strictly partitioned navigation matrix: every role ONLY sees its own pages
   const navItems = useMemo(() => {
     const all: {
       route: AppRoute;
@@ -756,40 +916,76 @@ export default function App() {
       icon: React.ComponentType<{ className?: string }>;
       roles: UserRole[];
     }[] = [
-      { route: 'home', label: t(lang, 'navHome'), icon: Home, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'fuel', label: t(lang, 'navFuel'), icon: Fuel, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'gas', label: t(lang, 'navGas'), icon: Flame, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'rewards', label: t(lang, 'navRewards'), icon: Gift, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'business', label: t(lang, 'navBusiness'), icon: Briefcase, roles: ['customer', 'business', 'admin'] },
-      { route: 'orders', label: t(lang, 'navOrders'), icon: Truck, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'stations', label: t(lang, 'navStations'), icon: MapPin, roles: ['customer', 'business', 'agent', 'admin'] },
-      { route: 'agent', label: t(lang, 'navAgent'), icon: Store, roles: ['customer', 'agent', 'admin'] },
+      { route: 'home', label: t(lang, 'navHome'), icon: Home, roles: ['customer', 'admin'] },
+      { route: 'fuel', label: t(lang, 'navFuel'), icon: Fuel, roles: ['customer', 'admin'] },
+      { route: 'gas', label: t(lang, 'navGas'), icon: Flame, roles: ['customer', 'admin'] },
+      { route: 'rewards', label: t(lang, 'navRewards'), icon: Gift, roles: ['customer', 'admin'] },
+      { route: 'orders', label: t(lang, 'navOrders'), icon: Truck, roles: ['customer', 'admin'] },
+      { route: 'stations', label: t(lang, 'navStations'), icon: MapPin, roles: ['customer', 'admin'] },
+      {
+        route: 'station_manager',
+        label: t(lang, 'navStationManager'),
+        icon: Building2,
+        roles: ['station_manager', 'gas_manager', 'admin'],
+      },
+      { route: 'agent', label: t(lang, 'navAgent'), icon: Store, roles: ['agent', 'admin'] },
+      { route: 'business', label: t(lang, 'navBusiness'), icon: Briefcase, roles: ['business', 'admin'] },
       { route: 'admin', label: t(lang, 'navAdmin'), icon: ShieldCheck, roles: ['admin'] },
-      { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon, roles: ['customer', 'business', 'agent', 'admin'] },
+      {
+        route: 'profile',
+        label: t(lang, 'navProfile'),
+        icon: UserIcon,
+        roles: ['customer', 'business', 'agent', 'station_manager', 'gas_manager', 'admin'],
+      },
     ];
     return all.filter((item) => item.roles.includes(effectiveRole));
   }, [lang, effectiveRole]);
 
+  // Automatic landing & hard route guard: redirect immediately to role's home and block unauthorized routes
+  useEffect(() => {
+    if (!authReady || !fbUser || !profileLoaded) return;
+    const key = `${fbUser.uid}:${effectiveRole}`;
+    const allowedRoutes = navItems.map((n) => n.route);
+    if (lastAutoRouteKeyRef.current !== key || !allowedRoutes.includes(route)) {
+      lastAutoRouteKeyRef.current = key;
+      setRoute(getDefaultRouteForRole(effectiveRole));
+    }
+  }, [authReady, fbUser, profileLoaded, effectiveRole, navItems, route]);
+
   const searchResults = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return { products: [], stations: [], routes: [] };
+    const allowedRoutes = new Set(navItems.map((n) => n.route));
     return {
-      products: products
-        .filter(
-          (p) =>
-            p.nameSw.toLowerCase().includes(q) ||
-            p.nameEn.toLowerCase().includes(q) ||
-            p.sku.toLowerCase().includes(q)
-        )
-        .slice(0, 4),
-      stations: stations
-        .filter(
-          (s) =>
-            s.name.toLowerCase().includes(q) ||
-            s.city.toLowerCase().includes(q) ||
-            s.address.toLowerCase().includes(q)
-        )
-        .slice(0, 4),
+      products:
+        allowedRoutes.has('fuel') || allowedRoutes.has('gas') || allowedRoutes.has('business')
+          ? products
+              .filter((p) => {
+                const target: AppRoute =
+                  p.roleScope === 'fuel'
+                    ? 'fuel'
+                    : p.roleScope === 'business'
+                      ? 'business'
+                      : 'gas';
+                if (!allowedRoutes.has(target)) return false;
+                return (
+                  p.nameSw.toLowerCase().includes(q) ||
+                  p.nameEn.toLowerCase().includes(q) ||
+                  p.sku.toLowerCase().includes(q)
+                );
+              })
+              .slice(0, 4)
+          : [],
+      stations: allowedRoutes.has('stations')
+        ? stations
+            .filter(
+              (s) =>
+                s.name.toLowerCase().includes(q) ||
+                s.city.toLowerCase().includes(q) ||
+                s.address.toLowerCase().includes(q)
+            )
+            .slice(0, 4)
+        : [],
       routes: navItems.filter((n) => n.label.toLowerCase().includes(q)),
     };
   }, [searchText, products, stations, navItems]);
@@ -811,7 +1007,7 @@ export default function App() {
     </div>
   );
 
-  if (!authReady) {
+  if (!authReady || (fbUser && !profileLoaded)) {
     return (
       <>
         {quotaBanner}
@@ -863,6 +1059,7 @@ export default function App() {
   }
 
   const navigate = (next: AppRoute) => {
+    if (!navItems.some((n) => n.route === next)) return;
     setRoute(next);
     setMobileDrawerOpen(false);
     setSearchOpen(false);
@@ -1007,7 +1204,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('home')}
+                onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
                 className="lg:hidden flex items-center gap-2 cursor-pointer min-w-0 text-left"
               >
                 <OilcomCamelMark className="w-7 h-6 shrink-0" />
@@ -1313,7 +1510,7 @@ export default function App() {
                 : 'max-w-7xl p-2.5 sm:p-5 lg:p-7 pb-[72px] lg:pb-8'
             }`}
           >
-            {route === 'home' && (
+            {route === 'home' && (effectiveRole === 'customer' || effectiveRole === 'admin') && (
               <HomeDashboard
                 lang={lang}
                 user={effectiveUser}
@@ -1325,23 +1522,24 @@ export default function App() {
               />
             )}
 
-            {(route === 'fuel' || route === 'gas') && (
-              <FuelAndGasModule
-                mode={route}
-                lang={lang}
-                user={effectiveUser}
-                products={products}
-                stations={stations}
-                dealers={approvedDealers}
-                addresses={addresses}
-                googleMapsApiKey={googleMapsApiKey}
-                onOrderSuccess={() => {
-                  // Keep user on confirmation banner; Orders tab updates in real time
-                }}
-              />
-            )}
+            {(route === 'fuel' || route === 'gas') &&
+              (effectiveRole === 'customer' || effectiveRole === 'admin') && (
+                <FuelAndGasModule
+                  mode={route}
+                  lang={lang}
+                  user={effectiveUser}
+                  products={products}
+                  stations={stations}
+                  dealers={approvedDealers}
+                  addresses={addresses}
+                  googleMapsApiKey={googleMapsApiKey}
+                  onOrderSuccess={() => {
+                    // Keep user on confirmation banner; Orders tab updates in real time
+                  }}
+                />
+              )}
 
-            {route === 'rewards' && (
+            {route === 'rewards' && (effectiveRole === 'customer' || effectiveRole === 'admin') && (
               <RewardsModule
                 lang={lang}
                 user={effectiveUser}
@@ -1355,7 +1553,7 @@ export default function App() {
               />
             )}
 
-            {route === 'orders' && (
+            {route === 'orders' && (effectiveRole === 'customer' || effectiveRole === 'admin') && (
               <OrdersAndPaymentsModule
                 lang={lang}
                 effectiveRole={effectiveRole}
@@ -1367,7 +1565,7 @@ export default function App() {
               />
             )}
 
-            {route === 'stations' && (
+            {route === 'stations' && (effectiveRole === 'customer' || effectiveRole === 'admin') && (
               <StationsMapModule
                 lang={lang}
                 stations={stations}
@@ -1376,7 +1574,21 @@ export default function App() {
               />
             )}
 
-            {route === 'business' && (
+            {route === 'station_manager' &&
+              (effectiveRole === 'station_manager' ||
+                effectiveRole === 'gas_manager' ||
+                effectiveRole === 'admin') && (
+                <StationManagerModule
+                  lang={lang}
+                  user={effectiveUser}
+                  effectiveRole={effectiveRole}
+                  stations={stations}
+                  staff={stationStaff}
+                  orders={mergedOrders}
+                />
+              )}
+
+            {route === 'business' && (effectiveRole === 'business' || effectiveRole === 'admin') && (
               <BusinessPortalModule
                 lang={lang}
                 user={effectiveUser}
@@ -1389,7 +1601,7 @@ export default function App() {
               />
             )}
 
-            {route === 'agent' && (
+            {route === 'agent' && (effectiveRole === 'agent' || effectiveRole === 'admin') && (
               <AgentPortalModule
                 lang={lang}
                 user={effectiveUser}
@@ -1413,6 +1625,8 @@ export default function App() {
                 orders={mergedOrders}
                 products={products}
                 stations={stations}
+                stationStaff={stationStaff}
+                provisions={provisions}
                 rewardsTx={rewardsTx}
                 inventory={inventory}
                 auditLogs={auditLogs}
@@ -1438,33 +1652,75 @@ export default function App() {
             )}
           </main>
 
-          {/* Mobile Bottom Navigation Bar (5 primary tabs including Maps) */}
-          <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-[#08291A] border-t border-white/10 grid grid-cols-5">
-            {(
-              [
-                ['home', t(lang, 'navHome'), Home],
-                ['orders', 'Oda', Truck],
-                ['stations', 'Maps', MapPin],
-                ['rewards', 'Rewards', Gift],
-                ['profile', 'Profile', UserIcon],
-              ] as const
-            ).map(([r, label, Icon]) => {
-              const active = route === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => navigate(r)}
-                  className={`flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-medium cursor-pointer ${
-                    active ? 'text-[#F5B800]' : 'text-emerald-100/80'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="truncate max-w-full px-0.5">{label}</span>
-                </button>
-              );
-            })}
-          </nav>
+          {/* Strict Role-Scoped Mobile Bottom Navigation Bar */}
+          {(() => {
+            const mobileTabs: {
+              route: AppRoute;
+              label: string;
+              icon: React.ComponentType<{ className?: string }>;
+            }[] =
+              effectiveRole === 'customer'
+                ? [
+                    { route: 'home', label: t(lang, 'navHome'), icon: Home },
+                    { route: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
+                    { route: 'stations', label: 'Maps', icon: MapPin },
+                    { route: 'rewards', label: 'Rewards', icon: Gift },
+                    { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                  ]
+                : effectiveRole === 'admin'
+                  ? [
+                      { route: 'admin', label: t(lang, 'navAdmin'), icon: ShieldCheck },
+                      { route: 'station_manager', label: lang === 'sw' ? 'Vituo' : 'Stations', icon: Building2 },
+                      { route: 'agent', label: t(lang, 'navAgent'), icon: Store },
+                      { route: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
+                      { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                    ]
+                  : effectiveRole === 'agent'
+                    ? [
+                        { route: 'agent', label: t(lang, 'navAgent'), icon: Store },
+                        { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                      ]
+                    : effectiveRole === 'station_manager' || effectiveRole === 'gas_manager'
+                      ? [
+                          { route: 'station_manager', label: t(lang, 'navStationManager'), icon: Building2 },
+                          { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                        ]
+                      : [
+                          { route: 'business', label: t(lang, 'navBusiness'), icon: Briefcase },
+                          { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                        ];
+
+            const gridColsClass =
+              mobileTabs.length === 2
+                ? 'grid-cols-2'
+                : mobileTabs.length === 3
+                  ? 'grid-cols-3'
+                  : 'grid-cols-5';
+
+            return (
+              <nav
+                className={`lg:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-[#08291A] border-t border-white/10 grid ${gridColsClass}`}
+              >
+                {mobileTabs.map((item) => {
+                  const Icon = item.icon;
+                  const active = route === item.route;
+                  return (
+                    <button
+                      key={item.route}
+                      type="button"
+                      onClick={() => navigate(item.route)}
+                      className={`flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-medium cursor-pointer ${
+                        active ? 'text-[#F5B800]' : 'text-emerald-100/80'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="truncate max-w-full px-1">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            );
+          })()}
         </div>
       </div>
 

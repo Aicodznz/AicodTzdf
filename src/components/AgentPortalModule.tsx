@@ -55,18 +55,10 @@ export function AgentPortalModule({
   orders,
   inventory,
   movements,
-  stations,
   products,
   settings,
 }: AgentPortalModuleProps) {
   const [tab, setTab] = useState<'orders' | 'stock' | 'qr'>('orders');
-  const [regForm, setRegForm] = useState({
-    businessName: '',
-    licenseNumber: '',
-    region: 'Dar es Salaam',
-    phone: user.phone || '+255 712 000 000',
-    stationId: stations[0]?.id || '',
-  });
   const [qrInput, setQrInput] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState(54000);
   const [qrResult, setQrResult] = useState('');
@@ -79,32 +71,6 @@ export function AgentPortalModule({
   const [busy, setBusy] = useState(false);
 
   const gasProducts = products.filter((p) => p.roleScope === 'gas' || p.roleScope === 'all');
-
-  const handleApplyAgent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regForm.businessName.trim() || !regForm.licenseNumber.trim()) return;
-    setBusy(true);
-    try {
-      await setDoc(doc(db, 'agents', user.uid), {
-        userId: user.uid,
-        businessName: regForm.businessName.trim().slice(0, 140),
-        licenseNumber: regForm.licenseNumber.trim().slice(0, 60),
-        stationId: regForm.stationId,
-        region: regForm.region.trim().slice(0, 80),
-        phone: regForm.phone.trim().slice(0, 32),
-        approvalStatus: 'pending',
-        commissionRatePct: 4.5,
-        totalSalesTzs: 0,
-        totalCommissionTzs: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `agents/${user.uid}`);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleOrderStatus = async (order: GasOrder, nextStatus: OrderStatus) => {
     setBusy(true);
@@ -269,67 +235,26 @@ export function AgentPortalModule({
     }
   };
 
-  if (!agentProfile && effectiveRole !== 'admin') {
+  if ((effectiveRole !== 'agent' && effectiveRole !== 'admin') || (!agentProfile && effectiveRole !== 'admin')) {
     return (
       <div className="max-w-xl mx-auto space-y-3.5 sm:space-y-5">
-        <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-6">
+        <div className="rounded-2xl bg-[#08291A] text-white p-5 sm:p-6">
           <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">
             <Store className="w-6 h-6 text-[#F5B800] shrink-0" />
-            {t(lang, 'applyAgent')}
+            {t(lang, 'agentPortal')}
           </h1>
           <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
             {lang === 'sw'
-              ? 'Jaza maombi ya kuwa wakala wa OILCOM Gas na upate idhini ya Admin.'
-              : 'Apply to become an authorized OILCOM LPG dealer.'}
+              ? 'Akaunti za Mawakala hutengenezwa na kuidhinishwa na Admin Mkuu pekee.'
+              : 'Agent accounts are provisioned and approved strictly by Central Admin.'}
           </p>
         </div>
 
-        <form
-          onSubmit={handleApplyAgent}
-          className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
-        >
-          <input
-            type="text"
-            required
-            value={regForm.businessName}
-            onChange={(e) => setRegForm({ ...regForm, businessName: e.target.value })}
-            placeholder={lang === 'sw' ? 'Jina la Biashara / Duka' : 'Dealer Business Name'}
-            className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
-          />
-          <input
-            type="text"
-            required
-            value={regForm.licenseNumber}
-            onChange={(e) => setRegForm({ ...regForm, licenseNumber: e.target.value })}
-            placeholder={lang === 'sw' ? 'Namba ya Leseni (EWURA / Biashara)' : 'License Number'}
-            className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              required
-              value={regForm.region}
-              onChange={(e) => setRegForm({ ...regForm, region: e.target.value })}
-              placeholder="Region"
-              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
-            />
-            <input
-              type="text"
-              required
-              value={regForm.phone}
-              onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-              placeholder="+255 7XX..."
-              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full py-3 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-sm cursor-pointer"
-          >
-            {busy ? t(lang, 'loading') : t(lang, 'applyAgent')}
-          </button>
-        </form>
+        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-5 sm:p-6 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
+          {lang === 'sw'
+            ? 'Ikiwa wewe ni wakala wa OILCOM Gas, tafadhali wasiliana na Admin Mkuu akusajili kupitia barua pepe yako ili upate ufikiaji wa dashibodi ya wakala.'
+            : 'If you are an authorized OILCOM Gas dealer, please ask the Central Admin to provision your email for Agent access.'}
+        </div>
       </div>
     );
   }
