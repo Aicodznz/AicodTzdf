@@ -238,19 +238,19 @@ export function AgentPortalModule({
   if ((effectiveRole !== 'agent' && effectiveRole !== 'admin') || (!agentProfile && effectiveRole !== 'admin')) {
     return (
       <div className="max-w-xl mx-auto space-y-3.5 sm:space-y-5">
-        <div className="rounded-2xl bg-[#08291A] text-white p-5 sm:p-6">
+        <div className="rounded-2xl bg-[#0B2A6F] text-white p-5 sm:p-6">
           <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">
             <Store className="w-6 h-6 text-[#F5B800] shrink-0" />
             {t(lang, 'agentPortal')}
           </h1>
-          <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
+          <p className="text-xs sm:text-sm text-blue-100/80 mt-1">
             {lang === 'sw'
               ? 'Akaunti za Mawakala hutengenezwa na kuidhinishwa na Admin Mkuu pekee.'
               : 'Agent accounts are provisioned and approved strictly by Central Admin.'}
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-5 sm:p-6 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-5 sm:p-6 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
           {lang === 'sw'
             ? 'Ikiwa wewe ni wakala wa OILCOM Gas, tafadhali wasiliana na Admin Mkuu akusajili kupitia barua pepe yako ili upate ufikiaji wa dashibodi ya wakala.'
             : 'If you are an authorized OILCOM Gas dealer, please ask the Central Admin to provision your email for Agent access.'}
@@ -261,7 +261,7 @@ export function AgentPortalModule({
 
   return (
     <div className="space-y-3.5 sm:space-y-5">
-      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+      <div className="rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
         <div className="min-w-0">
           <p className="font-mono-num text-xs text-[#F5B800] truncate">
             {agentProfile
@@ -291,7 +291,7 @@ export function AgentPortalModule({
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 sm:inline-flex gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 w-full sm:w-fit">
+      <div className="grid grid-cols-3 sm:inline-flex gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 w-full sm:w-fit">
         {(
           [
             ['orders', t(lang, 'incomingOrders')],
@@ -305,7 +305,7 @@ export function AgentPortalModule({
             onClick={() => setTab(k)}
             className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-center truncate cursor-pointer ${
               tab === k
-                ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800]'
+                ? 'bg-white dark:bg-[#0E172E] text-neutral-900 dark:text-[#F5B800]'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
           >
@@ -316,7 +316,7 @@ export function AgentPortalModule({
 
       {tab === 'orders' && (
         <div className="space-y-3 sm:space-y-4">
-          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
             <div className="flex items-center gap-2 shrink-0">
               <Truck className="w-4 h-4 text-[#F5B800]" />
               <span className="text-xs font-semibold">Dispatch Rider Defaults:</span>
@@ -327,20 +327,20 @@ export function AgentPortalModule({
                 value={driverName}
                 onChange={(e) => setDriverName(e.target.value)}
                 placeholder="Driver Name"
-                className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
               <input
                 type="text"
                 value={vehiclePlate}
                 onChange={(e) => setVehiclePlate(e.target.value)}
                 placeholder="Vehicle Plate"
-                className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
               />
             </div>
           </div>
 
           {orders.length === 0 ? (
-            <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-8 sm:p-10 text-center text-sm text-neutral-500">
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-8 sm:p-10 text-center text-sm text-neutral-500">
               {t(lang, 'noResults')}
             </div>
           ) : (
@@ -348,10 +348,10 @@ export function AgentPortalModule({
               {orders.map((ord) => (
                 <div
                   key={ord.id}
-                  className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+                  className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
                 >
                   <div className="min-w-0">
-                    <p className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800]">
+                    <p className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                       {ord.orderNumber} · {ord.status.toUpperCase()}
                     </p>
                     <p className="font-semibold text-sm text-neutral-900 dark:text-white mt-0.5 truncate">
@@ -368,7 +368,7 @@ export function AgentPortalModule({
                           type="button"
                           disabled={busy}
                           onClick={() => handleOrderStatus(ord, 'confirmed')}
-                          className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-semibold text-center cursor-pointer"
+                          className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-blue-700 text-white text-xs font-semibold text-center cursor-pointer"
                         >
                           Accept
                         </button>
@@ -387,7 +387,7 @@ export function AgentPortalModule({
                         type="button"
                         disabled={busy}
                         onClick={() => handleOrderStatus(ord, 'processing')}
-                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-[#08291A] text-white text-xs font-semibold text-center cursor-pointer"
+                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-[#0B2A6F] text-white text-xs font-semibold text-center cursor-pointer"
                       >
                         Prepare Stock
                       </button>
@@ -397,7 +397,7 @@ export function AgentPortalModule({
                         type="button"
                         disabled={busy}
                         onClick={() => handleOrderStatus(ord, 'dispatched')}
-                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-[#F5B800] text-[#0b120e] text-xs font-bold text-center cursor-pointer"
+                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-[#F5B800] text-[#071A4A] text-xs font-bold text-center cursor-pointer"
                       >
                         Dispatch Delivery
                       </button>
@@ -407,7 +407,7 @@ export function AgentPortalModule({
                         type="button"
                         disabled={busy}
                         onClick={() => handleOrderStatus(ord, 'delivered')}
-                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-semibold text-center cursor-pointer"
+                        className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-blue-700 text-white text-xs font-semibold text-center cursor-pointer"
                       >
                         Mark Delivered
                       </button>
@@ -424,7 +424,7 @@ export function AgentPortalModule({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
           <form
             onSubmit={handleStockUpdate}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
           >
             <h3 className="font-display font-bold text-base flex items-center gap-2">
               <Package className="w-4 h-4 text-[#F5B800]" />
@@ -433,7 +433,7 @@ export function AgentPortalModule({
             <select
               value={stockProdId || gasProducts[0]?.id || ''}
               onChange={(e) => setStockProdId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             >
               {gasProducts.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -446,32 +446,32 @@ export function AgentPortalModule({
                 type="number"
                 value={stockDelta}
                 onChange={(e) => setStockDelta(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
               />
               <input
                 type="text"
                 value={stockNote}
                 onChange={(e) => setStockNote(e.target.value)}
                 placeholder="Note"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
             </div>
             <button
               type="submit"
               disabled={busy}
-              className="w-full py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
             >
               {t(lang, 'save')}
             </button>
 
-            <div className="pt-3 border-t border-neutral-100 dark:border-emerald-950 space-y-2">
+            <div className="pt-3 border-t border-neutral-100 dark:border-blue-950 space-y-2">
               {inventory.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-center justify-between text-xs py-1 gap-2"
                 >
                   <span className="font-medium truncate">{item.productName}</span>
-                  <span className="font-mono-num font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                  <span className="font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                     {item.quantityOnHand} units
                   </span>
                 </div>
@@ -479,14 +479,14 @@ export function AgentPortalModule({
             </div>
           </form>
 
-          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
             <h3 className="font-display font-bold text-base mb-3">
               {lang === 'sw' ? 'Historia ya Hisa' : 'Stock Movement History'}
             </h3>
             {movements.length === 0 ? (
               <p className="text-xs text-neutral-500 py-8 text-center">{t(lang, 'noResults')}</p>
             ) : (
-              <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+              <div className="divide-y divide-neutral-100 dark:divide-blue-950">
                 {movements.slice(0, 8).map((mv) => (
                   <div key={mv.id} className="py-2.5 flex items-center justify-between gap-2 text-xs">
                     <div className="min-w-0">
@@ -509,7 +509,7 @@ export function AgentPortalModule({
       {tab === 'qr' && (
         <form
           onSubmit={handleVerifyCustomerQr}
-          className="max-w-xl rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
+          className="max-w-xl rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-display font-bold text-base sm:text-lg flex items-center gap-2">
@@ -519,7 +519,7 @@ export function AgentPortalModule({
             <button
               type="button"
               onClick={() => setScannerOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-[#08291A] hover:bg-[#0d3b26] text-white text-xs font-semibold flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-[#0B2A6F] hover:bg-[#13419E] text-white text-xs font-semibold flex items-center gap-2 cursor-pointer"
             >
               <Camera className="w-4 h-4 text-[#F5B800]" />
               {lang === 'sw' ? 'Scan kwa Kamera' : 'Open Camera Scanner'}
@@ -536,7 +536,7 @@ export function AgentPortalModule({
             value={qrInput}
             onChange={(e) => setQrInput(e.target.value)}
             placeholder="OILCOM-QR:eyJ2Ijox..."
-            className="w-full p-3 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+            className="w-full p-3 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
           />
           <div>
             <label className="block text-xs font-semibold mb-1">
@@ -548,18 +548,18 @@ export function AgentPortalModule({
               required
               value={purchaseAmount}
               onChange={(e) => setPurchaseAmount(Number(e.target.value))}
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
             />
           </div>
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-3 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-sm cursor-pointer"
+            className="w-full py-3 rounded-xl bg-[#F5B800] text-[#071A4A] font-bold text-sm cursor-pointer"
           >
             {busy ? t(lang, 'loading') : lang === 'sw' ? 'Thibitisha QR & Toa Pointi' : 'Verify QR & Award Points'}
           </button>
           {qrResult && (
-            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 text-xs font-medium flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-neutral-100 dark:bg-blue-950/60 text-xs font-medium flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#F5B800] shrink-0" />
               {qrResult}
             </div>

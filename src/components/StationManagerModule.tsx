@@ -156,7 +156,7 @@ export function StationManagerModule({
 
   if (!isAllowed) {
     return (
-      <div className="max-w-lg mx-auto rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-6 text-center space-y-2">
+      <div className="max-w-lg mx-auto rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-6 text-center space-y-2">
         <p className="font-display font-bold text-base text-neutral-900 dark:text-white">
           {lang === 'sw'
             ? 'Dashibodi ya Meneja wa Kituo Pekee'
@@ -173,7 +173,7 @@ export function StationManagerModule({
 
   if (!activeStation || !currentOps) {
     return (
-      <div className="max-w-xl mx-auto rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-6 sm:p-8 text-center space-y-3">
+      <div className="max-w-xl mx-auto rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-6 sm:p-8 text-center space-y-3">
         <Building2 className="w-10 h-10 text-[#F5B800] mx-auto" />
         <h2 className="font-display text-lg font-bold text-neutral-900 dark:text-white">
           {lang === 'sw'
@@ -300,7 +300,7 @@ export function StationManagerModule({
   return (
     <div className="space-y-4 sm:space-y-5">
       {/* Header */}
-      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="font-mono-num text-[11px] font-bold uppercase text-[#F5B800]">
             {activeStation.code} ·{' '}
@@ -319,7 +319,7 @@ export function StationManagerModule({
           <h1 className="font-display text-xl sm:text-2xl font-bold mt-0.5 truncate">
             {activeStation.name}
           </h1>
-          <p className="text-xs text-emerald-100/80 truncate mt-0.5">
+          <p className="text-xs text-blue-100/80 truncate mt-0.5">
             {activeStation.address}, {activeStation.city} ·{' '}
             {lang === 'sw' ? 'Meneja:' : 'Manager:'}{' '}
             {activeStation.managerName || user.fullName}
@@ -345,7 +345,7 @@ export function StationManagerModule({
       </div>
 
       {feedback && (
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+        <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{feedback}</span>
         </div>
@@ -353,7 +353,7 @@ export function StationManagerModule({
 
       {/* Station KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4">
           <p className="text-[11px] sm:text-xs text-neutral-500">
             {lang === 'sw' ? 'Wafanyakazi Kituoni' : 'Station Staff'}
           </p>
@@ -365,7 +365,7 @@ export function StationManagerModule({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4">
           <p className="text-[11px] sm:text-xs text-neutral-500">
             {lang === 'sw' ? 'Oda za Kituo' : 'Station Orders'}
           </p>
@@ -377,7 +377,7 @@ export function StationManagerModule({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4">
           <p className="text-[11px] sm:text-xs text-neutral-500">
             {lang === 'sw' ? 'Mauzo ya Kituo' : 'Station Revenue'}
           </p>
@@ -386,7 +386,7 @@ export function StationManagerModule({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4">
           <p className="text-[11px] sm:text-xs text-neutral-500">
             {isGasPrimary && !isFuelPrimary
               ? lang === 'sw'
@@ -409,7 +409,7 @@ export function StationManagerModule({
       </div>
 
       {/* Sub-Tabs */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(
           [
             [
@@ -435,7 +435,7 @@ export function StationManagerModule({
             onClick={() => setTab(k)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
               tab === k
-                ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800]'
+                ? 'bg-white dark:bg-[#0E172E] text-neutral-900 dark:text-[#F5B800]'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
           >
@@ -449,7 +449,7 @@ export function StationManagerModule({
       {tab === 'overview' && (
         <form
           onSubmit={handleSaveOps}
-          className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-4 max-w-3xl"
+          className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-4 max-w-3xl"
         >
           <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
             {lang === 'sw'
@@ -470,7 +470,7 @@ export function StationManagerModule({
                     status: e.target.value as 'active' | 'maintenance' | 'inactive',
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-semibold"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-semibold"
               >
                 <option value="active">{lang === 'sw' ? 'Kinafanya Kazi (Active)' : 'Active'}</option>
                 <option value="maintenance">{lang === 'sw' ? 'Matengenezo (Maintenance)' : 'Maintenance'}</option>
@@ -494,8 +494,8 @@ export function StationManagerModule({
           </div>
 
           {isFuelPrimary && (
-            <div className="pt-2 border-t border-neutral-100 dark:border-emerald-950">
-              <p className="text-xs font-bold text-[#08291A] dark:text-[#F5B800] mb-2 flex items-center gap-1.5">
+            <div className="pt-2 border-t border-neutral-100 dark:border-blue-950">
+              <p className="text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] mb-2 flex items-center gap-1.5">
                 <Fuel className="w-3.5 h-3.5" />
                 <span>
                   {lang === 'sw' ? 'Bei za Mafuta & Pampu' : 'Fuel Pump Pricing & Count'}
@@ -516,7 +516,7 @@ export function StationManagerModule({
                         petrolPriceTzs: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
                 <div>
@@ -533,7 +533,7 @@ export function StationManagerModule({
                         dieselPriceTzs: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
                 <div>
@@ -550,7 +550,7 @@ export function StationManagerModule({
                         pumpsCount: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
               </div>
@@ -558,8 +558,8 @@ export function StationManagerModule({
           )}
 
           {isGasPrimary && (
-            <div className="pt-2 border-t border-neutral-100 dark:border-emerald-950">
-              <p className="text-xs font-bold text-[#08291A] dark:text-[#F5B800] mb-2 flex items-center gap-1.5">
+            <div className="pt-2 border-t border-neutral-100 dark:border-blue-950">
+              <p className="text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] mb-2 flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5" />
                 <span>
                   {lang === 'sw' ? 'Hisa za Mitungi ya Gesi (LPG)' : 'LPG Cylinder Inventory'}
@@ -580,7 +580,7 @@ export function StationManagerModule({
                         lpg6kgStock: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
                 <div>
@@ -597,7 +597,7 @@ export function StationManagerModule({
                         lpg15kgStock: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
                 <div>
@@ -614,7 +614,7 @@ export function StationManagerModule({
                         lpg38kgStock: Number(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
               </div>
@@ -624,7 +624,7 @@ export function StationManagerModule({
           <button
             type="submit"
             disabled={busy}
-            className="px-5 py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#08291A] font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+            className="px-5 py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#0B2A6F] font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
             <span>{t(lang, 'save')}</span>
@@ -637,7 +637,7 @@ export function StationManagerModule({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           <form
             onSubmit={handleAddStaff}
-            className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3 h-fit"
+            className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3 h-fit"
           >
             <h3 className="font-display font-bold text-base flex items-center gap-2">
               <Plus className="w-4 h-4 text-[#F5B800]" />
@@ -649,7 +649,7 @@ export function StationManagerModule({
               value={newStaff.fullName}
               onChange={(e) => setNewStaff({ ...newStaff, fullName: e.target.value })}
               placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <input
               type="tel"
@@ -657,7 +657,7 @@ export function StationManagerModule({
               value={newStaff.phone}
               onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
               placeholder="+255 7XX XXX XXX"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
             />
             <select
               value={newStaff.staffRole}
@@ -667,7 +667,7 @@ export function StationManagerModule({
                   staffRole: e.target.value as StationStaffRole,
                 })
               }
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             >
               <option value="attendant">{staffRoleLabel('attendant')}</option>
               <option value="gas_filler">{staffRoleLabel('gas_filler')}</option>
@@ -683,7 +683,7 @@ export function StationManagerModule({
                   shift: e.target.value as 'morning' | 'evening' | 'night',
                 })
               }
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             >
               <option value="morning">{lang === 'sw' ? 'Zamu ya Asubuhi' : 'Morning Shift'}</option>
               <option value="evening">{lang === 'sw' ? 'Zamu ya Jioni' : 'Evening Shift'}</option>
@@ -692,13 +692,13 @@ export function StationManagerModule({
             <button
               type="submit"
               disabled={busy}
-              className="w-full py-2.5 rounded-xl bg-[#08291A] text-white font-bold text-xs cursor-pointer disabled:opacity-60"
+              className="w-full py-2.5 rounded-xl bg-[#0B2A6F] text-white font-bold text-xs cursor-pointer disabled:opacity-60"
             >
               {lang === 'sw' ? 'Sajili Mfanyakazi' : 'Add Staff Member'}
             </button>
           </form>
 
-          <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+          <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
             {stationStaff.length === 0 ? (
               <p className="py-10 text-center text-xs text-neutral-500">
                 {lang === 'sw'
@@ -730,7 +730,7 @@ export function StationManagerModule({
                       }
                       className={`px-2.5 py-1.5 rounded-lg font-semibold cursor-pointer border ${
                         member.status === 'active'
-                          ? 'border-emerald-600 text-emerald-700 dark:text-emerald-300'
+                          ? 'border-blue-600 text-blue-700 dark:text-blue-300'
                           : 'border-neutral-300 text-neutral-500'
                       }`}
                     >
@@ -760,7 +760,7 @@ export function StationManagerModule({
 
       {/* Tab 3: Station-Scoped Orders */}
       {tab === 'orders' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
           {stationOrders.length === 0 ? (
             <p className="py-10 text-center text-xs text-neutral-500">
               {lang === 'sw'
@@ -774,7 +774,7 @@ export function StationManagerModule({
                 className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
               >
                 <div className="min-w-0">
-                  <p className="font-mono-num font-bold text-[#08291A] dark:text-[#F5B800]">
+                  <p className="font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                     {ord.orderNumber} · {ord.orderKind.toUpperCase()} · {ord.status.toUpperCase()}
                   </p>
                   <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate mt-0.5">
@@ -793,7 +793,7 @@ export function StationManagerModule({
                       type="button"
                       disabled={busy}
                       onClick={() => handleOrderStatus(ord, 'confirmed')}
-                      className="px-3 py-1.5 rounded-lg bg-[#08291A] text-white font-semibold cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#0B2A6F] text-white font-semibold cursor-pointer"
                     >
                       {lang === 'sw' ? 'Thibitisha' : 'Confirm'}
                     </button>
@@ -803,7 +803,7 @@ export function StationManagerModule({
                       type="button"
                       disabled={busy}
                       onClick={() => handleOrderStatus(ord, 'dispatched')}
-                      className="px-3 py-1.5 rounded-lg bg-[#F5B800] text-[#0b120e] font-bold cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#F5B800] text-[#071A4A] font-bold cursor-pointer"
                     >
                       {lang === 'sw' ? 'Tuma / Tayari' : 'Dispatch'}
                     </button>
@@ -813,7 +813,7 @@ export function StationManagerModule({
                       type="button"
                       disabled={busy}
                       onClick={() => handleOrderStatus(ord, 'delivered')}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-blue-700 text-white font-semibold cursor-pointer"
                     >
                       {lang === 'sw' ? 'Imekamilika' : 'Mark Delivered'}
                     </button>

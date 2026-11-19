@@ -87,24 +87,24 @@ export function PWAInstallButton({
         <button
           type="button"
           onClick={() => (isInstallable ? void install() : setShowIOSGuide(true))}
-          className="w-full p-4 rounded-2xl bg-[#08291A] text-white border border-[#F5B800]/50 flex items-center justify-between gap-3 cursor-pointer hover:bg-[#0c3723] transition-colors"
+          className="w-full p-4 rounded-2xl bg-[#0B2A6F] text-white border border-[#F5B800]/50 flex items-center justify-between gap-3 cursor-pointer hover:bg-[#0c3723] transition-colors"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#F5B800] text-[#08291A] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#F5B800] text-[#0B2A6F] flex items-center justify-center shrink-0">
               <Smartphone className="w-5 h-5" />
             </div>
             <div className="text-left min-w-0">
               <p className="font-display font-bold text-sm truncate">
                 {lang === 'sw' ? 'Weka App Kwenye Simu' : 'Install OILCOM App'}
               </p>
-              <p className="text-xs text-emerald-100/80 truncate">
+              <p className="text-xs text-blue-100/80 truncate">
                 {lang === 'sw'
                   ? 'Fungua haraka kutoka Home Screen kama programu halisi'
                   : 'Launch directly from your Home Screen in standalone mode'}
               </p>
             </div>
           </div>
-          <span className="px-3 py-1.5 rounded-xl bg-[#F5B800] text-[#08291A] text-xs font-bold shrink-0">
+          <span className="px-3 py-1.5 rounded-xl bg-[#F5B800] text-[#0B2A6F] text-xs font-bold shrink-0">
             {lang === 'sw' ? 'Weka' : 'Install'}
           </span>
         </button>
@@ -112,7 +112,7 @@ export function PWAInstallButton({
         <button
           type="button"
           onClick={() => (isInstallable ? void install() : setShowIOSGuide(true))}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F5B800] text-[#08291A] text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#F5B800] text-[#0B2A6F] text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
           title={lang === 'sw' ? 'Weka App Kwenye Simu' : 'Install App'}
         >
           <Download className="w-3.5 h-3.5" />
@@ -128,7 +128,7 @@ export function PWAInstallButton({
           onClick={() => setShowIOSGuide(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-6 shadow-xl space-y-4"
+            className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-6 shadow-xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -166,7 +166,7 @@ export function PWAInstallButton({
             <button
               type="button"
               onClick={() => setShowIOSGuide(false)}
-              className="w-full py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
             >
               {lang === 'sw' ? 'Sawa, Nimeelewa' : 'Got It'}
             </button>

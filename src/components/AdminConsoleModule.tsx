@@ -203,7 +203,7 @@ export function AdminConsoleModule({
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [orders]);
 
-  const PIE_COLORS = ['#F5B800', '#08291A', '#0f766e', '#16a34a', '#dc2626'];
+  const PIE_COLORS = ['#0B2A6F', '#D92027', '#F5B800', '#2563EB', '#EF4444'];
 
   const exportCsvReport = () => {
     const rows = [
@@ -651,7 +651,7 @@ export function AdminConsoleModule({
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as 'all' | '7d' | '30d')}
-            className="w-full sm:w-auto px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-white dark:bg-[#121b16] text-xs"
+            className="w-full sm:w-auto px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-white dark:bg-[#0E172E] text-xs"
           >
             <option value="all">All Time</option>
             <option value="30d">Last 30 Days</option>
@@ -660,7 +660,7 @@ export function AdminConsoleModule({
           <button
             type="button"
             onClick={exportCsvReport}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#08291A] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Download className="w-3.5 h-3.5 text-[#F5B800]" />
             Export CSV
@@ -669,13 +669,13 @@ export function AdminConsoleModule({
       </div>
 
       {feedback && (
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-xs text-emerald-900 dark:text-emerald-200">
+        <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-xs text-blue-900 dark:text-blue-200">
           {feedback}
         </div>
       )}
 
       {/* Admin Sub-Nav */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(
           [
             ['overview', 'Analytics'],
@@ -694,7 +694,7 @@ export function AdminConsoleModule({
             onClick={() => setTab(k)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer ${
               tab === k
-                ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800]'
+                ? 'bg-white dark:bg-[#0E172E] text-neutral-900 dark:text-[#F5B800]'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
           >
@@ -718,7 +718,7 @@ export function AdminConsoleModule({
             ].map(([label, val]) => (
               <div
                 key={label}
-                className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4 min-w-0"
+                className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0"
               >
                 <p className="text-[11px] sm:text-xs text-neutral-500 truncate">{label}</p>
                 <p className="font-mono-num text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white mt-0.5 sm:mt-1 truncate">
@@ -729,7 +729,7 @@ export function AdminConsoleModule({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
-            <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+            <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
               <h3 className="font-display font-bold text-base mb-3 sm:mb-4">
                 Order Volume by Status
               </h3>
@@ -740,13 +740,13 @@ export function AdminConsoleModule({
                     <XAxis dataKey="name" fontSize={11} />
                     <YAxis fontSize={11} allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#F5B800" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="value" fill="#D92027" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+            <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
               <h3 className="font-display font-bold text-base mb-3 sm:mb-4">
                 Order Distribution
               </h3>
@@ -783,7 +783,7 @@ export function AdminConsoleModule({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <form
               onSubmit={handleProvisionAccount}
-              className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 space-y-3"
+              className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 space-y-3"
             >
               <h3 className="font-display font-bold text-sm sm:text-base flex items-center gap-2 text-neutral-900 dark:text-white">
                 <UserPlus className="w-4 h-4 text-[#F5B800]" />
@@ -805,7 +805,7 @@ export function AdminConsoleModule({
                 value={provForm.fullName}
                 onChange={(e) => setProvForm({ ...provForm, fullName: e.target.value })}
                 placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
               <input
                 type="email"
@@ -813,7 +813,7 @@ export function AdminConsoleModule({
                 value={provForm.email}
                 onChange={(e) => setProvForm({ ...provForm, email: e.target.value })}
                 placeholder="email@gmail.com"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
@@ -821,14 +821,14 @@ export function AdminConsoleModule({
                   value={provForm.phone}
                   onChange={(e) => setProvForm({ ...provForm, phone: e.target.value })}
                   placeholder="+255 7XX..."
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
                 <select
                   value={provForm.role}
                   onChange={(e) =>
                     setProvForm({ ...provForm, role: e.target.value as ProvisionedRole })
                   }
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-semibold"
                 >
                   <option value="agent">Wakala (Agent)</option>
                   <option value="station_manager">Meneja Kituo cha Mafuta</option>
@@ -846,7 +846,7 @@ export function AdminConsoleModule({
                   onChange={(e) =>
                     setProvForm({ ...provForm, assignedStationId: e.target.value })
                   }
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 >
                   <option value="">
                     {lang === 'sw' ? '-- Chagua Kituo Husika --' : '-- Assign Station --'}
@@ -868,7 +868,7 @@ export function AdminConsoleModule({
                       setProvForm({ ...provForm, businessName: e.target.value })
                     }
                     placeholder={lang === 'sw' ? 'Jina la Duka / Wakala' : 'Dealer Shop Name'}
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                   />
                   <input
                     type="text"
@@ -877,7 +877,7 @@ export function AdminConsoleModule({
                       setProvForm({ ...provForm, licenseNumber: e.target.value })
                     }
                     placeholder="License No."
-                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                    className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                   />
                 </div>
               )}
@@ -893,13 +893,13 @@ export function AdminConsoleModule({
                     ? 'Nywila ya awali (hiari kama anatumia Google)'
                     : 'Initial password (optional if using Google)'
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
 
               <button
                 type="submit"
                 disabled={provBusy}
-                className="w-full py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#08291A] font-bold text-xs cursor-pointer disabled:opacity-60"
+                className="w-full py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#0B2A6F] font-bold text-xs cursor-pointer disabled:opacity-60"
               >
                 {provBusy
                   ? t(lang, 'loading')
@@ -910,7 +910,7 @@ export function AdminConsoleModule({
             </form>
 
             {/* Provisioned Accounts List */}
-            <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5">
+            <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5">
               <h4 className="font-display font-bold text-sm mb-3 text-neutral-900 dark:text-white">
                 {lang === 'sw'
                   ? `Akaunti Zilizoidhinishwa na Admin (${provisions.length})`
@@ -923,7 +923,7 @@ export function AdminConsoleModule({
                     : 'No provisioned staff/agent accounts yet.'}
                 </p>
               ) : (
-                <div className="divide-y divide-neutral-100 dark:divide-emerald-950 max-h-80 overflow-y-auto">
+                <div className="divide-y divide-neutral-100 dark:divide-blue-950 max-h-80 overflow-y-auto">
                   {provisions.map((p) => (
                     <div
                       key={p.id}
@@ -932,7 +932,7 @@ export function AdminConsoleModule({
                       <div className="min-w-0">
                         <p className="font-semibold text-neutral-900 dark:text-white truncate">
                           {p.fullName} ·{' '}
-                          <span className="font-mono-num text-[#08291A] dark:text-[#F5B800]">
+                          <span className="font-mono-num text-[#0B2A6F] dark:text-[#F5B800]">
                             {p.role}
                           </span>
                         </p>
@@ -945,7 +945,7 @@ export function AdminConsoleModule({
                         <span
                           className={`font-mono-num text-[11px] font-bold uppercase ${
                             p.status === 'claimed'
-                              ? 'text-emerald-700 dark:text-emerald-400'
+                              ? 'text-blue-700 dark:text-blue-400'
                               : 'text-amber-600 dark:text-[#F5B800]'
                           }`}
                         >
@@ -967,9 +967,9 @@ export function AdminConsoleModule({
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
             {/* Mobile Compact User Cards */}
-            <div className="md:hidden divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="md:hidden divide-y divide-neutral-100 dark:divide-blue-950">
               {users.map((u) => (
                 <div key={u.uid} className="py-3 space-y-2.5 text-xs">
                   <div className="flex items-start justify-between gap-2">
@@ -979,7 +979,7 @@ export function AdminConsoleModule({
                       </p>
                       <p className="text-neutral-500 truncate">{u.email}</p>
                     </div>
-                    <span className="font-mono-num text-[11px] uppercase font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                    <span className="font-mono-num text-[11px] uppercase font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                       {u.status}
                     </span>
                   </div>
@@ -989,7 +989,7 @@ export function AdminConsoleModule({
                       onChange={(e) =>
                         handleUserUpdate(u, { role: e.target.value as UserRole })
                       }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022]"
                     >
                       <option value="customer">customer</option>
                       <option value="agent">agent</option>
@@ -1005,7 +1005,7 @@ export function AdminConsoleModule({
                           status: u.status === 'active' ? 'suspended' : 'active',
                         })
                       }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold text-center cursor-pointer"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 font-semibold text-center cursor-pointer"
                     >
                       {u.status === 'active' ? 'Suspend' : 'Activate'}
                     </button>
@@ -1018,7 +1018,7 @@ export function AdminConsoleModule({
                       onChange={(e) =>
                         handleUserUpdate(u, { assignedStationId: e.target.value })
                       }
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022]"
                     >
                       <option value="">-- Assign Station --</option>
                       {stations.map((s) => (
@@ -1036,7 +1036,7 @@ export function AdminConsoleModule({
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-neutral-200 dark:border-emerald-950 text-neutral-500">
+                  <tr className="border-b border-neutral-200 dark:border-blue-950 text-neutral-500">
                     <th className="py-2 pr-4">User</th>
                     <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Role</th>
@@ -1045,7 +1045,7 @@ export function AdminConsoleModule({
                     <th className="py-2 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-emerald-950">
+                <tbody className="divide-y divide-neutral-100 dark:divide-blue-950">
                   {users.map((u) => (
                     <tr key={u.uid}>
                       <td className="py-3 pr-4 font-semibold">{u.fullName}</td>
@@ -1056,7 +1056,7 @@ export function AdminConsoleModule({
                           onChange={(e) =>
                             handleUserUpdate(u, { role: e.target.value as UserRole })
                           }
-                          className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]"
+                          className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022]"
                         >
                           <option value="customer">customer</option>
                           <option value="agent">agent</option>
@@ -1075,7 +1075,7 @@ export function AdminConsoleModule({
                             onChange={(e) =>
                               handleUserUpdate(u, { assignedStationId: e.target.value })
                             }
-                            className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] max-w-[180px]"
+                            className="px-2 py-1 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] max-w-[180px]"
                           >
                             <option value="">-- Select Station --</option>
                             {stations.map((s) => (
@@ -1097,7 +1097,7 @@ export function AdminConsoleModule({
                               status: u.status === 'active' ? 'suspended' : 'active',
                             })
                           }
-                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-blue-900 font-semibold cursor-pointer"
                         >
                           {u.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
@@ -1116,10 +1116,10 @@ export function AdminConsoleModule({
           {businesses.map((b) => (
             <div
               key={b.id}
-              className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+              className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
             >
               <div className="min-w-0">
-                <p className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800]">
+                <p className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                   TIN {b.tinNumber} · {b.approvalStatus.toUpperCase()}
                 </p>
                 <p className="font-semibold text-sm truncate">{b.companyName}</p>
@@ -1133,7 +1133,7 @@ export function AdminConsoleModule({
                   onClick={() =>
                     handleBusinessApprove(b, 'approved', 25000000, 30)
                   }
-                  className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-semibold text-center cursor-pointer"
+                  className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-blue-700 text-white text-xs font-semibold text-center cursor-pointer"
                 >
                   Approve (25M)
                 </button>
@@ -1155,10 +1155,10 @@ export function AdminConsoleModule({
           {agents.map((ag) => (
             <div
               key={ag.id}
-              className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
+              className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4"
             >
               <div className="min-w-0">
-                <p className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800]">
+                <p className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                   {ag.licenseNumber} · {ag.approvalStatus.toUpperCase()}
                 </p>
                 <p className="font-semibold text-sm truncate">{ag.businessName}</p>
@@ -1170,7 +1170,7 @@ export function AdminConsoleModule({
                 <button
                   type="button"
                   onClick={() => handleAgentApprove(ag, 'approved', 5)}
-                  className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-semibold text-center cursor-pointer"
+                  className="w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg bg-blue-700 text-white text-xs font-semibold text-center cursor-pointer"
                 >
                   Approve (5%)
                 </button>
@@ -1191,7 +1191,7 @@ export function AdminConsoleModule({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
           <form
             onSubmit={handleAddProduct}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3"
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3"
           >
             <h3 className="font-display font-bold text-base flex items-center gap-2">
               <Plus className="w-4 h-4 text-[#F5B800]" />
@@ -1203,7 +1203,7 @@ export function AdminConsoleModule({
               value={newProd.sku}
               onChange={(e) => setNewProd({ ...newProd, sku: e.target.value })}
               placeholder="SKU (e.g. LPG-15KG-PROMO)"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
             />
             <input
               type="text"
@@ -1211,14 +1211,14 @@ export function AdminConsoleModule({
               value={newProd.nameSw}
               onChange={(e) => setNewProd({ ...newProd, nameSw: e.target.value })}
               placeholder="Swahili Name"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <input
               type="text"
               value={newProd.nameEn}
               onChange={(e) => setNewProd({ ...newProd, nameEn: e.target.value })}
               placeholder="English Name"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -1228,7 +1228,7 @@ export function AdminConsoleModule({
                 onChange={(e) =>
                   setNewProd({ ...newProd, priceTzs: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
               />
               <select
                 value={newProd.roleScope}
@@ -1238,7 +1238,7 @@ export function AdminConsoleModule({
                     roleScope: e.target.value as 'gas' | 'fuel' | 'business',
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               >
                 <option value="gas">Gas</option>
                 <option value="fuel">Fuel</option>
@@ -1247,13 +1247,13 @@ export function AdminConsoleModule({
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#071A4A] font-bold text-xs cursor-pointer"
             >
               Add Product
             </button>
           </form>
 
-          <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+          <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
             {products.map((p) => (
               <div key={p.id} className="py-3 flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
@@ -1278,7 +1278,7 @@ export function AdminConsoleModule({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
             <form
               onSubmit={handleSaveStation}
-              className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3 h-fit"
+              className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3 h-fit"
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-display font-bold text-base flex items-center gap-2">
@@ -1313,7 +1313,7 @@ export function AdminConsoleModule({
                     hasGas: k === 'gas' || k === 'both',
                   });
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-semibold"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-semibold"
               >
                 <option value="both">
                   {lang === 'sw' ? 'Mafuta & Gesi (Hybrid)' : 'Fuel & Gas (Hybrid)'}
@@ -1335,7 +1335,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, name: e.target.value })
                   }
                   placeholder="OILCOM Kibaha Hub"
-                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
                 <input
                   type="text"
@@ -1345,7 +1345,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, code: e.target.value })
                   }
                   placeholder="Code (e.g. KBH-01)"
-                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="col-span-2 sm:col-span-1 px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
               </div>
 
@@ -1358,7 +1358,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, city: e.target.value })
                   }
                   placeholder="City"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
                 <input
                   type="text"
@@ -1368,7 +1368,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, region: e.target.value })
                   }
                   placeholder="Region"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
               </div>
 
@@ -1381,7 +1381,7 @@ export function AdminConsoleModule({
                   onChange={(e) =>
                     setStationForm({ ...stationForm, managerUid: e.target.value })
                   }
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 >
                   <option value="">
                     {lang === 'sw'
@@ -1404,7 +1404,7 @@ export function AdminConsoleModule({
                   <button
                     type="button"
                     onClick={() => setStationMapOpen(true)}
-                    className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
+                    className="text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
                   >
                     <MapPin className="w-3 h-3" />
                     <span>
@@ -1420,7 +1420,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, address: e.target.value })
                   }
                   placeholder="Morogoro Rd, Kibaha"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
               </div>
 
@@ -1434,7 +1434,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, lat: Number(e.target.value) })
                   }
                   placeholder="Lat"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
                 <input
                   type="number"
@@ -1445,7 +1445,7 @@ export function AdminConsoleModule({
                     setStationForm({ ...stationForm, lng: Number(e.target.value) })
                   }
                   placeholder="Lng"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
               </div>
 
@@ -1466,7 +1466,7 @@ export function AdminConsoleModule({
                           petrolPriceTzs: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                   <div>
@@ -1483,7 +1483,7 @@ export function AdminConsoleModule({
                           dieselPriceTzs: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                   <div>
@@ -1500,7 +1500,7 @@ export function AdminConsoleModule({
                           pumpsCount: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                 </div>
@@ -1523,7 +1523,7 @@ export function AdminConsoleModule({
                           lpg6kgStock: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                   <div>
@@ -1540,7 +1540,7 @@ export function AdminConsoleModule({
                           lpg15kgStock: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                   <div>
@@ -1557,7 +1557,7 @@ export function AdminConsoleModule({
                           lpg38kgStock: Number(e.target.value),
                         })
                       }
-                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                      className="w-full px-2.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                     />
                   </div>
                 </div>
@@ -1600,7 +1600,7 @@ export function AdminConsoleModule({
                     status: e.target.value as 'active' | 'maintenance' | 'inactive',
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               >
                 <option value="active">Active</option>
                 <option value="maintenance">Maintenance</option>
@@ -1609,7 +1609,7 @@ export function AdminConsoleModule({
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#F5B800] text-[#071A4A] font-bold text-xs cursor-pointer"
               >
                 {editingStationId
                   ? lang === 'sw'
@@ -1621,7 +1621,7 @@ export function AdminConsoleModule({
               </button>
             </form>
 
-            <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="lg:col-span-2 min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
               {stations.map((st) => {
                 const stStaff = stationStaff.filter((m) => m.stationId === st.id);
                 const activeCount = stStaff.filter((m) => m.status === 'active').length;
@@ -1638,7 +1638,7 @@ export function AdminConsoleModule({
                     className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
                   >
                     <div className="min-w-0">
-                      <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
+                      <p className="font-mono-num text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                         {st.code} · {kindLabel} · {st.status.toUpperCase()}
                       </p>
                       <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
@@ -1671,7 +1671,7 @@ export function AdminConsoleModule({
                             staffModalStationId === st.id ? null : st.id
                           )
                         }
-                        className="px-2.5 py-1.5 rounded-lg bg-[#08291A] text-[#F5B800] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#0B2A6F] text-[#F5B800] font-semibold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Users className="w-3 h-3" />
                         <span>
@@ -1681,7 +1681,7 @@ export function AdminConsoleModule({
                       <button
                         type="button"
                         onClick={() => startEditStation(st)}
-                        className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 font-semibold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Pencil className="w-3 h-3" />
                         <span>{lang === 'sw' ? 'Hariri' : 'Edit'}</span>
@@ -1695,10 +1695,10 @@ export function AdminConsoleModule({
 
           {/* Station Staff Management Drawer/Panel inside Admin Stations Tab */}
           {staffModalStation && (
-            <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-[#F5B800]/60 p-4 sm:p-6 space-y-4">
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-[#F5B800]/60 p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="font-mono-num text-[11px] font-bold text-[#08291A] dark:text-[#F5B800]">
+                  <p className="font-mono-num text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                     {staffModalStation.code} · {lang === 'sw' ? 'USIMAMIZI WA WAFANYAKAZI' : 'STATION STAFF'}
                   </p>
                   <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
@@ -1709,7 +1709,7 @@ export function AdminConsoleModule({
                 <button
                   type="button"
                   onClick={() => setStaffModalStationId(null)}
-                  className="px-3 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 text-xs font-semibold cursor-pointer"
+                  className="px-3 py-1 rounded-lg border border-neutral-200 dark:border-blue-900 text-xs font-semibold cursor-pointer"
                 >
                   {t(lang, 'close')}
                 </button>
@@ -1727,7 +1727,7 @@ export function AdminConsoleModule({
                     setNewStaffForm({ ...newStaffForm, fullName: e.target.value })
                   }
                   placeholder={lang === 'sw' ? 'Jina la mfanyakazi' : 'Staff name'}
-                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
                 <input
                   type="tel"
@@ -1737,7 +1737,7 @@ export function AdminConsoleModule({
                     setNewStaffForm({ ...newStaffForm, phone: e.target.value })
                   }
                   placeholder="+255 7XX..."
-                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
                 <select
                   value={newStaffForm.staffRole}
@@ -1747,7 +1747,7 @@ export function AdminConsoleModule({
                       staffRole: e.target.value as StationStaffRole,
                     })
                   }
-                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 >
                   <option value="attendant">Attendant (Pampu)</option>
                   <option value="gas_filler">Gas Filler (Mitungi)</option>
@@ -1763,7 +1763,7 @@ export function AdminConsoleModule({
                       shift: e.target.value as 'morning' | 'evening' | 'night',
                     })
                   }
-                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 >
                   <option value="morning">Morning</option>
                   <option value="evening">Evening</option>
@@ -1771,13 +1771,13 @@ export function AdminConsoleModule({
                 </select>
                 <button
                   type="submit"
-                  className="px-3 py-2 rounded-xl bg-[#F5B800] text-[#08291A] font-bold text-xs cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-[#F5B800] text-[#0B2A6F] font-bold text-xs cursor-pointer"
                 >
                   + {lang === 'sw' ? 'Ongeza' : 'Add Staff'}
                 </button>
               </form>
 
-              <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+              <div className="divide-y divide-neutral-100 dark:divide-blue-950">
                 {staffForSelectedStation.length === 0 ? (
                   <p className="py-4 text-center text-xs text-neutral-500">
                     {lang === 'sw'
@@ -1806,7 +1806,7 @@ export function AdminConsoleModule({
                               status: member.status === 'active' ? 'inactive' : 'active',
                             })
                           }
-                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-emerald-900 font-semibold cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-blue-900 font-semibold cursor-pointer"
                         >
                           {member.status}
                         </button>
@@ -1831,7 +1831,7 @@ export function AdminConsoleModule({
       {tab === 'settings' && (
         <form
           onSubmit={handleSaveSettings}
-          className="max-w-xl rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-4"
+          className="max-w-xl rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-4"
         >
           <h3 className="font-display font-bold text-base">
             Configurable Rewards & Order Rules
@@ -1850,7 +1850,7 @@ export function AdminConsoleModule({
                     pointsPer1000Tzs: Number(e.target.value),
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
               />
             </div>
             <div>
@@ -1866,7 +1866,7 @@ export function AdminConsoleModule({
                     pointRedemptionValueTzs: Number(e.target.value),
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
               />
             </div>
             <div>
@@ -1882,7 +1882,7 @@ export function AdminConsoleModule({
                     gasCancelWindowMinutes: Number(e.target.value),
                   })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
               />
             </div>
             <div className="flex items-center gap-2 pt-5">
@@ -1901,7 +1901,7 @@ export function AdminConsoleModule({
           </div>
           <button
             type="submit"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
           >
             {t(lang, 'save')}
           </button>
@@ -1909,14 +1909,14 @@ export function AdminConsoleModule({
       )}
 
       {tab === 'logs' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
           {auditLogs.length === 0 ? (
             <p className="text-xs text-neutral-500 py-8 text-center">No audit logs yet.</p>
           ) : (
             auditLogs.map((log) => (
               <div key={log.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs">
                 <div className="min-w-0">
-                  <p className="font-mono-num font-bold text-[#08291A] dark:text-[#F5B800] truncate">
+                  <p className="font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] truncate">
                     {log.action} · {log.targetCollection}/{log.targetId}
                   </p>
                   <p className="text-neutral-600 dark:text-neutral-300 mt-0.5 break-words">

@@ -116,8 +116,8 @@ export const OILCOM_GIS_FEATURE_COLLECTION: GeoJsonFeatureCollection = {
         descriptionEn: 'Fast cylinder dispatch (6kg, 15kg, 38kg) served from OILCOM Mkubashini.',
         eta: '20–30 min',
         feeTzs: 2500,
-        strokeColor: '#10B981',
-        fillColor: '#10B981',
+        strokeColor: '#2563EB',
+        fillColor: '#2563EB',
       },
       geometry: {
         type: 'Polygon',
@@ -172,8 +172,8 @@ export const OILCOM_GIS_FEATURE_COLLECTION: GeoJsonFeatureCollection = {
         descriptionEn: 'Northern coastal LPG & lubricants delivery zone along Bagamoyo Road.',
         eta: '25–40 min',
         feeTzs: 3000,
-        strokeColor: '#059669',
-        fillColor: '#059669',
+        strokeColor: '#D92027',
+        fillColor: '#D92027',
       },
       geometry: {
         type: 'Polygon',
@@ -200,8 +200,8 @@ export const OILCOM_GIS_FEATURE_COLLECTION: GeoJsonFeatureCollection = {
         descriptionEn: 'OILCOM LPG & fleet refueling coverage across central Arusha.',
         eta: '20–35 min',
         feeTzs: 2500,
-        strokeColor: '#10B981',
-        fillColor: '#10B981',
+        strokeColor: '#2563EB',
+        fillColor: '#2563EB',
       },
       geometry: {
         type: 'Polygon',
@@ -359,7 +359,7 @@ function hexToRgba(hex: string, alpha: number): string {
     const b = parseInt(clean.slice(4, 6), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
-  return `rgba(16, 185, 129, ${alpha})`;
+  return `rgba(37, 99, 235, ${alpha})`;
 }
 
 // Convert GeoJSON [lng, lat] geometries into Google Maps 3D overlay coordinates
@@ -379,7 +379,7 @@ export function extract3DOverlaysFromGeoJson(
     const strokeColor =
       typeof feature.properties?.strokeColor === 'string'
         ? feature.properties.strokeColor
-        : '#10B981';
+        : '#2563EB';
     const baseFill =
       typeof feature.properties?.fillColor === 'string'
         ? feature.properties.fillColor
@@ -643,7 +643,7 @@ export function findGisZoneForCoords(
         eta: String(p.eta || '25–40 min'),
         feeTzs: typeof p.feeTzs === 'number' ? p.feeTzs : 2500,
         strokeColor:
-          typeof p.strokeColor === 'string' ? p.strokeColor : '#10B981',
+          typeof p.strokeColor === 'string' ? p.strokeColor : '#2563EB',
       };
     }
   }

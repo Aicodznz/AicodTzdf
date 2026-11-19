@@ -19,8 +19,8 @@ export default defineConfig(() => {
           short_name: 'OILCOM',
           description:
             'Huduma Zote za Oilcom, Sehemu Moja — Fuel, LPG Gas, Rewards & Business Portal.',
-          theme_color: '#08291A',
-          background_color: '#08291A',
+          theme_color: '#0B2A6F',
+          background_color: '#0B2A6F',
           display: 'standalone',
           start_url: '/',
           scope: '/',

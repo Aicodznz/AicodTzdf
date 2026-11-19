@@ -90,7 +90,7 @@ const PAYMENT_OPTIONS: {
     id: 'bank',
     label: 'Benki / Card',
     badge: 'B',
-    badgeCls: 'bg-emerald-800 text-[#F5B800]',
+    badgeCls: 'bg-blue-800 text-[#F5B800]',
     hintSw: 'CRDB / NMB / Kadi (Sandbox)',
     hintEn: 'Bank / Card (Sandbox)',
   },
@@ -281,16 +281,16 @@ export function FuelAndGasModule({
       </div>
 
       {placedInfo && (
-        <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-4 sm:p-5 space-y-3">
+        <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4 sm:p-5 space-y-3">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-6 h-6 text-blue-600 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-emerald-950 dark:text-emerald-100">
+              <p className="font-semibold text-sm text-blue-950 dark:text-blue-100">
                 {lang === 'sw'
                   ? `Oda ${placedInfo.orderNumber} imetumwa kikamilifu!`
                   : `Order ${placedInfo.orderNumber} placed successfully!`}
               </p>
-              <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
+              <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
                 Sandbox Ref:{' '}
                 <span className="font-mono-num font-bold">
                   {placedInfo.sandboxRef}
@@ -301,8 +301,8 @@ export function FuelAndGasModule({
           </div>
 
           {placedInfo.provider !== 'cod' && (
-            <div className="p-3 rounded-xl bg-white dark:bg-[#121b16] border border-emerald-200 dark:border-emerald-900 text-xs space-y-1">
-              <p className="font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1.5">
+            <div className="p-3 rounded-xl bg-white dark:bg-[#0E172E] border border-blue-200 dark:border-blue-900 text-xs space-y-1">
+              <p className="font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1.5">
                 <Smartphone className="w-4 h-4 shrink-0" />
                 {lang === 'sw'
                   ? `Muhtasari wa Malipo (${placedInfo.provider.replace(/_/g, ' ').toUpperCase()} — Sandbox STK Push)`
@@ -321,7 +321,7 @@ export function FuelAndGasModule({
       {cart.length > 0 && (
         <a
           href="#oilcom-checkout"
-          className="lg:hidden rounded-2xl bg-[#08291A] text-white p-3.5 flex items-center justify-between gap-3 border border-[#F5B800]/50"
+          className="lg:hidden rounded-2xl bg-[#0B2A6F] text-white p-3.5 flex items-center justify-between gap-3 border border-[#F5B800]/50"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <ShoppingCart className="w-4 h-4 text-[#F5B800] shrink-0" />
@@ -330,7 +330,7 @@ export function FuelAndGasModule({
               {lang === 'sw' ? 'Kikapuni' : 'in Cart'} · {formatTzs(cartTotal)}
             </span>
           </div>
-          <span className="px-3 py-1 rounded-lg bg-[#F5B800] text-[#08291A] text-xs font-bold shrink-0">
+          <span className="px-3 py-1 rounded-lg bg-[#F5B800] text-[#0B2A6F] text-xs font-bold shrink-0">
             {t(lang, 'checkout')}
           </span>
         </a>
@@ -340,7 +340,7 @@ export function FuelAndGasModule({
         {/* Product Grid */}
         <div className="lg:col-span-2 space-y-3 sm:space-y-4 min-w-0">
           {mode === 'fuel' && (
-            <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-neutral-900 dark:text-white">
                   {lang === 'sw' ? 'Kiasi cha Lita za Mafuta' : 'Fuel Volume (Liters)'}
@@ -359,8 +359,8 @@ export function FuelAndGasModule({
                     onClick={() => setFuelLiters(liters)}
                     className={`px-3 py-2 rounded-lg text-xs font-semibold text-center transition-colors cursor-pointer ${
                       fuelLiters === liters
-                        ? 'bg-[#08291A] text-[#F5B800]'
-                        : 'bg-neutral-100 dark:bg-emerald-950/60 text-neutral-700 dark:text-neutral-300'
+                        ? 'bg-[#0B2A6F] text-[#F5B800]'
+                        : 'bg-neutral-100 dark:bg-blue-950/60 text-neutral-700 dark:text-neutral-300'
                     }`}
                   >
                     {liters}L
@@ -371,7 +371,7 @@ export function FuelAndGasModule({
           )}
 
           {filteredProducts.length === 0 ? (
-            <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-8 sm:p-10 text-center text-sm text-neutral-500">
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-8 sm:p-10 text-center text-sm text-neutral-500">
               {t(lang, 'noResults')}
             </div>
           ) : (
@@ -379,14 +379,14 @@ export function FuelAndGasModule({
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 flex flex-col justify-between gap-3.5 min-w-0"
+                  className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between gap-3.5 min-w-0"
                 >
                   <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-neutral-100 dark:bg-blue-950/60 flex items-center justify-center shrink-0">
                       {mode === 'gas' ? (
                         <GasCylinderGraphic sizeKg={product.sizeKg || 15} className="w-9 h-11 sm:w-11 sm:h-12" />
                       ) : (
-                        <Fuel className="w-6 h-6 sm:w-7 sm:h-7 text-[#08291A] dark:text-[#F5B800]" />
+                        <Fuel className="w-6 h-6 sm:w-7 sm:h-7 text-[#0B2A6F] dark:text-[#F5B800]" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -402,7 +402,7 @@ export function FuelAndGasModule({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-neutral-100 dark:border-emerald-950/80 flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-neutral-100 dark:border-blue-950/80 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-mono-num text-base sm:text-lg font-bold text-neutral-900 dark:text-white whitespace-nowrap">
                         {formatTzs(product.priceTzs)}
@@ -418,7 +418,7 @@ export function FuelAndGasModule({
                       onClick={() =>
                         addToCart(product, mode === 'fuel' ? fuelLiters : 1)
                       }
-                      className="px-3 sm:px-3.5 py-2 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      className="px-3 sm:px-3.5 py-2 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
                     >
                       {mode === 'fuel' ? `+ ${fuelLiters}L` : t(lang, 'addToCart')}
                     </button>
@@ -429,7 +429,7 @@ export function FuelAndGasModule({
           )}
 
           {/* Authorized Nearby Dealers List */}
-          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5">
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white mb-2.5 sm:mb-3">
               {lang === 'sw'
                 ? 'Mawakala Walioidhinishwa wa OILCOM'
@@ -451,7 +451,7 @@ export function FuelAndGasModule({
                     className={`text-left p-3.5 rounded-xl border transition-colors cursor-pointer ${
                       selectedDealerUid === d.userId
                         ? 'border-[#F5B800] bg-amber-50/40 dark:bg-amber-950/20'
-                        : 'border-neutral-200 dark:border-emerald-950'
+                        : 'border-neutral-200 dark:border-blue-950'
                     }`}
                   >
                     <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
@@ -471,7 +471,7 @@ export function FuelAndGasModule({
         <form
           id="oilcom-checkout"
           onSubmit={handleCheckout}
-          className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 lg:sticky lg:top-20 min-w-0 w-full"
+          className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 lg:sticky lg:top-20 min-w-0 w-full"
         >
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-lg text-neutral-900 dark:text-white flex items-center gap-2">
@@ -490,7 +490,7 @@ export function FuelAndGasModule({
                 : 'Select items on the left to build your order.'}
             </p>
           ) : (
-            <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="divide-y divide-neutral-100 dark:divide-blue-950">
               {cart.map((item) => (
                 <div
                   key={item.product.id}
@@ -508,7 +508,7 @@ export function FuelAndGasModule({
                     <button
                       type="button"
                       onClick={() => updateQty(item.product.id, -1)}
-                      className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-emerald-950 flex items-center justify-center cursor-pointer"
+                      className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-blue-950 flex items-center justify-center cursor-pointer"
                     >
                       {item.quantity === 1 ? (
                         <Trash2 className="w-3.5 h-3.5 text-red-500" />
@@ -522,7 +522,7 @@ export function FuelAndGasModule({
                     <button
                       type="button"
                       onClick={() => updateQty(item.product.id, 1)}
-                      className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-emerald-950 flex items-center justify-center cursor-pointer"
+                      className="w-7 h-7 rounded-lg bg-neutral-100 dark:bg-blue-950 flex items-center justify-center cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -543,8 +543,8 @@ export function FuelAndGasModule({
                 onClick={() => setFulfillmentType('delivery')}
                 className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer ${
                   fulfillmentType === 'delivery'
-                    ? 'bg-[#08291A] text-[#F5B800] border-[#08291A]'
-                    : 'border-neutral-200 dark:border-emerald-950 text-neutral-600 dark:text-neutral-300'
+                    ? 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F]'
+                    : 'border-neutral-200 dark:border-blue-950 text-neutral-600 dark:text-neutral-300'
                 }`}
               >
                 <Truck className="w-3.5 h-3.5" />
@@ -555,8 +555,8 @@ export function FuelAndGasModule({
                 onClick={() => setFulfillmentType('pickup')}
                 className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer ${
                   fulfillmentType === 'pickup'
-                    ? 'bg-[#08291A] text-[#F5B800] border-[#08291A]'
-                    : 'border-neutral-200 dark:border-emerald-950 text-neutral-600 dark:text-neutral-300'
+                    ? 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F]'
+                    : 'border-neutral-200 dark:border-blue-950 text-neutral-600 dark:text-neutral-300'
                 }`}
               >
                 <Store className="w-3.5 h-3.5" />
@@ -574,7 +574,7 @@ export function FuelAndGasModule({
                 <button
                   type="button"
                   onClick={() => setMapPickerOpen(true)}
-                  className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer"
                 >
                   <MapPin className="w-3.5 h-3.5" />
                   {lang === 'sw' ? 'Chagua Kwenye Ramani' : 'Pick on Map'}
@@ -584,7 +584,7 @@ export function FuelAndGasModule({
                 <select
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  className="w-full mb-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full mb-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 >
                   <option value="">
                     {lang === 'sw' ? '-- Chagua anwani --' : '-- Saved address --'}
@@ -603,14 +603,14 @@ export function FuelAndGasModule({
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                   placeholder={lang === 'sw' ? 'Mfano: Mikocheni B, Dar es Salaam' : 'e.g. Mikocheni B, Dar es Salaam'}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs text-neutral-900 dark:text-white"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
                 />
               </div>
               {(matchedGisZone || nearestStationMeta) && (
-                <div className="mt-2 p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-900 text-[11px] space-y-1">
+                <div className="mt-2 p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/35 border border-blue-200 dark:border-blue-900 text-[11px] space-y-1">
                   {matchedGisZone && (
-                    <p className="font-semibold text-emerald-950 dark:text-emerald-100 flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-[#F5B800] shrink-0" />
+                    <p className="font-semibold text-blue-950 dark:text-blue-100 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-[#F5B800] shrink-0" />
                       <span className="truncate">
                         {lang === 'sw'
                           ? matchedGisZone.nameSw
@@ -618,7 +618,7 @@ export function FuelAndGasModule({
                       </span>
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-emerald-800 dark:text-emerald-300">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-blue-800 dark:text-blue-300">
                     {matchedGisZone && (
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3 shrink-0" />
@@ -648,7 +648,7 @@ export function FuelAndGasModule({
               <select
                 value={selectedStationId}
                 onChange={(e) => setSelectedStationId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs text-neutral-900 dark:text-white"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
               >
                 {stations.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -675,7 +675,7 @@ export function FuelAndGasModule({
                     className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer flex items-center gap-2 ${
                       selected
                         ? 'border-[#F5B800] bg-amber-50/60 dark:bg-amber-950/25'
-                        : 'border-neutral-200 dark:border-emerald-950 bg-neutral-50/70 dark:bg-[#0c130f]'
+                        : 'border-neutral-200 dark:border-blue-950 bg-neutral-50/70 dark:bg-[#091022]'
                     }`}
                   >
                     <span
@@ -706,7 +706,7 @@ export function FuelAndGasModule({
               value={phoneOrRef}
               onChange={(e) => setPhoneOrRef(e.target.value)}
               placeholder="+255 7XX XXX XXX"
-              className="w-full mt-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs text-neutral-900 dark:text-white font-mono-num"
+              className="w-full mt-2 px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white font-mono-num"
             />
             <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-300">
               {t(lang, 'sandboxNotice')}
@@ -717,7 +717,7 @@ export function FuelAndGasModule({
             <p className="text-xs text-red-600 dark:text-red-400">{errorMsg}</p>
           )}
 
-          <div className="pt-3 border-t border-neutral-200 dark:border-emerald-950 flex items-center justify-between">
+          <div className="pt-3 border-t border-neutral-200 dark:border-blue-950 flex items-center justify-between">
             <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
               {lang === 'sw' ? 'Jumla' : 'Total'}
             </span>
@@ -729,7 +729,7 @@ export function FuelAndGasModule({
           <button
             type="submit"
             disabled={submitting || cart.length === 0}
-            className="w-full py-3 px-4 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-bold text-sm transition-colors cursor-pointer disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-sm transition-colors cursor-pointer disabled:opacity-50"
           >
             {submitting ? t(lang, 'loading') : t(lang, 'placeOrder')}
           </button>

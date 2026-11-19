@@ -58,42 +58,42 @@ export function HomeDashboard({
       route: 'fuel',
       title: t(lang, 'navFuel'),
       desc: t(lang, 'buyFuelDesc'),
-      icon: <Fuel className="w-7 h-7 text-[#08291A] dark:text-[#F5B800]" />,
+      icon: <Fuel className="w-7 h-7 text-[#0B2A6F] dark:text-[#60A5FA]" />,
       roles: ['customer', 'admin'],
     },
     {
       route: 'gas',
       title: t(lang, 'navGas'),
       desc: t(lang, 'gasDesc'),
-      icon: <Flame className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />,
+      icon: <Flame className="w-7 h-7 text-[#D92027] dark:text-red-400" />,
       roles: ['customer', 'admin'],
     },
     {
       route: 'rewards',
       title: t(lang, 'navRewards'),
       desc: t(lang, 'rewardsDesc'),
-      icon: <Gift className="w-7 h-7 text-rose-600 dark:text-rose-400" />,
+      icon: <Gift className="w-7 h-7 text-[#D99B00] dark:text-[#F5B800]" />,
       roles: ['customer', 'admin'],
     },
     {
       route: 'business',
       title: t(lang, 'navBusiness'),
       desc: t(lang, 'businessDesc'),
-      icon: <Briefcase className="w-7 h-7 text-neutral-800 dark:text-neutral-200" />,
+      icon: <Briefcase className="w-7 h-7 text-[#0B2A6F] dark:text-blue-300" />,
       roles: ['business', 'admin'],
     },
     {
       route: 'orders',
       title: t(lang, 'navOrders'),
       desc: t(lang, 'ordersDesc'),
-      icon: <Truck className="w-7 h-7 text-emerald-700 dark:text-emerald-400" />,
+      icon: <Truck className="w-7 h-7 text-blue-700 dark:text-blue-400" />,
       roles: ['customer', 'admin'],
     },
     {
       route: 'stations',
       title: t(lang, 'navStations'),
       desc: t(lang, 'stationsDesc'),
-      icon: <MapPin className="w-7 h-7 text-red-600 dark:text-red-400" />,
+      icon: <MapPin className="w-7 h-7 text-[#D92027] dark:text-red-400" />,
       roles: ['customer', 'admin'],
     },
     {
@@ -113,7 +113,7 @@ export function HomeDashboard({
         lang === 'sw'
           ? 'Usimamizi mkuu, ripoti, bei na idhini'
           : 'Central console, approvals, pricing & audit logs',
-      icon: <ShieldCheck className="w-7 h-7 text-emerald-800 dark:text-emerald-300" />,
+      icon: <ShieldCheck className="w-7 h-7 text-blue-800 dark:text-blue-300" />,
       roles: ['admin'],
     },
   ];
@@ -125,7 +125,12 @@ export function HomeDashboard({
   return (
     <div className="space-y-3 sm:space-y-5">
       {/* Hero Greeting Card */}
-      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-7 flex flex-col gap-3.5 sm:gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-7 flex flex-col gap-3.5 sm:gap-4">
+        <div className="absolute top-0 inset-x-0 h-1 grid grid-cols-3">
+          <span className="bg-[#2563EB]" />
+          <span className="bg-[#D92027]" />
+          <span className="bg-[#F5B800]" />
+        </div>
         <div className="flex flex-row items-center justify-between gap-3 sm:gap-6">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] sm:text-xs font-medium text-[#F5B800] truncate">
@@ -134,7 +139,7 @@ export function HomeDashboard({
             <h1 className="font-display text-xl sm:text-3xl font-bold mt-0.5 truncate">
               {t(lang, 'helloCustomer')}, {firstName}!
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-emerald-100/80 max-w-xl leading-snug">
+            <p className="mt-1 text-xs sm:text-sm text-blue-100/80 max-w-xl leading-snug">
               {t(lang, 'homeSubtitle')}
             </p>
           </div>
@@ -148,7 +153,7 @@ export function HomeDashboard({
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-[#F5B800]"
               />
             ) : (
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F5B800] text-[#08291A] font-display font-extrabold text-lg sm:text-xl flex items-center justify-center">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#F5B800] text-[#0B2A6F] font-display font-extrabold text-lg sm:text-xl flex items-center justify-center">
                 {firstName.slice(0, 1).toUpperCase()}
               </div>
             )}
@@ -159,9 +164,9 @@ export function HomeDashboard({
           <button
             type="button"
             onClick={() => onNavigate('gas')}
-            className="px-3.5 py-2 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#08291A] text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="px-3.5 py-2 rounded-xl bg-[#D92027] hover:bg-[#b91c1c] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
-            <Flame className="w-3.5 h-3.5" />
+            <Flame className="w-3.5 h-3.5 text-[#F5B800]" />
             <span>{lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}</span>
           </button>
           <button
@@ -179,7 +184,7 @@ export function HomeDashboard({
       <button
         type="button"
         onClick={() => onNavigate('rewards')}
-        className="w-full text-left rounded-2xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#0b120e] p-4 sm:p-6 flex items-center justify-between gap-3 sm:gap-4 transition-colors cursor-pointer"
+        className="w-full text-left rounded-2xl bg-[#F5B800] hover:bg-[#e5ab00] text-[#071A4A] p-4 sm:p-6 flex items-center justify-between gap-3 sm:gap-4 transition-colors cursor-pointer"
       >
         <div className="min-w-0 flex-1">
           <p className="text-[11px] sm:text-xs font-bold tracking-wide uppercase opacity-80">
@@ -205,14 +210,14 @@ export function HomeDashboard({
         <button
           type="button"
           onClick={() => onNavigate('orders')}
-          className="w-full text-left rounded-2xl bg-white dark:bg-[#121b16] border border-[#F5B800]/60 p-3.5 sm:p-5 flex items-center justify-between gap-3 hover:border-[#F5B800] transition-colors cursor-pointer"
+          className="w-full text-left rounded-2xl bg-white dark:bg-[#0E172E] border border-[#F5B800]/60 p-3.5 sm:p-5 flex items-center justify-between gap-3 hover:border-[#F5B800] transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-[#08291A] text-[#F5B800] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#0B2A6F] text-[#F5B800] flex items-center justify-center shrink-0">
               <Truck className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-mono-num text-[11px] font-bold uppercase text-[#08291A] dark:text-[#F5B800] truncate">
+              <p className="font-mono-num text-[11px] font-bold uppercase text-[#0B2A6F] dark:text-[#F5B800] truncate">
                 {lang === 'sw' ? 'Oda Inayoendelea' : 'Active Order'} ·{' '}
                 {activeOrder.orderNumber} · {activeOrder.status.toUpperCase()}
               </p>
@@ -224,7 +229,7 @@ export function HomeDashboard({
               </p>
             </div>
           </div>
-          <span className="px-3 py-2 rounded-xl bg-[#08291A] text-[#F5B800] text-xs font-bold flex items-center gap-1 shrink-0 whitespace-nowrap">
+          <span className="px-3 py-2 rounded-xl bg-[#0B2A6F] text-[#F5B800] text-xs font-bold flex items-center gap-1 shrink-0 whitespace-nowrap">
             <span>{lang === 'sw' ? 'Fuatilia' : 'Track'}</span>
             <ChevronRight className="w-4 h-4" />
           </span>
@@ -247,13 +252,13 @@ export function HomeDashboard({
               key={tile.route}
               type="button"
               onClick={() => onNavigate(tile.route)}
-              className="group text-left rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-5 hover:border-[#F5B800] transition-colors cursor-pointer flex flex-col justify-between min-h-[116px] sm:min-h-[140px]"
+              className="group text-left rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-5 hover:border-[#F5B800] transition-colors cursor-pointer flex flex-col justify-between min-h-[116px] sm:min-h-[140px]"
             >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-neutral-100 dark:bg-blue-950/60 flex items-center justify-center shrink-0">
                 {tile.icon}
               </div>
               <div className="mt-2.5 sm:mt-4 min-w-0">
-                <h3 className="font-display font-bold text-sm sm:text-base text-neutral-900 dark:text-white group-hover:text-[#08291A] dark:group-hover:text-[#F5B800] truncate">
+                <h3 className="font-display font-bold text-sm sm:text-base text-neutral-900 dark:text-white group-hover:text-[#0B2A6F] dark:group-hover:text-[#F5B800] truncate">
                   {tile.title}
                 </h3>
                 <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-snug">
@@ -267,7 +272,7 @@ export function HomeDashboard({
 
       {/* Active Orders & Promotions Split */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
               {lang === 'sw' ? 'Oda za Hivi Karibuni' : 'Recent Orders'}
@@ -275,7 +280,7 @@ export function HomeDashboard({
             <button
               type="button"
               onClick={() => onNavigate('orders')}
-              className="text-xs font-semibold text-[#08291A] dark:text-[#F5B800] hover:underline cursor-pointer"
+              className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
             >
               {lang === 'sw' ? 'Tazama Zote' : 'View All'}
             </button>
@@ -290,13 +295,13 @@ export function HomeDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate('gas')}
-                className="mt-3 px-4 py-2 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+                className="mt-3 px-4 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
               >
                 {lang === 'sw' ? 'Agiza OILCOM Gas' : 'Order OILCOM Gas'}
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="divide-y divide-neutral-100 dark:divide-blue-950">
               {orders.slice(0, 4).map((ord) => (
                 <div
                   key={ord.id}
@@ -320,7 +325,7 @@ export function HomeDashboard({
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
               {lang === 'sw' ? 'Promosheni Maalum' : 'Special Promotions'}
@@ -328,7 +333,7 @@ export function HomeDashboard({
             <button
               type="button"
               onClick={() => onNavigate('rewards')}
-              className="text-xs font-semibold text-[#08291A] dark:text-[#F5B800] hover:underline cursor-pointer"
+              className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
             >
               {t(lang, 'viewRewards')}
             </button>
@@ -344,13 +349,13 @@ export function HomeDashboard({
               {promotions.slice(0, 3).map((promo) => (
                 <div
                   key={promo.id}
-                  className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-emerald-950/30 border border-neutral-200/80 dark:border-emerald-900/50"
+                  className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-blue-950/30 border border-neutral-200/80 dark:border-blue-900/50"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
                       {lang === 'sw' ? promo.titleSw : promo.titleEn}
                     </p>
-                    <span className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                    <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                       {promo.pointsMultiplier}x pts
                     </span>
                   </div>

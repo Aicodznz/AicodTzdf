@@ -10,15 +10,15 @@
 
   body {
     font-family: var(--font-body);
-    background-color: #f6f7f6;
-    color: #0e1712;
+    background-color: #F4F7FB;
+    color: #0B1326;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   .dark body {
-    background-color: #090e0b;
-    color: #eef2ef;
+    background-color: #060B18;
+    color: #EEF3FA;
   }
 
   h1, h2, h3, h4, .font-display {

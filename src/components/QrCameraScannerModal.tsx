@@ -112,7 +112,7 @@ export function QrCameraScannerModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-5 shadow-2xl space-y-4"
+        className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-5 shadow-2xl space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
@@ -126,7 +126,7 @@ export function QrCameraScannerModal({
             type="button"
             onClick={onClose}
             aria-label="Close scanner"
-            className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-emerald-950/60 cursor-pointer"
+            className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-blue-950/60 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -159,7 +159,7 @@ export function QrCameraScannerModal({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 py-2.5 px-3 rounded-xl border border-neutral-200 dark:border-emerald-900 text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 py-2.5 px-3 rounded-xl border border-neutral-200 dark:border-blue-900 text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center justify-center gap-2 cursor-pointer"
           >
             <ImageUp className="w-4 h-4 text-[#F5B800]" />
             <span>{lang === 'sw' ? 'Pakia Picha ya QR' : 'Scan QR Image'}</span>
@@ -167,7 +167,7 @@ export function QrCameraScannerModal({
           <button
             type="button"
             onClick={onClose}
-            className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer"
+            className="py-2.5 px-4 rounded-xl bg-neutral-100 dark:bg-blue-950/60 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer"
           >
             {lang === 'sw' ? 'Funga' : 'Cancel'}
           </button>

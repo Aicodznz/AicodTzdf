@@ -34,7 +34,11 @@ import { AuthScreen } from './components/AuthScreen';
 import { BusinessPortalModule } from './components/BusinessPortalModule';
 import { FuelAndGasModule } from './components/FuelAndGasModule';
 import { HomeDashboard } from './components/HomeDashboard';
-import { OilcomCamelMark } from './components/OilcomBrand';
+import {
+  OilcomCamelMark,
+  OilcomFullLogo,
+  OilcomWordmark,
+} from './components/OilcomBrand';
 import { OrdersAndPaymentsModule } from './components/OrdersAndPaymentsModule';
 import { ProfileAndSupportModule } from './components/ProfileAndSupportModule';
 import { OfflineIndicator, PWAInstallButton } from './components/PwaControls';
@@ -1011,12 +1015,12 @@ export default function App() {
     return (
       <>
         {quotaBanner}
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#08291A] text-white gap-4">
-          <OilcomCamelMark className="w-16 h-14 animate-pulse" />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B2A6F] text-white gap-4">
+          <OilcomFullLogo className="w-36 h-36 animate-pulse" />
           <p className="font-display font-bold text-lg tracking-wide">
             OILCOM <span className="text-[#F5B800]">SUPER APP</span>
           </p>
-          <p className="text-xs text-emerald-200/75">{t(lang, 'loading')}</p>
+          <p className="text-xs text-blue-200/75">{t(lang, 'loading')}</p>
         </div>
       </>
     );
@@ -1035,8 +1039,8 @@ export default function App() {
     return (
       <>
         {quotaBanner}
-        <div className="min-h-screen flex items-center justify-center p-6 bg-[#f6f7f6] dark:bg-[#090e0b]">
-          <div className="max-w-md rounded-2xl bg-white dark:bg-[#121b16] border border-red-200 dark:border-red-900 p-8 text-center space-y-4">
+        <div className="min-h-screen flex items-center justify-center p-6 bg-[#F4F7FB] dark:bg-[#060B18]">
+          <div className="max-w-md rounded-2xl bg-white dark:bg-[#0E172E] border border-red-200 dark:border-red-900 p-8 text-center space-y-4">
             <h2 className="font-display text-xl font-bold text-red-600">
               {lang === 'sw' ? 'Akaunti Imesitishwa' : 'Account Suspended'}
             </h2>
@@ -1048,7 +1052,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => auth.signOut()}
-              className="px-5 py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
             >
               {t(lang, 'signOut')}
             </button>
@@ -1087,22 +1091,20 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f6f7f6] dark:bg-[#090e0b] text-neutral-900 dark:text-neutral-100 flex flex-col">
+    <div className="min-h-screen overflow-x-hidden bg-[#F4F7FB] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100 flex flex-col">
       {quotaBanner}
 
       <div className="flex flex-1 min-h-0">
         {/* Desktop Persistent Sidebar (260px) */}
-        <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:fixed lg:inset-y-0 bg-[#08291A] text-white z-30">
-          <div className="h-16 px-5 flex items-center gap-3 border-b border-white/10 shrink-0">
-            <OilcomCamelMark className="w-9 h-8 shrink-0" />
-            <div className="leading-tight">
-              <p className="font-display text-sm font-extrabold tracking-tight text-white whitespace-nowrap">
-                OILCOM
-              </p>
-              <p className="font-display text-[11px] font-bold tracking-wider text-[#F5B800] whitespace-nowrap">
-                SUPER APP
-              </p>
-            </div>
+        <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:fixed lg:inset-y-0 bg-[#0B2A6F] text-white z-30">
+          <div className="h-1 grid grid-cols-3 shrink-0">
+            <span className="bg-[#2563EB]" />
+            <span className="bg-[#D92027]" />
+            <span className="bg-[#F5B800]" />
+          </div>
+          <div className="h-16 px-4 flex items-center gap-2.5 border-b border-white/10 shrink-0">
+            <OilcomCamelMark className="w-10 h-10 shrink-0" />
+            <OilcomWordmark className="w-32 h-9" />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
@@ -1116,8 +1118,8 @@ export default function App() {
                   onClick={() => navigate(item.route)}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                     active
-                      ? 'bg-[#F5B800] text-[#08291A] font-bold'
-                      : 'text-emerald-100/85 hover:bg-white/10'
+                      ? 'bg-[#F5B800] text-[#0B2A6F] font-bold'
+                      : 'text-blue-100/85 hover:bg-white/10'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -1127,7 +1129,7 @@ export default function App() {
             })}
           </nav>
 
-          <div className="p-4 border-t border-white/10 text-xs text-emerald-100/75 space-y-2">
+          <div className="p-4 border-t border-white/10 text-xs text-blue-100/75 space-y-2">
             <div className="flex items-center justify-between">
               <span className="truncate font-semibold text-white">
                 {effectiveUser.fullName}
@@ -1147,13 +1149,11 @@ export default function App() {
               className="fixed inset-0 bg-black/50"
               onClick={() => setMobileDrawerOpen(false)}
             />
-            <aside className="relative w-72 max-w-[82vw] bg-[#08291A] text-white h-full flex flex-col z-10">
+            <aside className="relative w-72 max-w-[82vw] bg-[#0B2A6F] text-white h-full flex flex-col z-10">
               <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
-                <div className="flex items-center gap-2.5">
-                  <OilcomCamelMark className="w-8 h-7" />
-                  <span className="font-display font-bold text-sm">
-                    OILCOM <span className="text-[#F5B800]">SUPER APP</span>
-                  </span>
+                <div className="flex items-center gap-2">
+                  <OilcomCamelMark className="w-8 h-8" />
+                  <OilcomWordmark className="w-28 h-8" />
                 </div>
                 <button
                   type="button"
@@ -1174,8 +1174,8 @@ export default function App() {
                       onClick={() => navigate(item.route)}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium cursor-pointer ${
                         active
-                          ? 'bg-[#F5B800] text-[#08291A] font-bold'
-                          : 'text-emerald-100/90 hover:bg-white/10'
+                          ? 'bg-[#F5B800] text-[#0B2A6F] font-bold'
+                          : 'text-blue-100/90 hover:bg-white/10'
                       }`}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -1191,7 +1191,7 @@ export default function App() {
         {/* Main Viewport Column */}
         <div className="flex-1 lg:pl-[260px] flex flex-col min-w-0">
           {/* 3-Zone Top Header Bar */}
-          <header className="h-14 lg:h-16 sticky top-0 z-30 bg-[#08291A] lg:bg-white/95 lg:dark:bg-[#0e1712]/95 lg:backdrop-blur-md border-b border-white/10 lg:border-neutral-200 lg:dark:border-emerald-950 px-3 sm:px-6 flex items-center justify-between gap-2">
+          <header className="h-14 lg:h-16 sticky top-0 z-30 bg-[#0B2A6F] lg:bg-white/95 lg:dark:bg-[#0B1326]/95 lg:backdrop-blur-md border-b border-white/10 lg:border-neutral-200 lg:dark:border-blue-950 px-3 sm:px-6 flex items-center justify-between gap-2">
             {/* Zone 1: Brand / Drawer Trigger */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-initial overflow-hidden">
               <button
@@ -1205,17 +1205,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
-                className="lg:hidden flex items-center gap-2 cursor-pointer min-w-0 text-left"
+                className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left"
               >
-                <OilcomCamelMark className="w-7 h-6 shrink-0" />
-                <div className="leading-none min-w-0">
-                  <p className="font-display font-extrabold text-sm tracking-tight text-white truncate">
-                    OILCOM
-                  </p>
-                  <p className="font-display font-bold text-[10px] tracking-wider text-[#F5B800] truncate mt-0.5">
-                    SUPER APP
-                  </p>
-                </div>
+                <OilcomWordmark className="w-24 h-8" />
               </button>
               <span className="hidden lg:inline font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
                 {navItems.find((n) => n.route === route)?.label || 'OILCOM'}
@@ -1229,7 +1221,7 @@ export default function App() {
                 setNotifOpen(false);
                 setSearchOpen(true);
               }}
-              className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#121b16] border border-transparent lg:border-neutral-200 lg:dark:border-emerald-950 text-xs text-emerald-100/80 lg:text-neutral-500 lg:dark:text-neutral-400 w-56 lg:w-64 cursor-pointer shrink-0"
+              className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#0E172E] border border-transparent lg:border-neutral-200 lg:dark:border-blue-950 text-xs text-blue-100/80 lg:text-neutral-500 lg:dark:text-neutral-400 w-56 lg:w-64 cursor-pointer shrink-0"
             >
               <Search className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{t(lang, 'searchPlaceholder')}</span>
@@ -1252,7 +1244,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
-                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#121b16] text-white lg:text-neutral-800 lg:dark:text-neutral-200 text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#0E172E] text-white lg:text-neutral-800 lg:dark:text-neutral-200 text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Globe className="w-3.5 h-3.5 text-[#F5B800]" />
                 {lang.toUpperCase()}
@@ -1261,7 +1253,7 @@ export default function App() {
                 type="button"
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 aria-label="Toggle theme"
-                className="p-2 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#121b16] text-white lg:text-neutral-800 lg:dark:text-neutral-200 cursor-pointer shrink-0"
+                className="p-2 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#0E172E] text-white lg:text-neutral-800 lg:dark:text-neutral-200 cursor-pointer shrink-0"
               >
                 {theme === 'light' ? (
                   <Moon className="w-4 h-4 text-[#F5B800]" />
@@ -1276,11 +1268,11 @@ export default function App() {
                   setNotifOpen((prev) => !prev);
                 }}
                 aria-label="Notifications"
-                className="relative p-2 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#121b16] text-white lg:text-neutral-800 lg:dark:text-neutral-200 cursor-pointer shrink-0"
+                className="relative p-2 rounded-lg bg-white/10 lg:bg-neutral-100 lg:dark:bg-[#0E172E] text-white lg:text-neutral-800 lg:dark:text-neutral-200 cursor-pointer shrink-0"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#F5B800] text-[#08291A] text-[10px] font-bold flex items-center justify-center font-mono-num">
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#D92027] text-white text-[10px] font-bold flex items-center justify-center font-mono-num">
                     {unreadCount}
                   </span>
                 )}
@@ -1295,10 +1287,10 @@ export default function App() {
               onClick={() => setSearchOpen(false)}
             >
               <div
-                className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-3.5 sm:p-4 shadow-xl space-y-3"
+                className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 shadow-xl space-y-3"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center gap-2 border-b border-neutral-100 dark:border-emerald-950 pb-2.5">
+                <div className="flex items-center gap-2 border-b border-neutral-100 dark:border-blue-950 pb-2.5">
                   <Search className="w-4 h-4 text-[#F5B800] shrink-0" />
                   <input
                     type="text"
@@ -1340,7 +1332,7 @@ export default function App() {
                         key={r.route}
                         type="button"
                         onClick={() => navigate(r.route)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-emerald-950/40 font-semibold text-neutral-900 dark:text-white cursor-pointer"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-blue-950/40 font-semibold text-neutral-900 dark:text-white cursor-pointer"
                       >
                         {r.label}
                       </button>
@@ -1358,10 +1350,10 @@ export default function App() {
                                 : 'gas'
                           )
                         }
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-emerald-950/40 flex justify-between gap-2 text-neutral-900 dark:text-white cursor-pointer"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-blue-950/40 flex justify-between gap-2 text-neutral-900 dark:text-white cursor-pointer"
                       >
                         <span className="truncate">{lang === 'sw' ? p.nameSw : p.nameEn}</span>
-                        <span className="font-mono-num font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                        <span className="font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                           TZS {p.priceTzs.toLocaleString()}
                         </span>
                       </button>
@@ -1371,7 +1363,7 @@ export default function App() {
                         key={s.id}
                         type="button"
                         onClick={() => navigate('stations')}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-emerald-950/40 cursor-pointer"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-blue-950/40 cursor-pointer"
                       >
                         <p className="font-semibold text-neutral-900 dark:text-white">{s.name}</p>
                         <p className="text-neutral-500">{s.address}</p>
@@ -1396,7 +1388,7 @@ export default function App() {
                           key={n.route}
                           type="button"
                           onClick={() => navigate(n.route)}
-                          className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-emerald-950/60 text-neutral-800 dark:text-neutral-200 text-xs font-medium hover:bg-[#F5B800] hover:text-[#08291A] transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60 text-neutral-800 dark:text-neutral-200 text-xs font-medium hover:bg-[#F5B800] hover:text-[#0B2A6F] transition-colors cursor-pointer"
                         >
                           {n.label}
                         </button>
@@ -1415,10 +1407,10 @@ export default function App() {
               onClick={() => setNotifOpen(false)}
             >
               <div
-                className="w-full max-w-md rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-5 shadow-xl space-y-4 max-h-[78vh] flex flex-col"
+                className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 shadow-xl space-y-4 max-h-[78vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between gap-2 border-b border-neutral-100 dark:border-emerald-950 pb-3">
+                <div className="flex items-center justify-between gap-2 border-b border-neutral-100 dark:border-blue-950 pb-3">
                   <div className="flex items-center gap-2">
                     <Bell className="w-4 h-4 text-[#F5B800]" />
                     <h2 className="font-display font-bold text-base text-neutral-900 dark:text-white">
@@ -1430,7 +1422,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={handleMarkAllNotificationsRead}
-                        className="text-xs font-semibold text-[#08291A] dark:text-[#F5B800] hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
                       >
                         {lang === 'sw' ? 'Soma zote' : 'Mark all read'}
                       </button>
@@ -1446,7 +1438,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-emerald-950">
+                <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
                   {notifications.length === 0 ? (
                     <div className="py-10 text-center text-xs text-neutral-500">
                       {lang === 'sw'
@@ -1478,7 +1470,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handleMarkNotificationRead(n.id)}
-                            className="px-2.5 py-1 rounded-lg bg-[#F5B800] text-[#08291A] text-[11px] font-bold shrink-0 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-[#F5B800] text-[#0B2A6F] text-[11px] font-bold shrink-0 cursor-pointer"
                           >
                             {lang === 'sw' ? 'Soma' : 'Read'}
                           </button>
@@ -1494,7 +1486,7 @@ export default function App() {
                     setNotifOpen(false);
                     navigate('profile');
                   }}
-                  className="w-full py-2 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer"
+                  className="w-full py-2 rounded-xl bg-neutral-100 dark:bg-blue-950/60 text-xs font-semibold text-neutral-800 dark:text-neutral-200 cursor-pointer"
                 >
                   {lang === 'sw' ? 'Fungua Wasifu & Msaada' : 'Open Profile & Settings'}
                 </button>
@@ -1699,7 +1691,7 @@ export default function App() {
 
             return (
               <nav
-                className={`lg:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-[#08291A] border-t border-white/10 grid ${gridColsClass}`}
+                className={`lg:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-[#0B2A6F] border-t border-white/10 grid ${gridColsClass}`}
               >
                 {mobileTabs.map((item) => {
                   const Icon = item.icon;
@@ -1710,7 +1702,7 @@ export default function App() {
                       type="button"
                       onClick={() => navigate(item.route)}
                       className={`flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-medium cursor-pointer ${
-                        active ? 'text-[#F5B800]' : 'text-emerald-100/80'
+                        active ? 'text-[#F5B800]' : 'text-blue-100/80'
                       }`}
                     >
                       <Icon className="w-5 h-5" />

@@ -146,7 +146,7 @@ export function ProfileAndSupportModule({
   return (
     <div className="space-y-3.5 sm:space-y-5">
       {/* Header Profile Card */}
-      <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 flex items-center justify-between gap-3 sm:gap-4">
+      <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 flex items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           {user.photoUrl ? (
             <img
@@ -156,7 +156,7 @@ export function ProfileAndSupportModule({
               className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#F5B800] shrink-0"
             />
           ) : (
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#08291A] text-[#F5B800] font-display font-bold text-xl sm:text-2xl flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#0B2A6F] text-[#F5B800] font-display font-bold text-xl sm:text-2xl flex items-center justify-center shrink-0">
               {user.fullName.slice(0, 1).toUpperCase()}
             </div>
           )}
@@ -182,7 +182,7 @@ export function ProfileAndSupportModule({
 
       {/* Admin Workspace View Switcher (strictly for verified Admin) */}
       {user.role === 'admin' && (
-        <div className="rounded-2xl bg-[#08291A] text-white p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+        <div className="rounded-2xl bg-[#0B2A6F] text-white p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
           <div className="text-xs">
             <span className="font-bold text-[#F5B800]">Admin Workspace Preview:</span>{' '}
             {lang === 'sw'
@@ -206,7 +206,7 @@ export function ProfileAndSupportModule({
                 onClick={() => setPreviewRole(r === 'admin' ? null : r)}
                 className={`px-2 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[11px] font-semibold text-center cursor-pointer ${
                   effectiveRole === r
-                    ? 'bg-[#F5B800] text-[#0b120e]'
+                    ? 'bg-[#F5B800] text-[#071A4A]'
                     : 'bg-white/10 text-white'
                 }`}
               >
@@ -223,7 +223,7 @@ export function ProfileAndSupportModule({
       {/* Mobile Clean List Menu (< lg) when viewing profile overview */}
       {!mobileSubOpen && (
         <div className="lg:hidden space-y-3">
-          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 divide-y divide-neutral-100 dark:divide-emerald-950 overflow-hidden">
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 divide-y divide-neutral-100 dark:divide-blue-950 overflow-hidden">
             {(
               [
                 ['info', t(lang, 'myInfo'), User],
@@ -242,10 +242,10 @@ export function ProfileAndSupportModule({
                   setSection(k);
                   setMobileSubOpen(true);
                 }}
-                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-neutral-50 dark:hover:bg-emerald-950/30 cursor-pointer"
+                className="w-full px-4 py-3.5 flex items-center justify-between text-left hover:bg-neutral-50 dark:hover:bg-blue-950/30 cursor-pointer"
               >
                 <span className="flex items-center gap-3 text-sm font-semibold text-neutral-900 dark:text-white">
-                  <Icon className="w-4 h-4 text-[#08291A] dark:text-[#F5B800]" />
+                  <Icon className="w-4 h-4 text-[#0B2A6F] dark:text-[#F5B800]" />
                   {label}
                 </span>
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
@@ -258,10 +258,10 @@ export function ProfileAndSupportModule({
               className="w-full px-4 py-3.5 flex items-center justify-between text-left cursor-pointer"
             >
               <span className="flex items-center gap-3 text-sm font-semibold text-neutral-900 dark:text-white">
-                <Globe className="w-4 h-4 text-[#08291A] dark:text-[#F5B800]" />
+                <Globe className="w-4 h-4 text-[#0B2A6F] dark:text-[#F5B800]" />
                 {t(lang, 'languageLabel')}
               </span>
-              <span className="text-xs font-mono-num font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1">
+              <span className="text-xs font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1">
                 {lang === 'sw' ? 'Kiswahili' : 'English'}
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
               </span>
@@ -280,7 +280,7 @@ export function ProfileAndSupportModule({
                 )}
                 {t(lang, 'themeLabel')}
               </span>
-              <span className="text-xs font-mono-num font-bold capitalize text-[#08291A] dark:text-[#F5B800] flex items-center gap-1">
+              <span className="text-xs font-mono-num font-bold capitalize text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1">
                 {theme}
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
               </span>
@@ -303,7 +303,7 @@ export function ProfileAndSupportModule({
         <button
           type="button"
           onClick={() => setMobileSubOpen(false)}
-          className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 text-xs font-bold text-neutral-900 dark:text-white cursor-pointer"
+          className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 text-xs font-bold text-neutral-900 dark:text-white cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
           {lang === 'sw' ? 'Rudi Wasifu' : 'Back to Profile'}
@@ -315,13 +315,13 @@ export function ProfileAndSupportModule({
         <button
           type="button"
           onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
-          className="p-4 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 flex items-center justify-between cursor-pointer"
+          className="p-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 flex items-center justify-between cursor-pointer"
         >
           <span className="flex items-center gap-3 text-sm font-semibold">
             <Globe className="w-5 h-5 text-[#F5B800]" />
             {t(lang, 'languageLabel')}
           </span>
-          <span className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800]">
+          <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800]">
             {lang === 'sw' ? 'Kiswahili (Default)' : 'English'}
           </span>
         </button>
@@ -329,7 +329,7 @@ export function ProfileAndSupportModule({
         <button
           type="button"
           onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          className="p-4 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 flex items-center justify-between cursor-pointer"
+          className="p-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 flex items-center justify-between cursor-pointer"
         >
           <span className="flex items-center gap-3 text-sm font-semibold">
             {theme === 'light' ? (
@@ -339,14 +339,14 @@ export function ProfileAndSupportModule({
             )}
             {t(lang, 'themeLabel')}
           </span>
-          <span className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800] capitalize">
+          <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] capitalize">
             {theme}
           </span>
         </button>
       </div>
 
       {/* Section Tabs (Desktop) */}
-      <div className="hidden lg:flex flex-wrap gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 w-fit">
+      <div className="hidden lg:flex flex-wrap gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 w-fit">
         {(
           [
             ['info', t(lang, 'myInfo'), User],
@@ -364,7 +364,7 @@ export function ProfileAndSupportModule({
             onClick={() => setSection(k)}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
               section === k
-                ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800]'
+                ? 'bg-white dark:bg-[#0E172E] text-neutral-900 dark:text-[#F5B800]'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
           >
@@ -379,10 +379,10 @@ export function ProfileAndSupportModule({
       {section === 'info' && (
         <form
           onSubmit={handleSaveProfile}
-          className="max-w-xl rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
+          className="max-w-xl rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
         >
           {savedMsg && (
-            <p className="text-xs text-emerald-700 dark:text-emerald-300">{savedMsg}</p>
+            <p className="text-xs text-blue-700 dark:text-blue-300">{savedMsg}</p>
           )}
           <div>
             <label className="block text-xs font-semibold mb-1">
@@ -393,7 +393,7 @@ export function ProfileAndSupportModule({
               required
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
             />
           </div>
           <div>
@@ -405,7 +405,7 @@ export function ProfileAndSupportModule({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+255 712 345 678"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
             />
           </div>
           {(effectiveRole === 'customer' || effectiveRole === 'admin') && (
@@ -418,13 +418,13 @@ export function ProfileAndSupportModule({
                 value={vehiclePlate}
                 onChange={(e) => setVehiclePlate(e.target.value)}
                 placeholder="T 123 ABC"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num uppercase"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num uppercase"
               />
             </div>
           )}
           <button
             type="submit"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#F5B800] text-[#0b120e] font-bold text-xs cursor-pointer"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#F5B800] text-[#071A4A] font-bold text-xs cursor-pointer"
           >
             {t(lang, 'save')}
           </button>
@@ -435,7 +435,7 @@ export function ProfileAndSupportModule({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
           <form
             onSubmit={handleAddAddress}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3"
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3"
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-display font-bold text-base flex items-center gap-2">
@@ -445,7 +445,7 @@ export function ProfileAndSupportModule({
               <button
                 type="button"
                 onClick={() => setMapPickerOpen(true)}
-                className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer shrink-0"
+                className="text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1 hover:underline cursor-pointer shrink-0"
               >
                 <MapPin className="w-3.5 h-3.5" />
                 {lang === 'sw' ? 'Chagua Kwenye Ramani' : 'Pick on Map'}
@@ -456,7 +456,7 @@ export function ProfileAndSupportModule({
               value={addrForm.label}
               onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })}
               placeholder="Label (Nyumbani / Ofisini)"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <input
               type="text"
@@ -464,38 +464,38 @@ export function ProfileAndSupportModule({
               value={addrForm.street}
               onChange={(e) => setAddrForm({ ...addrForm, street: e.target.value })}
               placeholder="Mtaa / Nyumba (e.g. Sinza Mori, Plot 42)"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
                 value={addrForm.city}
                 onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
               <input
                 type="text"
                 value={addrForm.region}
                 onChange={(e) => setAddrForm({ ...addrForm, region: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               />
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
             >
               {t(lang, 'save')}
             </button>
           </form>
 
-          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3">
+          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3">
             {addresses.length === 0 ? (
               <p className="text-xs text-neutral-500 py-6 text-center">{t(lang, 'noResults')}</p>
             ) : (
               addresses.map((a) => (
                 <div
                   key={a.id}
-                  className="p-3 rounded-xl border border-neutral-200 dark:border-emerald-950 flex items-center justify-between gap-2 text-xs"
+                  className="p-3 rounded-xl border border-neutral-200 dark:border-blue-950 flex items-center justify-between gap-2 text-xs"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{a.label}</p>
@@ -518,7 +518,7 @@ export function ProfileAndSupportModule({
       )}
 
       {section === 'notifications' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-emerald-950">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 divide-y divide-neutral-100 dark:divide-blue-950">
           {notifications.length === 0 ? (
             <p className="text-xs text-neutral-500 py-8 text-center">{t(lang, 'noResults')}</p>
           ) : (
@@ -542,7 +542,7 @@ export function ProfileAndSupportModule({
                   <button
                     type="button"
                     onClick={() => handleMarkRead(n.id)}
-                    className="px-3 py-1 rounded-lg bg-[#F5B800] text-[#0b120e] text-xs font-bold shrink-0 cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-[#F5B800] text-[#071A4A] text-xs font-bold shrink-0 cursor-pointer"
                   >
                     {lang === 'sw' ? 'Soma' : 'Mark Read'}
                   </button>
@@ -554,12 +554,12 @@ export function ProfileAndSupportModule({
       )}
 
       {section === 'help' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4">
           <h3 className="font-display font-bold text-base">
             {t(lang, 'supportFaq')}
           </h3>
           <div className="space-y-3 text-xs leading-relaxed">
-            <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-emerald-950/30">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-blue-950/30">
               <p className="font-bold">
                 {lang === 'sw'
                   ? 'Je, ninakusanyaje pointi za OILCOM Rewards?'
@@ -571,7 +571,7 @@ export function ProfileAndSupportModule({
                   : 'Present your personal HMAC-signed QR code in the Rewards tab to an authorized station agent after purchase.'}
               </p>
             </div>
-            <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-emerald-950/30">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-blue-950/30">
               <p className="font-bold">
                 {lang === 'sw'
                   ? 'Malipo ya M-Pesa / Airtel Money / Mixx by Yas yanafanyaje kazi?'
@@ -591,7 +591,7 @@ export function ProfileAndSupportModule({
       )}
 
       {section === 'legal' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
           <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2">
             <Shield className="w-4 h-4 text-[#F5B800]" />
             {t(lang, 'privacyPolicy')} & {t(lang, 'termsConditions')}

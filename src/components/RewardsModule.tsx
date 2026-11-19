@@ -197,8 +197,8 @@ export function RewardsModule({
 
       {/* Points + Signed QR Code Split */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3.5 sm:gap-6">
-        <div className="lg:col-span-2 min-w-0 rounded-2xl bg-[#08291A] text-white p-4 sm:p-6 flex flex-col items-center text-center justify-between">
-          <div className="w-full flex items-center justify-between text-xs text-emerald-200/80 mb-3 sm:mb-4">
+        <div className="lg:col-span-2 min-w-0 rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-6 flex flex-col items-center text-center justify-between">
+          <div className="w-full flex items-center justify-between text-xs text-blue-200/80 mb-3 sm:mb-4">
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#F5B800]" />
               {lang === 'sw' ? 'QR Iliyosainiwa' : 'HMAC Signed QR'}
@@ -219,7 +219,7 @@ export function RewardsModule({
               <QRCodeCanvas value={qrToken} size={184} level="M" />
             ) : qrLoading ? (
               <div className="w-[184px] h-[184px] flex flex-col items-center justify-center gap-2 text-xs text-neutral-500">
-                <RefreshCw className="w-5 h-5 animate-spin text-[#08291A]" />
+                <RefreshCw className="w-5 h-5 animate-spin text-[#0B2A6F]" />
                 <span>{t(lang, 'loading')}</span>
               </div>
             ) : (
@@ -235,7 +235,7 @@ export function RewardsModule({
             <p className="font-mono-num text-sm font-bold text-[#F5B800]">
               {customerCode}
             </p>
-            <p className="text-xs text-emerald-100/75 mt-1">
+            <p className="text-xs text-blue-100/75 mt-1">
               {qrToken && expiresAt
                 ? `${lang === 'sw' ? 'Inaisha' : 'Expires'}: ${new Date(expiresAt).toLocaleTimeString()}`
                 : qrError
@@ -277,7 +277,7 @@ export function RewardsModule({
 
         {/* Balance, Tiers & Referral */}
         <div className="lg:col-span-3 space-y-3.5 sm:space-y-4 min-w-0">
-          <div className="rounded-2xl bg-[#F5B800] text-[#0b120e] p-4 sm:p-6 grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="rounded-2xl bg-[#F5B800] text-[#071A4A] p-4 sm:p-6 grid grid-cols-3 gap-2 sm:gap-4">
             <div className="min-w-0">
               <p className="text-[10px] sm:text-xs font-bold uppercase opacity-75 truncate">
                 {t(lang, 'pointsLabel')}
@@ -305,7 +305,7 @@ export function RewardsModule({
           </div>
 
           {/* Referral Card */}
-          <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               <div className="min-w-0">
                 <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2">
@@ -326,11 +326,11 @@ export function RewardsModule({
                     profile?.referralCode || `CAMEL-${user.uid.slice(0, 5).toUpperCase()}`
                   )
                 }
-                className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-emerald-950/60 font-mono-num text-xs font-bold text-neutral-900 dark:text-[#F5B800] flex items-center gap-2 cursor-pointer shrink-0"
+                className="px-3 py-2 rounded-xl bg-neutral-100 dark:bg-blue-950/60 font-mono-num text-xs font-bold text-neutral-900 dark:text-[#F5B800] flex items-center gap-2 cursor-pointer shrink-0"
               >
                 {profile?.referralCode || `CAMEL-${user.uid.slice(0, 5).toUpperCase()}`}
                 {copiedKey === 'ref' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <Check className="w-3.5 h-3.5 text-blue-600" />
                 ) : (
                   <Copy className="w-3.5 h-3.5" />
                 )}
@@ -344,23 +344,23 @@ export function RewardsModule({
                   value={refInput}
                   onChange={(e) => setRefInput(e.target.value)}
                   placeholder="CAMEL-XXXXX"
-                  className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num uppercase"
+                  className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num uppercase"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer shrink-0"
+                  className="px-4 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer shrink-0"
                 >
                   {t(lang, 'submit')}
                 </button>
               </form>
             ) : (
-              <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300">
+              <p className="mt-3 text-xs text-blue-700 dark:text-blue-300">
                 {lang === 'sw' ? 'Ulialikwa na:' : 'Referred by:'}{' '}
                 <span className="font-mono-num font-semibold">{profile.referredBy}</span>
               </p>
             )}
             {refStatus && (
-              <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+              <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">
                 {refStatus}
               </p>
             )}
@@ -369,14 +369,14 @@ export function RewardsModule({
       </div>
 
       {/* Rewards Redemption Catalog */}
-      <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+      <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-4">
           <h2 className="font-display text-base sm:text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
             <Gift className="w-5 h-5 text-[#F5B800] shrink-0" />
             {t(lang, 'redeemPoints')}
           </h2>
           {redeemFeedback && (
-            <span className="text-xs font-medium text-emerald-700 dark:text-[#F5B800]">
+            <span className="text-xs font-medium text-blue-700 dark:text-[#F5B800]">
               {redeemFeedback}
             </span>
           )}
@@ -385,7 +385,7 @@ export function RewardsModule({
           {REWARD_CATALOG.map((rw) => (
             <div
               key={rw.id}
-              className="p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-emerald-950 flex flex-col justify-between gap-3"
+              className="p-3.5 sm:p-4 rounded-xl border border-neutral-200 dark:border-blue-950 flex flex-col justify-between gap-3"
             >
               <div>
                 <p className="font-semibold text-sm text-neutral-900 dark:text-white leading-snug">
@@ -399,7 +399,7 @@ export function RewardsModule({
                 type="button"
                 disabled={redeemBusy === rw.id}
                 onClick={() => handleRedeem(rw)}
-                className="w-full py-2 px-3 rounded-xl bg-[#08291A] hover:bg-[#0d3b26] text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full py-2 px-3 rounded-xl bg-[#0B2A6F] hover:bg-[#13419E] text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
               >
                 {redeemBusy === rw.id ? t(lang, 'loading') : t(lang, 'redeemPoints')}
               </button>
@@ -410,7 +410,7 @@ export function RewardsModule({
 
       {/* Digital Vouchers & Points History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
           <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2 mb-3 sm:mb-4">
             <Ticket className="w-4 h-4 text-[#F5B800]" />
             {lang === 'sw' ? 'Vocha Zangu za Kidijitali' : 'My Digital Vouchers'}
@@ -424,7 +424,7 @@ export function RewardsModule({
               {vouchers.map((v) => (
                 <div
                   key={v.id}
-                  className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-emerald-950/30 border border-neutral-200 dark:border-emerald-900 flex items-center justify-between gap-3"
+                  className="p-3 sm:p-3.5 rounded-xl bg-neutral-50 dark:bg-blue-950/30 border border-neutral-200 dark:border-blue-900 flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
@@ -434,7 +434,7 @@ export function RewardsModule({
                       {v.promoCode} · {v.status}
                     </p>
                   </div>
-                  <span className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                  <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                     {formatTzs(v.discountTzs)}
                   </span>
                 </div>
@@ -443,7 +443,7 @@ export function RewardsModule({
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
           <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white mb-3 sm:mb-4">
             {lang === 'sw' ? 'Historia ya Pointi' : 'Points Transaction History'}
           </h3>
@@ -454,7 +454,7 @@ export function RewardsModule({
                 : 'No points transactions yet.'}
             </p>
           ) : (
-            <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="divide-y divide-neutral-100 dark:divide-blue-950">
               {transactions.map((tx) => (
                 <div
                   key={tx.id}
@@ -471,7 +471,7 @@ export function RewardsModule({
                   <span
                     className={`font-mono-num text-xs font-bold shrink-0 ${
                       tx.type === 'earn' || tx.type === 'referral_bonus'
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-blue-600 dark:text-blue-400'
                         : 'text-amber-600 dark:text-[#F5B800]'
                     }`}
                   >
@@ -487,7 +487,7 @@ export function RewardsModule({
 
       {/* Active Promotions */}
       {promotions.length > 0 && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
           <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white mb-3">
             {lang === 'sw' ? 'Promosheni Zinazoendelea' : 'Active Promotions'}
           </h3>
@@ -495,13 +495,13 @@ export function RewardsModule({
             {promotions.map((p) => (
               <div
                 key={p.id}
-                className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-emerald-950/30 border border-neutral-200 dark:border-emerald-900"
+                className="p-3.5 sm:p-4 rounded-xl bg-neutral-50 dark:bg-blue-950/30 border border-neutral-200 dark:border-blue-900"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
                     {lang === 'sw' ? p.titleSw : p.titleEn}
                   </p>
-                  <span className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+                  <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                     {p.pointsMultiplier}x
                   </span>
                 </div>

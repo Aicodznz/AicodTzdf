@@ -278,7 +278,7 @@ function TrackingWorkspace({
           const polys = primaryRoute.createPolylines();
           polys.forEach((p) => {
             p.setOptions({
-              strokeColor: '#08291A',
+              strokeColor: '#0B2A6F',
               strokeOpacity: 0.92,
               strokeWeight: 5,
             });
@@ -378,7 +378,7 @@ function TrackingWorkspace({
   const isNative3D = viewMode === '3d' && supportsWebGL2;
 
   return (
-    <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f]">
+    <div className="rounded-xl overflow-hidden border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022]">
       <div className="h-[260px] sm:h-[300px] w-full relative">
         {isNative3D ? (
           <Map3D
@@ -402,7 +402,7 @@ function TrackingWorkspace({
                 coordinates={routePath3D}
                 altitudeMode={AltitudeMode.CLAMP_TO_GROUND}
                 strokeColor="#F5B800"
-                outerColor="#08291A"
+                outerColor="#0B2A6F"
                 strokeWidth={7}
                 outerWidth={2}
               />
@@ -415,7 +415,7 @@ function TrackingWorkspace({
               title={station.name}
             >
               <Pin
-                background="#08291A"
+                background="#0B2A6F"
                 borderColor="#F5B800"
                 glyphColor="#F5B800"
                 scale={1.05}
@@ -435,8 +435,8 @@ function TrackingWorkspace({
               >
                 <Pin
                   background="#F5B800"
-                  borderColor="#08291A"
-                  glyphColor="#08291A"
+                  borderColor="#0B2A6F"
+                  glyphColor="#0B2A6F"
                   scale={1.05}
                 />
               </Marker3D>
@@ -454,8 +454,8 @@ function TrackingWorkspace({
                 title={delivery?.driverName || 'OILCOM Delivery Rider'}
               >
                 <Pin
-                  background="#10B981"
-                  borderColor="#FFFFFF"
+                  background="#D92027"
+                  borderColor="#F5B800"
                   glyphColor="#FFFFFF"
                   scale={1.15}
                 />
@@ -480,7 +480,7 @@ function TrackingWorkspace({
             {/* Origin Station Marker */}
             <AdvancedMarker position={origin} title={station.name}>
               <Pin
-                background="#08291A"
+                background="#0B2A6F"
                 borderColor="#F5B800"
                 glyphColor="#F5B800"
                 scale={1.05}
@@ -492,8 +492,8 @@ function TrackingWorkspace({
               <AdvancedMarker position={destCoords} title={order.deliveryAddress}>
                 <Pin
                   background="#F5B800"
-                  borderColor="#08291A"
-                  glyphColor="#08291A"
+                  borderColor="#0B2A6F"
+                  glyphColor="#0B2A6F"
                   scale={1.05}
                 />
               </AdvancedMarker>
@@ -505,7 +505,7 @@ function TrackingWorkspace({
                 position={driverCoords}
                 title={delivery?.driverName || 'OILCOM Delivery Rider'}
               >
-                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#08291A] text-[#F5B800] border-2 border-[#F5B800] shadow-md text-[11px] font-bold">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[#0B2A6F] text-[#F5B800] border-2 border-[#F5B800] shadow-md text-[11px] font-bold">
                   <Truck className="w-3.5 h-3.5" />
                   <span>{delivery?.vehiclePlate || 'OILCOM'}</span>
                 </div>
@@ -521,8 +521,8 @@ function TrackingWorkspace({
             onClick={toggleViewMode}
             className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold shadow-sm border cursor-pointer transition-colors ${
               viewMode === '3d'
-                ? 'bg-[#F5B800] text-[#08291A] border-[#F5B800]'
-                : 'bg-white/95 dark:bg-[#121b16]/95 text-[#08291A] dark:text-[#F5B800] border-neutral-200 dark:border-emerald-900'
+                ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
+                : 'bg-white/95 dark:bg-[#0E172E]/95 text-[#0B2A6F] dark:text-[#F5B800] border-neutral-200 dark:border-blue-900'
             }`}
           >
             {viewMode === '3d' ? '2D' : '3D'}
@@ -532,7 +532,7 @@ function TrackingWorkspace({
             <button
               type="button"
               onClick={() => setAnimPaused((p) => !p)}
-              className="px-2.5 py-1.5 rounded-lg bg-[#08291A]/95 text-[#F5B800] text-[11px] font-bold shadow-sm flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg bg-[#0B2A6F]/95 text-[#F5B800] text-[11px] font-bold shadow-sm flex items-center gap-1 cursor-pointer"
             >
               {animPaused ? (
                 <Play className="w-3 h-3" />
@@ -548,16 +548,16 @@ function TrackingWorkspace({
         </div>
 
         {loading && (
-          <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-[#0e1712]/95 text-[11px] font-semibold flex items-center gap-1.5 shadow-sm">
+          <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-white/95 dark:bg-[#0B1326]/95 text-[11px] font-semibold flex items-center gap-1.5 shadow-sm">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F5B800]" />
             <span>{lang === 'sw' ? 'Inachora njia...' : 'Loading route...'}</span>
           </div>
         )}
       </div>
 
-      <div className="p-3 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-neutral-200 dark:border-emerald-950">
+      <div className="p-3 flex flex-wrap items-center justify-between gap-2 text-xs border-t border-neutral-200 dark:border-blue-950">
         <div className="flex items-center gap-2 min-w-0">
-          <Store className="w-4 h-4 text-[#08291A] dark:text-[#F5B800] shrink-0" />
+          <Store className="w-4 h-4 text-[#0B2A6F] dark:text-[#F5B800] shrink-0" />
           <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">
             {station.name}
           </span>
@@ -578,7 +578,7 @@ function TrackingWorkspace({
         </div>
 
         {routeMeta && (
-          <div className="flex items-center gap-1.5 font-mono-num font-bold text-[#08291A] dark:text-[#F5B800] shrink-0">
+          <div className="flex items-center gap-1.5 font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
             <Clock className="w-3.5 h-3.5" />
             <span>
               {routeMeta.distanceKm} km · ~{delivery?.etaMinutes || routeMeta.etaMin}{' '}
@@ -600,7 +600,7 @@ export function OrderTrackingMap({
 }: OrderTrackingMapProps) {
   if (!googleMapsApiKey) {
     return (
-      <div className="p-4 rounded-xl bg-neutral-50 dark:bg-emerald-950/30 border border-neutral-200 dark:border-emerald-950 text-xs text-neutral-600 dark:text-neutral-300">
+      <div className="p-4 rounded-xl bg-neutral-50 dark:bg-blue-950/30 border border-neutral-200 dark:border-blue-950 text-xs text-neutral-600 dark:text-neutral-300">
         {lang === 'sw'
           ? `Uwasilishaji kwenda: ${order.deliveryAddress}`
           : `Delivery destination: ${order.deliveryAddress}`}

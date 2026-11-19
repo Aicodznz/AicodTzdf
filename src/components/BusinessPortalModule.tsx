@@ -301,12 +301,12 @@ export function BusinessPortalModule({
   if (!business) {
     return (
       <div className="max-w-2xl mx-auto space-y-3.5 sm:space-y-5">
-        <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-6">
+        <div className="rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-6">
           <h1 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">
             <Building2 className="w-6 h-6 text-[#F5B800] shrink-0" />
             {t(lang, 'businessPortal')}
           </h1>
-          <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
+          <p className="text-xs sm:text-sm text-blue-100/80 mt-1">
             {lang === 'sw'
               ? 'Sajili kampuni au taasisi yako kupata mafuta ya jumla, vilainishi na ankara za mikopo.'
               : 'Register your company or institution for bulk fuel supply, lubricants, and B2B invoicing.'}
@@ -315,13 +315,13 @@ export function BusinessPortalModule({
 
         <form
           onSubmit={handleRegisterBusiness}
-          className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
+          className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
         >
           <h2 className="font-display font-bold text-base sm:text-lg text-neutral-900 dark:text-white">
             {t(lang, 'registerBusiness')}
           </h2>
           {msg && (
-            <p className="text-xs text-emerald-700 dark:text-emerald-300">{msg}</p>
+            <p className="text-xs text-blue-700 dark:text-blue-300">{msg}</p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
@@ -336,7 +336,7 @@ export function BusinessPortalModule({
                   setRegForm({ ...regForm, companyName: e.target.value })
                 }
                 placeholder="Mfano: Kilimanjaro Logistics Ltd"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
               />
             </div>
             <div>
@@ -351,7 +351,7 @@ export function BusinessPortalModule({
                   setRegForm({ ...regForm, tinNumber: e.target.value })
                 }
                 placeholder="100-200-300"
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm font-mono-num"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
               />
             </div>
             <div>
@@ -365,7 +365,7 @@ export function BusinessPortalModule({
                 onChange={(e) =>
                   setRegForm({ ...regForm, contactEmail: e.target.value })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
               />
             </div>
             <div>
@@ -379,7 +379,7 @@ export function BusinessPortalModule({
                 onChange={(e) =>
                   setRegForm({ ...regForm, contactPhone: e.target.value })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
               />
             </div>
           </div>
@@ -391,13 +391,13 @@ export function BusinessPortalModule({
               type="text"
               value={regForm.industry}
               onChange={(e) => setRegForm({ ...regForm, industry: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm"
             />
           </div>
           <button
             type="submit"
             disabled={busy}
-            className="w-full py-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-bold text-sm cursor-pointer"
+            className="w-full py-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-sm cursor-pointer"
           >
             {busy ? t(lang, 'loading') : t(lang, 'registerBusiness')}
           </button>
@@ -408,7 +408,7 @@ export function BusinessPortalModule({
 
   return (
     <div className="space-y-3.5 sm:space-y-5">
-      <div className="rounded-2xl bg-[#08291A] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+      <div className="rounded-2xl bg-[#0B2A6F] text-white p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
         <div className="min-w-0">
           <p className="font-mono-num text-xs text-[#F5B800] truncate">
             TIN {business.tinNumber} · {business.approvalStatus.toUpperCase()}
@@ -416,7 +416,7 @@ export function BusinessPortalModule({
           <h1 className="font-display text-xl sm:text-2xl font-bold mt-0.5 truncate">
             {business.companyName}
           </h1>
-          <p className="text-xs text-emerald-100/80 mt-0.5 truncate">
+          <p className="text-xs text-blue-100/80 mt-0.5 truncate">
             {business.industry} · Terms: Net {business.paymentTermsDays} Days
           </p>
         </div>
@@ -445,13 +445,13 @@ export function BusinessPortalModule({
       )}
 
       {msg && (
-        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-xs text-emerald-800 dark:text-emerald-200">
+        <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-xs text-blue-800 dark:text-blue-200">
           {msg}
         </div>
       )}
 
       {/* Sub-Navigation */}
-      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-emerald-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-200/70 dark:bg-blue-950/60 w-full sm:w-fit overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(
           [
             ['overview', lang === 'sw' ? 'Muhtasari' : 'Overview'],
@@ -466,7 +466,7 @@ export function BusinessPortalModule({
             onClick={() => setTab(key)}
             className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold text-center whitespace-nowrap shrink-0 cursor-pointer ${
               tab === key
-                ? 'bg-white dark:bg-[#121b16] text-neutral-900 dark:text-[#F5B800]'
+                ? 'bg-white dark:bg-[#0E172E] text-neutral-900 dark:text-[#F5B800]'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
           >
@@ -479,7 +479,7 @@ export function BusinessPortalModule({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
           <form
             onSubmit={handleBulkOrder}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5 sm:space-y-4"
           >
             <h2 className="font-display font-bold text-base sm:text-lg text-neutral-900 dark:text-white">
               {lang === 'sw' ? 'Agiza Mafuta au Vilainishi kwa Jumla' : 'Place Bulk B2B Order'}
@@ -491,7 +491,7 @@ export function BusinessPortalModule({
               <select
                 value={selectedProdId || b2bProducts[0]?.id || ''}
                 onChange={(e) => setSelectedProdId(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                className="w-full px-3 py-2.5 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
               >
                 {b2bProducts.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -511,7 +511,7 @@ export function BusinessPortalModule({
                   max={500}
                   value={qtyUnits}
                   onChange={(e) => setQtyUnits(Math.max(1, Number(e.target.value)))}
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs font-mono-num"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
                 />
               </div>
               <div>
@@ -522,7 +522,7 @@ export function BusinessPortalModule({
                   <button
                     type="button"
                     onClick={() => setMapPickerOpen(true)}
-                    className="text-[11px] font-bold text-[#08291A] dark:text-[#F5B800] flex items-center gap-0.5 hover:underline cursor-pointer shrink-0"
+                    className="text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-0.5 hover:underline cursor-pointer shrink-0"
                   >
                     <MapPin className="w-3 h-3" />
                     <span>{lang === 'sw' ? 'Ramani' : 'Map'}</span>
@@ -534,20 +534,20 @@ export function BusinessPortalModule({
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                   placeholder="Kurasini Industrial Area"
-                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
                 />
               </div>
             </div>
             <button
               type="submit"
               disabled={busy || b2bProducts.length === 0}
-              className="w-full py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-bold text-xs cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs cursor-pointer"
             >
               {busy ? t(lang, 'loading') : t(lang, 'placeOrder')}
             </button>
           </form>
 
-          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white mb-3 sm:mb-4">
               {lang === 'sw' ? 'Takwimu za Oda (K TZS)' : 'Bulk Spend Overview (K TZS)'}
             </h3>
@@ -565,7 +565,7 @@ export function BusinessPortalModule({
                     <XAxis dataKey="name" fontSize={11} />
                     <YAxis fontSize={11} />
                     <Tooltip />
-                    <Bar dataKey="total" fill="#08291A" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="total" fill="#0B2A6F" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -575,7 +575,7 @@ export function BusinessPortalModule({
       )}
 
       {tab === 'orders' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
               {t(lang, 'bulkOrders')}
@@ -584,7 +584,7 @@ export function BusinessPortalModule({
               <button
                 type="button"
                 onClick={handleExportOrdersCsv}
-                className="px-3 py-1.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5 text-[#F5B800]" />
                 <span>Export CSV</span>
@@ -594,14 +594,14 @@ export function BusinessPortalModule({
           {businessOrders.length === 0 ? (
             <p className="text-xs text-neutral-500 py-6 text-center">{t(lang, 'noResults')}</p>
           ) : (
-            <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="divide-y divide-neutral-100 dark:divide-blue-950">
               {businessOrders.map((ord) => (
                 <div
                   key={ord.id}
                   className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                 >
                   <div className="min-w-0">
-                    <p className="font-mono-num text-xs font-bold text-[#08291A] dark:text-[#F5B800]">
+                    <p className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800]">
                       {ord.orderNumber} · {ord.approvalStatus.toUpperCase()} ·{' '}
                       {ord.deliveryStatus}
                     </p>
@@ -622,7 +622,7 @@ export function BusinessPortalModule({
                           <button
                             type="button"
                             onClick={() => handleOrderApproval(ord.id, 'approved')}
-                            className="p-1.5 rounded-lg bg-emerald-700 text-white cursor-pointer"
+                            className="p-1.5 rounded-lg bg-blue-700 text-white cursor-pointer"
                             title="Approve"
                           >
                             <CheckCircle2 className="w-4 h-4" />
@@ -646,7 +646,7 @@ export function BusinessPortalModule({
       )}
 
       {tab === 'invoices' && (
-        <div className="rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3.5">
+        <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#F5B800]" />
@@ -657,7 +657,7 @@ export function BusinessPortalModule({
                 <button
                   type="button"
                   onClick={handleExportInvoicesCsv}
-                  className="px-3 py-2 rounded-xl border border-[#08291A]/20 dark:border-emerald-900 bg-neutral-50 dark:bg-emerald-950/40 text-xs font-semibold text-[#08291A] dark:text-[#F5B800] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="px-3 py-2 rounded-xl border border-[#0B2A6F]/20 dark:border-blue-900 bg-neutral-50 dark:bg-blue-950/40 text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Export CSV</span>
@@ -665,7 +665,7 @@ export function BusinessPortalModule({
                 <button
                   type="button"
                   onClick={() => downloadBusinessStatementPdf(business, invoices)}
-                  className="px-3.5 py-2 rounded-xl bg-[#08291A] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="px-3.5 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5 text-[#F5B800]" />
                   {lang === 'sw' ? 'Pakua Taarifa (PDF)' : 'Statement PDF'}
@@ -676,7 +676,7 @@ export function BusinessPortalModule({
           {invoices.length === 0 ? (
             <p className="text-xs text-neutral-500 py-6 text-center">{t(lang, 'noResults')}</p>
           ) : (
-            <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+            <div className="divide-y divide-neutral-100 dark:divide-blue-950">
               {invoices.map((inv) => (
                 <div
                   key={inv.id}
@@ -698,7 +698,7 @@ export function BusinessPortalModule({
                     <button
                       type="button"
                       onClick={() => downloadInvoicePdf(inv, business)}
-                      className="px-3 py-1.5 rounded-lg bg-[#F5B800] text-[#0b120e] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#F5B800] text-[#071A4A] text-xs font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       PDF
@@ -715,7 +715,7 @@ export function BusinessPortalModule({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6">
           <form
             onSubmit={handleAddMember}
-            className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6 space-y-3"
+            className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3"
           >
             <h3 className="font-display font-bold text-base flex items-center gap-2">
               <Plus className="w-4 h-4 text-[#F5B800]" />
@@ -729,7 +729,7 @@ export function BusinessPortalModule({
                 setMemberForm({ ...memberForm, fullName: e.target.value })
               }
               placeholder={lang === 'sw' ? 'Jina Kamili' : 'Full Name'}
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <input
               type="email"
@@ -739,7 +739,7 @@ export function BusinessPortalModule({
                 setMemberForm({ ...memberForm, email: e.target.value })
               }
               placeholder="employee@company.tz"
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             />
             <select
               value={memberForm.memberRole}
@@ -749,20 +749,20 @@ export function BusinessPortalModule({
                   memberRole: e.target.value as 'approver' | 'buyer',
                 })
               }
-              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-emerald-950 bg-neutral-50 dark:bg-[#0c130f] text-xs"
+              className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs"
             >
               <option value="buyer">Buyer (Can Request Orders)</option>
               <option value="approver">Approver (Can Approve Orders)</option>
             </select>
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-[#08291A] text-white text-xs font-semibold cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
             >
               {t(lang, 'save')}
             </button>
           </form>
 
-          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#121b16] border border-neutral-200 dark:border-emerald-950 p-4 sm:p-6">
+          <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6">
             <h3 className="font-display font-bold text-base flex items-center gap-2 mb-3">
               <Users className="w-4 h-4 text-[#F5B800]" />
               {t(lang, 'teamMembers')}
@@ -774,7 +774,7 @@ export function BusinessPortalModule({
                   : 'No additional employees added yet.'}
               </p>
             ) : (
-              <div className="divide-y divide-neutral-100 dark:divide-emerald-950">
+              <div className="divide-y divide-neutral-100 dark:divide-blue-950">
                 {members.map((m) => (
                   <div key={m.id} className="py-2.5 flex items-center justify-between gap-2 text-xs">
                     <div className="min-w-0">
@@ -783,7 +783,7 @@ export function BusinessPortalModule({
                       </p>
                       <p className="text-neutral-500 truncate">{m.email}</p>
                     </div>
-                    <span className="font-mono-num uppercase text-[#08291A] dark:text-[#F5B800] font-semibold shrink-0">
+                    <span className="font-mono-num uppercase text-[#0B2A6F] dark:text-[#F5B800] font-semibold shrink-0">
                       {m.memberRole}
                     </span>
                   </div>

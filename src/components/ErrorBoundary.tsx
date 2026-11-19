@@ -42,8 +42,8 @@ export class ErrorBoundary extends React.Component<
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#f6f7f6] dark:bg-[#090e0b] p-6">
-          <div className="max-w-lg w-full rounded-2xl border border-neutral-200 dark:border-emerald-950 bg-white dark:bg-[#121b16] p-8 shadow-sm">
+        <div className="min-h-screen flex items-center justify-center bg-[#F4F7FB] dark:bg-[#060B18] p-6">
+          <div className="max-w-lg w-full rounded-2xl border border-neutral-200 dark:border-blue-950 bg-white dark:bg-[#0E172E] p-8 shadow-sm">
             <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
               Hitilafu ya Mfumo / System Error
             </h2>
@@ -53,7 +53,7 @@ export class ErrorBoundary extends React.Component<
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-6 px-5 py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0b120e] font-semibold text-sm transition-colors cursor-pointer"
+              className="mt-6 px-5 py-2.5 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-semibold text-sm transition-colors cursor-pointer"
             >
               Pakia Upya / Reload App
             </button>
