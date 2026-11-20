@@ -20,6 +20,11 @@ export function QrCameraScannerModal({
   const readerElementId = `oilcom-qr-reader-${rawId}`;
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const onDetectedRef = useRef(onDetected);
+  const onCloseRef = useRef(onClose);
+  onDetectedRef.current = onDetected;
+  onCloseRef.current = onClose;
+
   const [statusMsg, setStatusMsg] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
 
@@ -34,34 +39,49 @@ export function QrCameraScannerModal({
         : 'Starting QR camera scanner...'
     );
 
-    scanner
+    const safeStopAndClear = async () => {
+      try {
+        if (scanner.isScanning) {
+          await scanner.stop();
+        }
+      } catch {
+        // Ignore stop errors if scanner wasn't active
+      }
+      try {
+        scanner.clear();
+      } catch {
+        // Ignore clear errors if DOM node already unmounted
+      }
+    };
+
+    const startPromise = scanner
       .start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 220, height: 220 } },
         (decodedText) => {
           if (cancelled) return;
           cancelled = true;
-          scanner
-            .stop()
-            .catch(() => {})
-            .finally(() => {
-              onDetected(decodedText);
-              onClose();
-            });
+          setCameraActive(false);
+          void safeStopAndClear().finally(() => {
+            onDetectedRef.current(decodedText);
+            onCloseRef.current();
+          });
         },
         () => {
           // Ignore frame decode misses while scanning
         }
       )
-      .then(() => {
-        if (!cancelled) {
-          setCameraActive(true);
-          setStatusMsg(
-            lang === 'sw'
-              ? 'Elekeza kamera kwenye msimbo wa QR wa mteja.'
-              : 'Point camera at the customer QR code.'
-          );
+      .then(async () => {
+        if (cancelled) {
+          await safeStopAndClear();
+          return;
         }
+        setCameraActive(true);
+        setStatusMsg(
+          lang === 'sw'
+            ? 'Elekeza kamera kwenye msimbo wa QR wa mteja.'
+            : 'Point camera at the customer QR code.'
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -77,24 +97,26 @@ export function QrCameraScannerModal({
     return () => {
       cancelled = true;
       setCameraActive(false);
-      if (scanner.isScanning) {
-        scanner.stop().catch(() => {});
-      }
-      scanner.clear();
       scannerRef.current = null;
+      void startPromise.finally(() => {
+        void safeStopAndClear();
+      });
     };
-  }, [open, readerElementId, lang, onDetected, onClose]);
+  }, [open, readerElementId, lang]);
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file || !scannerRef.current) return;
+    const scanner = scannerRef.current;
     try {
-      if (scannerRef.current.isScanning) {
-        await scannerRef.current.stop();
+      if (scanner.isScanning) {
+        await scanner.stop().catch(() => {});
+        setCameraActive(false);
       }
-      const decoded = await scannerRef.current.scanFile(file, true);
-      onDetected(decoded);
-      onClose();
+      const decoded = await scanner.scanFile(file, true);
+      onDetectedRef.current(decoded);
+      onCloseRef.current();
     } catch {
       setStatusMsg(
         lang === 'sw'
