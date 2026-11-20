@@ -35,7 +35,6 @@ import { BusinessPortalModule } from './components/BusinessPortalModule';
 import { FuelAndGasModule } from './components/FuelAndGasModule';
 import { HomeDashboard } from './components/HomeDashboard';
 import {
-  OilcomCamelMark,
   OilcomFullLogo,
   OilcomWordmark,
 } from './components/OilcomBrand';
@@ -1016,7 +1015,7 @@ export default function App() {
       <>
         {quotaBanner}
         <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B2A6F] text-white gap-4">
-          <OilcomFullLogo className="w-36 h-36 animate-pulse" />
+          <OilcomFullLogo className="w-40 h-40 animate-pulse" />
           <p className="font-display font-bold text-lg tracking-wide">
             OILCOM <span className="text-[#F5B800]">SUPER APP</span>
           </p>
@@ -1102,9 +1101,8 @@ export default function App() {
             <span className="bg-[#D92027]" />
             <span className="bg-[#F5B800]" />
           </div>
-          <div className="h-16 px-4 flex items-center gap-2.5 border-b border-white/10 shrink-0">
-            <OilcomCamelMark className="w-10 h-10 shrink-0" />
-            <OilcomWordmark className="w-32 h-9" />
+          <div className="h-16 px-4 flex items-center border-b border-white/10 shrink-0">
+            <OilcomWordmark className="w-36 h-12" />
           </div>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
@@ -1151,10 +1149,7 @@ export default function App() {
             />
             <aside className="relative w-72 max-w-[82vw] bg-[#0B2A6F] text-white h-full flex flex-col z-10">
               <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <OilcomCamelMark className="w-8 h-8" />
-                  <OilcomWordmark className="w-28 h-8" />
-                </div>
+                <OilcomWordmark className="w-32 h-11" />
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
@@ -1207,7 +1202,7 @@ export default function App() {
                 onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
                 className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left"
               >
-                <OilcomWordmark className="w-24 h-8" />
+                <OilcomWordmark className="w-28 h-9" />
               </button>
               <span className="hidden lg:inline font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
                 {navItems.find((n) => n.route === route)?.label || 'OILCOM'}

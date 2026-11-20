@@ -1,61 +1,58 @@
 import React from 'react';
 
-const LOGO_EMBLEM_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-19_at_11.42.43_PM__1__540aa468.jpeg';
-const LOGO_FULL_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-19_at_11.42.43_PM__2__0324a464.jpeg';
-const LOGO_WORDMARK_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-19_at_11.42.43_PM_11f962f3.jpeg';
+const LOGO_EMBLEM_SRC = '/assets/oilcom-logo-emblem.png';
+const LOGO_FULL_SRC = '/assets/oilcom-logo-full.png';
+const LOGO_WORDMARK_SRC = '/assets/oilcom-logo-wordmark.png';
 
 export function OilcomCamelMark({
-  className = 'w-9 h-9',
+  className = 'w-10 h-10',
 }: {
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-xl bg-black overflow-hidden border border-[#F5B800]/45 shadow-sm shrink-0 ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 ${className}`}
     >
       <img
         src={LOGO_EMBLEM_SRC}
         alt="OILCOM Emblem"
-        className="w-full h-full object-contain scale-[1.32]"
+        className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(255,255,255,0.28)]"
       />
     </span>
   );
 }
 
 export function OilcomFullLogo({
-  className = 'w-36 h-36',
+  className = 'w-40 h-40',
 }: {
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-2xl bg-black overflow-hidden border border-[#F5B800]/45 shadow-xl p-1 shrink-0 ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 ${className}`}
     >
       <img
         src={LOGO_FULL_SRC}
         alt="OILCOM Official Logo"
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain drop-shadow-[0_4px_16px_rgba(255,255,255,0.32)]"
       />
     </span>
   );
 }
 
 export function OilcomWordmark({
-  className = 'w-28 h-8',
+  className = 'w-32 h-10',
 }: {
   className?: string;
 }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-lg bg-black overflow-hidden border border-white/15 px-1.5 shrink-0 ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 ${className}`}
     >
       <img
         src={LOGO_WORDMARK_SRC}
         alt="Oilcom"
-        className="w-full h-full object-cover object-center"
+        className="w-full h-full object-contain drop-shadow-[0_1px_8px_rgba(255,255,255,0.38)]"
       />
     </span>
   );

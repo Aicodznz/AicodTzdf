@@ -10,7 +10,7 @@ import { Eye, EyeOff, Globe, Lock, Mail, Moon, Sun, User } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
 import { t } from '../i18n/translations';
 import type { Language, ThemeMode } from '../types/oilcom';
-import { OilcomCamelMark, OilcomFullLogo, OilcomWordmark } from './OilcomBrand';
+import { OilcomFullLogo, OilcomWordmark } from './OilcomBrand';
 
 interface AuthScreenProps {
   lang: Language;
@@ -137,11 +137,10 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
           <span className="bg-[#F5B800]" />
         </div>
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-            <OilcomCamelMark className="w-9 h-9 sm:w-10 sm:h-10 shrink-0" />
-            <OilcomWordmark className="w-28 h-8 sm:w-32 sm:h-9" />
+          <div className="flex items-center min-w-0 lg:hidden">
+            <OilcomWordmark className="w-28 h-9" />
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:ml-auto">
             <button
               type="button"
               onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
@@ -173,7 +172,7 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         {/* Full desktop brand hero */}
         <div className="hidden lg:block my-auto max-w-lg">
           <div className="inline-flex items-center gap-3 mb-6">
-            <OilcomFullLogo className="w-40 h-40" />
+            <OilcomFullLogo className="w-44 h-44" />
           </div>
           <h1 className="font-display text-4xl xl:text-5xl font-extrabold tracking-tight leading-tight text-white">
             {t(lang, 'tagline')}
