@@ -167,6 +167,9 @@ export interface GasOrder {
   itemsSummary: string;
   itemsCount: number;
   totalTzs: number;
+  voucherId?: string;
+  voucherCode?: string;
+  discountTzs?: number;
   paymentMethod: PaymentProvider;
   paymentStatus: PaymentStatus;
   status: OrderStatus;

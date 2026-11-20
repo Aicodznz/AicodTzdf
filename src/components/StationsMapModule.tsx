@@ -59,7 +59,7 @@ interface StationsMapModuleProps {
   lang: Language;
   stations: Station[];
   googleMapsApiKey: string;
-  onOrderAtStation: () => void;
+  onOrderAtStation: (station: Station, orderKind?: 'gas' | 'fuel') => void;
 }
 
 interface DiscoveredPlace {
@@ -999,6 +999,7 @@ function StationsMapWorkspace({
   const activeTarget = selectedStation
     ? {
         kind: 'station' as const,
+        stationObj: selectedStation,
         id: selectedStation.id,
         name: selectedStation.name,
         subtitle: `${selectedStation.address}, ${selectedStation.city}`,
@@ -1011,6 +1012,9 @@ function StationsMapWorkspace({
         code: selectedStation.code,
         petrolPriceTzs: selectedStation.petrolPriceTzs,
         dieselPriceTzs: selectedStation.dieselPriceTzs,
+        lpg6kgStock: selectedStation.lpg6kgStock,
+        lpg15kgStock: selectedStation.lpg15kgStock,
+        lpg38kgStock: selectedStation.lpg38kgStock,
       }
     : selectedPlace
       ? {
@@ -1801,6 +1805,31 @@ function StationsMapWorkspace({
                         </div>
                       </div>
                     )}
+                  {activeTarget.kind === 'station' &&
+                    (activeTarget.lpg6kgStock !== undefined ||
+                      activeTarget.lpg15kgStock !== undefined ||
+                      activeTarget.lpg38kgStock !== undefined) && (
+                      <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                          <span className="text-[10px] text-neutral-500 block">LPG 6kg</span>
+                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                            {activeTarget.lpg6kgStock ?? 0}
+                          </span>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                          <span className="text-[10px] text-neutral-500 block">LPG 15kg</span>
+                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                            {activeTarget.lpg15kgStock ?? 0}
+                          </span>
+                        </div>
+                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                          <span className="text-[10px] text-neutral-500 block">LPG 38kg</span>
+                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                            {activeTarget.lpg38kgStock ?? 0}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   {activeTarget.kind === 'place' && activeTarget.googleMapsURI && (
                     <a
                       href={activeTarget.googleMapsURI}
@@ -1817,12 +1846,12 @@ function StationsMapWorkspace({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => computeDirections(activeTarget)}
                   disabled={routeLoading}
-                  className="py-2.5 px-3 rounded-xl bg-[#0B2A6F] text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl bg-[#0B2A6F] text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   {routeLoading ? (
                     <Loader2 className="w-3.5 h-3.5 text-[#F5B800] animate-spin" />
@@ -1831,23 +1860,36 @@ function StationsMapWorkspace({
                   )}
                   <span>{lang === 'sw' ? 'Maelekezo' : 'Directions'}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={
-                    activeTarget.kind === 'station'
-                      ? onOrderAtStation
-                      : () => setDetailsExpanded((v) => !v)
-                  }
-                  className="py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-xs cursor-pointer whitespace-nowrap"
-                >
-                  {activeTarget.kind === 'station'
-                    ? lang === 'sw'
-                      ? 'Agiza Hapa'
-                      : 'Order Here'
-                    : lang === 'sw'
-                      ? 'Tazama Maelezo'
-                      : 'View Details'}
-                </button>
+                {activeTarget.kind === 'station' ? (
+                  <>
+                    {activeTarget.hasGas && (
+                      <button
+                        type="button"
+                        onClick={() => onOrderAtStation(activeTarget.stationObj, 'gas')}
+                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-xs cursor-pointer whitespace-nowrap"
+                      >
+                        {lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}
+                      </button>
+                    )}
+                    {activeTarget.hasFuel && (
+                      <button
+                        type="button"
+                        onClick={() => onOrderAtStation(activeTarget.stationObj, 'fuel')}
+                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-xs cursor-pointer whitespace-nowrap"
+                      >
+                        {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setDetailsExpanded((v) => !v)}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-xs cursor-pointer whitespace-nowrap"
+                  >
+                    {lang === 'sw' ? 'Tazama Maelezo' : 'View Details'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2040,12 +2082,38 @@ function StationsMapWorkspace({
                   </div>
                 )}
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              {activeTarget.kind === 'station' &&
+                (activeTarget.lpg6kgStock !== undefined ||
+                  activeTarget.lpg15kgStock !== undefined ||
+                  activeTarget.lpg38kgStock !== undefined) && (
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-xs text-center">
+                    <div className="p-2 rounded-lg bg-white/10">
+                      <p className="opacity-70 text-[10px]">LPG 6kg</p>
+                      <p className="font-mono-num font-bold text-[#F5B800]">
+                        {activeTarget.lpg6kgStock ?? 0} cyl
+                      </p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/10">
+                      <p className="opacity-70 text-[10px]">LPG 15kg</p>
+                      <p className="font-mono-num font-bold text-[#F5B800]">
+                        {activeTarget.lpg15kgStock ?? 0} cyl
+                      </p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white/10">
+                      <p className="opacity-70 text-[10px]">LPG 38kg</p>
+                      <p className="font-mono-num font-bold text-[#F5B800]">
+                        {activeTarget.lpg38kgStock ?? 0} cyl
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => computeDirections(activeTarget)}
                   disabled={routeLoading}
-                  className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/20 text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/20 text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   {routeLoading ? (
                     <Loader2 className="w-3.5 h-3.5 text-[#F5B800] animate-spin" />
@@ -2055,19 +2123,32 @@ function StationsMapWorkspace({
                   <span>{lang === 'sw' ? 'Maelekezo' : 'Directions'}</span>
                 </button>
                 {activeTarget.kind === 'station' ? (
-                  <button
-                    type="button"
-                    onClick={onOrderAtStation}
-                    className="py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
-                  >
-                    {lang === 'sw' ? 'Agiza Hapa' : 'Order Here'}
-                  </button>
+                  <>
+                    {activeTarget.hasGas && (
+                      <button
+                        type="button"
+                        onClick={() => onOrderAtStation(activeTarget.stationObj, 'gas')}
+                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        {lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}
+                      </button>
+                    )}
+                    {activeTarget.hasFuel && (
+                      <button
+                        type="button"
+                        onClick={() => onOrderAtStation(activeTarget.stationObj, 'fuel')}
+                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
+                      </button>
+                    )}
+                  </>
                 ) : activeTarget.googleMapsURI ? (
                   <a
                     href={activeTarget.googleMapsURI}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs flex items-center justify-center gap-1 whitespace-nowrap"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs flex items-center justify-center gap-1 whitespace-nowrap"
                   >
                     <span>Google Maps</span>
                     <ExternalLink className="w-3 h-3" />
@@ -2229,13 +2310,26 @@ export function StationsMapModule({
             })}
           </div>
           {selectedFallback && (
-            <button
-              type="button"
-              onClick={onOrderAtStation}
-              className="px-4 py-2.5 rounded-xl bg-[#F5B800] text-[#0B2A6F] font-bold text-xs cursor-pointer"
-            >
-              {lang === 'sw' ? 'Agiza Mafuta / Gesi Hapa' : 'Order Fuel / Gas Here'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {selectedFallback.hasGas !== false && (
+                <button
+                  type="button"
+                  onClick={() => onOrderAtStation(selectedFallback, 'gas')}
+                  className="px-4 py-2.5 rounded-xl bg-[#F5B800] text-[#0B2A6F] font-bold text-xs cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Agiza Gesi Hapa' : 'Order Gas Here'}
+                </button>
+              )}
+              {selectedFallback.hasFuel !== false && (
+                <button
+                  type="button"
+                  onClick={() => onOrderAtStation(selectedFallback, 'fuel')}
+                  className="px-4 py-2.5 rounded-xl bg-[#D92027] text-white font-bold text-xs cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Agiza Mafuta Hapa' : 'Order Fuel Here'}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

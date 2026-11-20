@@ -4,6 +4,7 @@ import {
   Building2,
   CheckCircle2,
   Clock,
+  Download,
   Fuel,
   Globe,
   MapPin,
@@ -12,8 +13,10 @@ import {
   ShoppingCart,
   Smartphone,
   Store,
+  Ticket,
   Trash2,
   Truck,
+  X,
 } from 'lucide-react';
 import {
   findGisZoneForCoords,
@@ -22,6 +25,7 @@ import {
 } from '../data/oilcomGeoJson';
 import { t } from '../i18n/translations';
 import { placeCustomerOrder } from '../lib/firestoreActions';
+import { downloadOrderReceiptPdf } from '../lib/pdfGenerator';
 import type {
   AgentProfile,
   CustomerAddress,
@@ -30,6 +34,7 @@ import type {
   PaymentProvider,
   Product,
   Station,
+  Voucher,
 } from '../types/oilcom';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { formatTzs, GasCylinderGraphic } from './OilcomBrand';
@@ -42,6 +47,8 @@ interface FuelAndGasModuleProps {
   stations: Station[];
   dealers: AgentProfile[];
   addresses: CustomerAddress[];
+  vouchers: Voucher[];
+  preselectedStationId?: string | null;
   googleMapsApiKey: string;
   onOrderSuccess: (summary: {
     orderNumber: string;
@@ -112,6 +119,8 @@ export function FuelAndGasModule({
   stations,
   dealers,
   addresses,
+  vouchers,
+  preselectedStationId,
   googleMapsApiKey,
   onOrderSuccess,
 }: FuelAndGasModuleProps) {
@@ -120,7 +129,7 @@ export function FuelAndGasModule({
     mode === 'fuel' ? 'pickup' : 'delivery'
   );
   const [selectedStationId, setSelectedStationId] = useState(
-    stations[0]?.id || ''
+    preselectedStationId || stations[0]?.id || ''
   );
   const [selectedDealerUid, setSelectedDealerUid] = useState(
     dealers[0]?.userId || ''
@@ -141,6 +150,9 @@ export function FuelAndGasModule({
   const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>('mpesa');
   const [phoneOrRef, setPhoneOrRef] = useState(user.phone || '+255 712 000 000');
   const [fuelLiters, setFuelLiters] = useState<number>(20);
+  const [voucherInput, setVoucherInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherMsg, setVoucherMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [placedInfo, setPlacedInfo] = useState<{
@@ -149,7 +161,26 @@ export function FuelAndGasModule({
     provider: PaymentProvider;
     phone: string;
     totalTzs: number;
+    discountTzs: number;
+    voucherCode?: string;
+    itemsSummary: string;
+    deliveryAddress: string;
+    fulfillmentType: 'delivery' | 'pickup';
+    orderKind: 'gas' | 'fuel';
   } | null>(null);
+
+  React.useEffect(() => {
+    if (preselectedStationId && stations.some((s) => s.id === preselectedStationId)) {
+      setSelectedStationId(preselectedStationId);
+    } else if (!selectedStationId && stations[0]?.id) {
+      setSelectedStationId(stations[0].id);
+    }
+  }, [preselectedStationId, stations, selectedStationId]);
+
+  const activeVouchers = useMemo(
+    () => vouchers.filter((v) => v.status === 'active'),
+    [vouchers]
+  );
 
   const filteredProducts = useMemo(() => {
     return products.filter(
@@ -184,10 +215,41 @@ export function FuelAndGasModule({
     );
   };
 
-  const cartTotal = cart.reduce(
+  const cartSubtotal = cart.reduce(
     (sum, item) => sum + item.product.priceTzs * item.quantity,
     0
   );
+  const appliedDiscountTzs =
+    appliedVoucher && cartSubtotal > 0
+      ? Math.min(cartSubtotal, Math.max(0, appliedVoucher.discountTzs))
+      : 0;
+  const cartTotal = Math.max(0, cartSubtotal - appliedDiscountTzs);
+
+  const handleApplyVoucherCode = (codeToApply?: string) => {
+    const clean = (codeToApply ?? voucherInput).trim().toUpperCase();
+    setVoucherMsg('');
+    if (!clean) {
+      setAppliedVoucher(null);
+      return;
+    }
+    const found = activeVouchers.find((v) => v.promoCode.toUpperCase() === clean);
+    if (!found) {
+      setAppliedVoucher(null);
+      setVoucherMsg(
+        lang === 'sw'
+          ? 'Vocha haijapatikana au tayari imetumika.'
+          : 'Voucher code not found or no longer active.'
+      );
+      return;
+    }
+    setAppliedVoucher(found);
+    setVoucherInput(found.promoCode);
+    setVoucherMsg(
+      lang === 'sw'
+        ? `Punguzo la ${formatTzs(found.discountTzs)} limeongezwa!`
+        : `Discount of ${formatTzs(found.discountTzs)} applied!`
+    );
+  };
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,6 +276,13 @@ export function FuelAndGasModule({
       return;
     }
 
+    const itemsSummaryText = cart
+      .map(
+        (c) =>
+          `${c.quantity}x ${lang === 'sw' ? c.product.nameSw : c.product.nameEn}`
+      )
+      .join(', ');
+
     setSubmitting(true);
     try {
       const res = await placeCustomerOrder({
@@ -234,15 +303,27 @@ export function FuelAndGasModule({
         })),
         paymentMethod,
         paymentPhoneOrRef: phoneOrRef,
+        voucherId: appliedVoucher?.id,
+        voucherCode: appliedVoucher?.promoCode,
+        discountTzs: appliedDiscountTzs,
       });
 
       setCart([]);
+      setAppliedVoucher(null);
+      setVoucherInput('');
+      setVoucherMsg('');
       setPlacedInfo({
         orderNumber: res.orderNumber,
         sandboxRef: res.sandboxRef,
         provider: paymentMethod,
         phone: phoneOrRef,
-        totalTzs: cartTotal,
+        totalTzs: res.finalTotalTzs,
+        discountTzs: res.appliedDiscountTzs,
+        voucherCode: appliedVoucher?.promoCode,
+        itemsSummary: itemsSummaryText,
+        deliveryAddress: resolvedAddress,
+        fulfillmentType,
+        orderKind: mode,
       });
       onOrderSuccess({
         orderNumber: res.orderNumber,
@@ -282,22 +363,55 @@ export function FuelAndGasModule({
 
       {placedInfo && (
         <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4 sm:p-5 space-y-3">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-6 h-6 text-blue-600 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="font-semibold text-sm text-blue-950 dark:text-blue-100">
-                {lang === 'sw'
-                  ? `Oda ${placedInfo.orderNumber} imetumwa kikamilifu!`
-                  : `Order ${placedInfo.orderNumber} placed successfully!`}
-              </p>
-              <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
-                Sandbox Ref:{' '}
-                <span className="font-mono-num font-bold">
-                  {placedInfo.sandboxRef}
-                </span>{' '}
-                · {formatTzs(placedInfo.totalTzs)}
-              </p>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-6 h-6 text-blue-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="font-semibold text-sm text-blue-950 dark:text-blue-100">
+                  {lang === 'sw'
+                    ? `Oda ${placedInfo.orderNumber} imetumwa kikamilifu!`
+                    : `Order ${placedInfo.orderNumber} placed successfully!`}
+                </p>
+                <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
+                  Sandbox Ref:{' '}
+                  <span className="font-mono-num font-bold">
+                    {placedInfo.sandboxRef}
+                  </span>{' '}
+                  · {formatTzs(placedInfo.totalTzs)}
+                  {placedInfo.discountTzs > 0
+                    ? ` (${lang === 'sw' ? 'Punguzo' : 'Saved'} ${formatTzs(placedInfo.discountTzs)})`
+                    : ''}
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                downloadOrderReceiptPdf(
+                  {
+                    orderNumber: placedInfo.orderNumber,
+                    customerName: user.fullName,
+                    customerPhone: placedInfo.phone,
+                    fulfillmentType: placedInfo.fulfillmentType,
+                    orderKind: placedInfo.orderKind,
+                    deliveryAddress: placedInfo.deliveryAddress,
+                    itemsSummary: placedInfo.itemsSummary,
+                    totalTzs: placedInfo.totalTzs,
+                    voucherCode: placedInfo.voucherCode,
+                    discountTzs: placedInfo.discountTzs,
+                    paymentMethod: placedInfo.provider,
+                    paymentStatus: 'pending',
+                    status: 'pending',
+                  },
+                  lang
+                )
+              }
+              className="px-3.5 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-[#F5B800]" />
+              <span>{lang === 'sw' ? 'Pakua Risiti (PDF)' : 'Download Receipt'}</span>
+            </button>
           </div>
 
           {placedInfo.provider !== 'cod' && (
@@ -565,7 +679,33 @@ export function FuelAndGasModule({
             </div>
           </div>
 
-          {fulfillmentType === 'delivery' ? (
+          {/* Preferred Fulfillment Station (shown for both delivery & pickup so station manager receives order) */}
+          {stations.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                {fulfillmentType === 'pickup'
+                  ? lang === 'sw'
+                    ? 'Chagua Kituo cha Kuchukulia'
+                    : 'Select Pickup Station'
+                  : lang === 'sw'
+                    ? 'Kituo cha OILCOM Kitakachohudumia'
+                    : 'Fulfilling OILCOM Station'}
+              </label>
+              <select
+                value={selectedStationId}
+                onChange={(e) => setSelectedStationId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+              >
+                {stations.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {fulfillmentType === 'delivery' && (
             <div>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
@@ -640,24 +780,79 @@ export function FuelAndGasModule({
                 </div>
               )}
             </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                {lang === 'sw' ? 'Chagua Kituo cha OILCOM' : 'Select OILCOM Station'}
-              </label>
+          )}
+
+          {/* Rewards Voucher Redemption at Checkout */}
+          <div className="rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50/70 dark:bg-[#091022] p-3 space-y-2">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+              <Ticket className="w-3.5 h-3.5 text-[#F5B800]" />
+              <span>
+                {lang === 'sw' ? 'Tumia Vocha ya Rewards' : 'Apply Rewards Voucher'}
+              </span>
+            </label>
+
+            {activeVouchers.length > 0 && (
               <select
-                value={selectedStationId}
-                onChange={(e) => setSelectedStationId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+                value={appliedVoucher?.promoCode || ''}
+                onChange={(e) => handleApplyVoucherCode(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs"
               >
-                {stations.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.city})
+                <option value="">
+                  {lang === 'sw'
+                    ? `-- Chagua vocha (${activeVouchers.length} hai) --`
+                    : `-- Select active voucher (${activeVouchers.length}) --`}
+                </option>
+                {activeVouchers.map((v) => (
+                  <option key={v.id} value={v.promoCode}>
+                    {v.promoCode} · -{formatTzs(v.discountTzs)} ({v.title})
                   </option>
                 ))}
               </select>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={voucherInput}
+                onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                placeholder="OILV-XXXXX"
+                className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num uppercase"
+              />
+              {appliedVoucher ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppliedVoucher(null);
+                    setVoucherInput('');
+                    setVoucherMsg('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{lang === 'sw' ? 'Ondoa' : 'Remove'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleApplyVoucherCode()}
+                  className="px-3 py-1.5 rounded-lg bg-[#0B2A6F] text-[#F5B800] text-xs font-bold cursor-pointer shrink-0"
+                >
+                  {lang === 'sw' ? 'Tumia' : 'Apply'}
+                </button>
+              )}
             </div>
-          )}
+            {voucherMsg && (
+              <p
+                className={`text-[11px] font-medium ${
+                  appliedVoucher
+                    ? 'text-blue-700 dark:text-[#F5B800]'
+                    : 'text-red-600 dark:text-red-400'
+                }`}
+              >
+                {voucherMsg}
+              </p>
+            )}
+          </div>
 
           {/* Visual Mobile Money & Payment Selector */}
           <div>
@@ -717,13 +912,32 @@ export function FuelAndGasModule({
             <p className="text-xs text-red-600 dark:text-red-400">{errorMsg}</p>
           )}
 
-          <div className="pt-3 border-t border-neutral-200 dark:border-blue-950 flex items-center justify-between">
-            <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
-              {lang === 'sw' ? 'Jumla' : 'Total'}
-            </span>
-            <span className="font-mono-num text-lg font-extrabold text-neutral-900 dark:text-white">
-              {formatTzs(cartTotal)}
-            </span>
+          <div className="pt-3 border-t border-neutral-200 dark:border-blue-950 space-y-1.5">
+            {appliedDiscountTzs > 0 && (
+              <>
+                <div className="flex items-center justify-between text-xs text-neutral-500">
+                  <span>{lang === 'sw' ? 'Bei ya Awali' : 'Subtotal'}</span>
+                  <span className="font-mono-num">{formatTzs(cartSubtotal)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-red-600 dark:text-red-400">
+                  <span>
+                    {lang === 'sw' ? 'Punguzo la Vocha' : 'Voucher Discount'} (
+                    {appliedVoucher?.promoCode})
+                  </span>
+                  <span className="font-mono-num">
+                    -{formatTzs(appliedDiscountTzs)}
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                {lang === 'sw' ? 'Jumla' : 'Total'}
+              </span>
+              <span className="font-mono-num text-lg font-extrabold text-neutral-900 dark:text-white">
+                {formatTzs(cartTotal)}
+              </span>
+            </div>
           </div>
 
           <button

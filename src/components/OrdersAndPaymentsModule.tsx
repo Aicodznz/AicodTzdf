@@ -209,6 +209,11 @@ export function OrdersAndPaymentsModule({
                     <p className="font-mono-num text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white whitespace-nowrap">
                       {formatTzs(order.totalTzs)}
                     </p>
+                    {order.discountTzs && order.discountTzs > 0 ? (
+                      <p className="text-[10.5px] font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                        {order.voucherCode || 'VOUCHER'} · -{formatTzs(order.discountTzs)}
+                      </p>
+                    ) : null}
                     <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
                       {order.paymentMethod.toUpperCase()} · {order.paymentStatus}
                     </p>

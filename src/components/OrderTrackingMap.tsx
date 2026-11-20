@@ -578,15 +578,34 @@ function TrackingWorkspace({
         </div>
 
         {routeMeta && (
-          <div className="flex items-center gap-1.5 font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
+          <div className="flex items-center gap-2 font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
             <Clock className="w-3.5 h-3.5" />
             <span>
-              {routeMeta.distanceKm} km · ~{delivery?.etaMinutes || routeMeta.etaMin}{' '}
+              {routeMeta.distanceKm} km · ~
+              {isEnRoute
+                ? Math.max(
+                    2,
+                    Math.round(
+                      (delivery?.etaMinutes || routeMeta.etaMin) *
+                        (1 - Math.min(0.92, animProgress))
+                    )
+                  )
+                : delivery?.etaMinutes || routeMeta.etaMin}{' '}
               {lang === 'sw' ? 'dakika' : 'min'}
             </span>
           </div>
         )}
       </div>
+      {isEnRoute && order.fulfillmentType !== 'pickup' && (
+        <div className="px-3 pb-2.5">
+          <div className="h-1.5 w-full rounded-full bg-neutral-200 dark:bg-blue-950 overflow-hidden">
+            <div
+              className="h-full bg-[#D92027] transition-all duration-700"
+              style={{ width: `${Math.round(animProgress * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

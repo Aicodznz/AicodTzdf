@@ -49,6 +49,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/agents/$(request.auth.uid)).data.approvalStatus == 'approved';
     }
 
+    function isStationOrGasManager() {
+      return isVerifiedUser()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['station_manager', 'gas_manager']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
     function hasValidPendingProvision(provisionId, targetRole) {
       return isValidId(provisionId)
         && exists(/databases/$(database)/documents/role_provisions/$(provisionId))
@@ -236,7 +243,7 @@ service cloud.firestore {
 
     function isValidGasOrder(data) {
       return data.keys().hasAll(['orderNumber', 'customerId', 'customerName', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'paymentMethod', 'paymentStatus', 'status', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['orderNumber', 'customerId', 'customerName', 'customerPhone', 'agentId', 'stationId', 'stationManagerUid', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'paymentMethod', 'paymentStatus', 'status', 'cancelReason', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['orderNumber', 'customerId', 'customerName', 'customerPhone', 'agentId', 'stationId', 'stationManagerUid', 'orderKind', 'fulfillmentType', 'deliveryAddress', 'itemsSummary', 'itemsCount', 'totalTzs', 'voucherId', 'voucherCode', 'discountTzs', 'paymentMethod', 'paymentStatus', 'status', 'cancelReason', 'createdAt', 'updatedAt'])
         && isValidString(data.orderNumber, 4, 40)
         && data.orderNumber.matches('^[A-Z0-9\\-]+$')
         && isValidId(data.customerId)
@@ -251,6 +258,9 @@ service cloud.firestore {
         && isValidString(data.itemsSummary, 2, 300)
         && (data.itemsCount is int || data.itemsCount is float) && data.itemsCount >= 1
         && isNonNegNumber(data.totalTzs)
+        && (!('voucherId' in data) || isValidString(data.voucherId, 0, 128))
+        && (!('voucherCode' in data) || isValidString(data.voucherCode, 0, 32))
+        && (!('discountTzs' in data) || isNonNegNumber(data.discountTzs))
         && data.paymentMethod in ['mpesa', 'airtel_money', 'mixx_by_yas', 'bank', 'cod']
         && data.paymentStatus in ['pending', 'successful', 'failed', 'refunded']
         && data.status in ['pending', 'confirmed', 'processing', 'dispatched', 'delivered', 'cancelled']
@@ -608,7 +618,7 @@ service cloud.firestore {
 
     // 8. Rewards Accounts (Authoritative points balance — customers CANNOT modify points!)
     match /rewards_accounts/{userId} {
-      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin() || isApprovedAgent());
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isBootstrappedAdmin();
       allow create: if isVerifiedUser() && isValidId(userId) && isValidRewardsAccount(incoming())
         && incoming().userId == request.auth.uid
@@ -618,13 +628,13 @@ service cloud.firestore {
         && incoming().userId == existing().userId
         && incoming().customerCode == existing().customerCode
         && incoming().updatedAt == request.time
-        && (isAdmin() || isApprovedAgent());
+        && (isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow delete: if isValidId(userId) && isAdmin();
     }
 
     // 9. Rewards Transactions (Customers can only submit pending redeem_request)
     match /rewards_transactions/{txId} {
-      allow get: if isValidId(txId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent());
+      allow get: if isValidId(txId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isVerifiedUser() && isValidId(txId) && isValidRewardsTransaction(incoming())
         && incoming().createdAt == request.time
@@ -632,13 +642,14 @@ service cloud.firestore {
         && (
           isAdmin() ||
           isApprovedAgent() ||
+          isStationOrGasManager() ||
           (incoming().userId == request.auth.uid && incoming().type == 'redeem_request' && incoming().status == 'pending')
         );
       allow update: if isVerifiedUser() && isValidId(txId) && isValidRewardsTransaction(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && (isAdmin() || isApprovedAgent());
+        && (isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow delete: if isValidId(txId) && isAdmin();
     }
 
@@ -653,7 +664,7 @@ service cloud.firestore {
 
     // 11. Vouchers
     match /vouchers/{voucherId} {
-      allow get: if isValidId(voucherId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent());
+      allow get: if isValidId(voucherId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isVerifiedUser() && isValidId(voucherId) && isValidVoucher(incoming())
         && incoming().createdAt == request.time
@@ -663,7 +674,11 @@ service cloud.firestore {
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && (isAdmin() || (isApprovedAgent() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])));
+        && (
+          isAdmin() ||
+          ((isApprovedAgent() || isStationOrGasManager()) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+          (isOwner(existing().userId) && existing().status == 'active' && incoming().status == 'used' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
       allow delete: if isValidId(voucherId) && isAdmin();
     }
 
@@ -863,14 +878,14 @@ service cloud.firestore {
       allow create: if isVerifiedUser() && isValidId(deliveryId) && isValidDelivery(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
-        && (isAdmin() || (incoming().agentUid == request.auth.uid && isApprovedAgent()));
+        && (isAdmin() || (incoming().agentUid == request.auth.uid && (isApprovedAgent() || isStationOrGasManager())));
       allow update: if isVerifiedUser() && isValidId(deliveryId) && isValidDelivery(incoming())
         && incoming().orderId == existing().orderId
         && incoming().customerId == existing().customerId
         && incoming().agentUid == existing().agentUid
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
-        && (isAdmin() || (isOwner(existing().agentUid) && isApprovedAgent() && existing().status != 'delivered'));
+        && (isAdmin() || (isOwner(existing().agentUid) && (isApprovedAgent() || isStationOrGasManager()) && existing().status != 'delivered'));
       allow delete: if isValidId(deliveryId) && isAdmin();
     }
 
@@ -880,7 +895,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isVerifiedUser() && isValidId(notifId) && isValidNotification(incoming())
         && incoming().createdAt == request.time
-        && (isAdmin() || isApprovedAgent() || incoming().userId == request.auth.uid);
+        && (isAdmin() || isApprovedAgent() || isStationOrGasManager() || incoming().userId == request.auth.uid);
       allow update: if isVerifiedUser() && isValidId(notifId) && isValidNotification(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt

@@ -21,6 +21,7 @@ import { createNotification, makeId } from '../lib/firestoreActions';
 import type {
   AgentInventoryItem,
   AgentProfile,
+  DeliveryRecord,
   GasOrder,
   Language,
   OilcomUser,
@@ -40,6 +41,7 @@ interface AgentPortalModuleProps {
   effectiveRole: UserRole;
   agentProfile: AgentProfile | null;
   orders: GasOrder[];
+  deliveries: DeliveryRecord[];
   inventory: AgentInventoryItem[];
   movements: StockMovement[];
   stations: Station[];
@@ -53,12 +55,14 @@ export function AgentPortalModule({
   effectiveRole,
   agentProfile,
   orders,
+  deliveries,
   inventory,
   movements,
   products,
   settings,
 }: AgentPortalModuleProps) {
   const [tab, setTab] = useState<'orders' | 'stock' | 'qr'>('orders');
+  const [etaMinutes, setEtaMinutes] = useState(25);
   const [qrInput, setQrInput] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState(54000);
   const [qrResult, setQrResult] = useState('');
@@ -92,10 +96,22 @@ export function AgentPortalModule({
           driverPhone: user.phone || '+255 700 000 000',
           vehiclePlate: vehiclePlate.trim() || 'OILCOM-01',
           status: 'en_route',
-          etaMinutes: 25,
+          etaMinutes: Math.max(5, Number(etaMinutes) || 25),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+      }
+
+      if (nextStatus === 'delivered') {
+        const existingDel = deliveries.find(
+          (d) => d.orderId === order.id && d.status !== 'delivered'
+        );
+        if (existingDel) {
+          await updateDoc(doc(db, 'deliveries', existingDel.id), {
+            status: 'delivered',
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
 
       if (nextStatus === 'delivered' && agentProfile) {
@@ -335,6 +351,15 @@ export function AgentPortalModule({
                 onChange={(e) => setVehiclePlate(e.target.value)}
                 placeholder="Vehicle Plate"
                 className="w-full sm:w-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
+              />
+              <input
+                type="number"
+                min={5}
+                max={240}
+                value={etaMinutes}
+                onChange={(e) => setEtaMinutes(Number(e.target.value))}
+                placeholder="ETA min"
+                className="w-full sm:w-24 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num"
               />
             </div>
           </div>

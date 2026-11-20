@@ -145,6 +145,7 @@ export default function App() {
     return saved === 'dark' ? 'dark' : 'light';
   });
   const [route, setRoute] = useState<AppRoute>('home');
+  const [preselectedStationId, setPreselectedStationId] = useState<string | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -588,7 +589,12 @@ export default function App() {
           (err) => handleFirestoreError(err, OperationType.LIST, 'gas_orders/agent')
         )
       );
+    } else {
+      setMyAgents([]);
+      setAgentOrders([]);
+    }
 
+    if (isAgent || (isManager && !isBAdmin)) {
       unsubs.push(
         onSnapshot(
           query(collection(db, 'deliveries'), where('agentUid', '==', uid)),
@@ -606,8 +612,6 @@ export default function App() {
         )
       );
     } else {
-      setMyAgents([]);
-      setAgentOrders([]);
       setAgentDeliveries([]);
     }
 
@@ -1519,6 +1523,8 @@ export default function App() {
                   stations={stations}
                   dealers={approvedDealers}
                   addresses={addresses}
+                  vouchers={vouchers}
+                  preselectedStationId={preselectedStationId}
                   googleMapsApiKey={googleMapsApiKey}
                   onOrderSuccess={() => {
                     // Keep user on confirmation banner; Orders tab updates in real time
@@ -1557,7 +1563,10 @@ export default function App() {
                 lang={lang}
                 stations={stations}
                 googleMapsApiKey={googleMapsApiKey}
-                onOrderAtStation={() => navigate('gas')}
+                onOrderAtStation={(st, orderKind) => {
+                  setPreselectedStationId(st.id);
+                  navigate(orderKind || (st.hasGas !== false ? 'gas' : 'fuel'));
+                }}
               />
             )}
 
@@ -1572,6 +1581,8 @@ export default function App() {
                   stations={stations}
                   staff={stationStaff}
                   orders={mergedOrders}
+                  deliveries={mergedDeliveries}
+                  settings={settings}
                 />
               )}
 
@@ -1595,6 +1606,7 @@ export default function App() {
                 effectiveRole={effectiveRole}
                 agentProfile={myAgents[0] || null}
                 orders={mergedOrders}
+                deliveries={mergedDeliveries}
                 inventory={inventory}
                 movements={movements}
                 stations={stations}

@@ -103,20 +103,30 @@ export async function placeCustomerOrder(params: {
   items: { productId: string; productName: string; quantity: number; unitPriceTzs: number }[];
   paymentMethod: PaymentProvider;
   paymentPhoneOrRef: string;
+  voucherId?: string;
+  voucherCode?: string;
+  discountTzs?: number;
 }): Promise<{
   orderId: string;
   orderNumber: string;
   paymentId: string;
   sandboxRef: string;
   callbackSignature: string;
+  finalTotalTzs: number;
+  appliedDiscountTzs: number;
 }> {
   const orderId = makeId('ord');
   const orderNumber = `OIL-${Date.now().toString().slice(-6)}`;
   const itemsCount = params.items.reduce((acc, it) => acc + it.quantity, 0);
-  const totalTzs = params.items.reduce(
+  const subtotalTzs = params.items.reduce(
     (acc, it) => acc + it.quantity * it.unitPriceTzs,
     0
   );
+  const appliedDiscountTzs = Math.min(
+    subtotalTzs,
+    Math.max(0, Math.round(params.discountTzs || 0))
+  );
+  const totalTzs = Math.max(0, subtotalTzs - appliedDiscountTzs);
   const itemsSummary = params.items
     .map((it) => `${it.quantity}x ${it.productName}`)
     .join(', ')
@@ -147,6 +157,13 @@ export async function placeCustomerOrder(params: {
       itemsSummary,
       itemsCount,
       totalTzs,
+      ...(params.voucherId && appliedDiscountTzs > 0
+        ? {
+            voucherId: params.voucherId.slice(0, 128),
+            voucherCode: (params.voucherCode || '').slice(0, 32),
+            discountTzs: appliedDiscountTzs,
+          }
+        : {}),
       paymentMethod: params.paymentMethod,
       paymentStatus: 'pending',
       status: 'pending',
@@ -173,6 +190,17 @@ export async function placeCustomerOrder(params: {
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `order_items/${itemId}`);
+    }
+  }
+
+  if (params.voucherId && appliedDiscountTzs > 0) {
+    try {
+      await updateDoc(doc(db, 'vouchers', params.voucherId), {
+        status: 'used',
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `vouchers/${params.voucherId}`);
     }
   }
 
@@ -211,6 +239,8 @@ export async function placeCustomerOrder(params: {
     paymentId,
     sandboxRef: sandbox.sandboxRef,
     callbackSignature: sandbox.callbackSignature,
+    finalTotalTzs: totalTzs,
+    appliedDiscountTzs,
   };
 }
 
