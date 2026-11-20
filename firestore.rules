@@ -39,18 +39,18 @@ service cloud.firestore {
 
     function isAdmin() {
       return isBootstrappedAdmin() || (
-        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
     function isApprovedAgent() {
-      return isVerifiedUser() &&
+      return isSignedIn() &&
         exists(/databases/$(database)/documents/agents/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/agents/$(request.auth.uid)).data.approvalStatus == 'approved';
     }
 
     function isStationOrGasManager() {
-      return isVerifiedUser()
+      return isSignedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['station_manager', 'gas_manager']
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
@@ -503,16 +503,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
       allow list: if isBootstrappedAdmin();
-      allow create: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming())
-        && incoming().uid == request.auth.uid
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming())
+        && incoming().uid == userId
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (
           isAdmin() ||
-          (isOwner(userId) && incoming().role == 'customer' && incoming().status == 'active' && !('assignedStationId' in incoming())) ||
-          (isOwner(userId) && incoming().status == 'active' && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, incoming().role))
+          (isOwner(userId) && incoming().uid == request.auth.uid && incoming().role == 'customer' && incoming().status == 'active' && !('assignedStationId' in incoming())) ||
+          (isVerifiedUser() && isOwner(userId) && incoming().uid == request.auth.uid && incoming().status == 'active' && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, incoming().role))
         );
-      allow update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming())
+      allow update: if isSignedIn() && isValidId(userId) && isValidUser(incoming())
         && incoming().uid == existing().uid
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -531,7 +531,7 @@ service cloud.firestore {
       allow create: if isValidId(userId) && isValidAdmin(incoming()) && incoming().createdAt == request.time
         && (
           isAdmin() ||
-          (isOwner(userId) && incoming().uid == request.auth.uid && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, 'admin'))
+          (isVerifiedUser() && isOwner(userId) && incoming().uid == request.auth.uid && ('provisionId' in incoming()) && hasValidPendingProvision(incoming().provisionId, 'admin'))
         );
       allow update: if isValidId(userId) && isAdmin() && isValidAdmin(incoming()) && incoming().createdAt == request.time;
       allow delete: if isValidId(userId) && isAdmin();
@@ -541,12 +541,12 @@ service cloud.firestore {
     match /customer_profiles/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
       allow list: if isBootstrappedAdmin();
-      allow create: if isVerifiedUser() && isValidId(userId) && isOwner(userId)
+      allow create: if isSignedIn() && isValidId(userId) && isOwner(userId)
         && isValidCustomerProfile(incoming())
         && incoming().userId == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(userId) && isValidCustomerProfile(incoming())
+      allow update: if isSignedIn() && isValidId(userId) && isValidCustomerProfile(incoming())
         && incoming().userId == existing().userId
         && incoming().customerCode == existing().customerCode
         && incoming().referralCode == existing().referralCode
@@ -560,11 +560,11 @@ service cloud.firestore {
     match /customer_addresses/{addressId} {
       allow get: if isValidId(addressId) && (isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(addressId) && isValidAddress(incoming())
+      allow create: if isSignedIn() && isValidId(addressId) && isValidAddress(incoming())
         && incoming().userId == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(addressId) && isValidAddress(incoming())
+      allow update: if isSignedIn() && isValidId(addressId) && isValidAddress(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -589,7 +589,7 @@ service cloud.firestore {
             && (!('managerUid' in existing()) || existing().managerUid == '')
             && incoming().managerUid == request.auth.uid
             && incoming().diff(existing()).affectedKeys().hasOnly(['managerUid', 'managerName', 'updatedAt'])) ||
-          (isVerifiedUser()
+          (isSignedIn()
             && ('managerUid' in existing())
             && existing().managerUid == request.auth.uid
             && incoming().diff(existing()).affectedKeys().hasOnly(['open24Hours', 'petrolPriceTzs', 'dieselPriceTzs', 'pumpsCount', 'lpg6kgStock', 'lpg15kgStock', 'lpg38kgStock', 'status', 'updatedAt']))
@@ -620,11 +620,11 @@ service cloud.firestore {
     match /rewards_accounts/{userId} {
       allow get: if isValidId(userId) && (isOwner(userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isBootstrappedAdmin();
-      allow create: if isVerifiedUser() && isValidId(userId) && isValidRewardsAccount(incoming())
+      allow create: if isSignedIn() && isValidId(userId) && isValidRewardsAccount(incoming())
         && incoming().userId == request.auth.uid
         && incoming().updatedAt == request.time
         && (isAdmin() || (isOwner(userId) && incoming().pointsBalance == 0 && incoming().lifetimePoints == 0 && incoming().tier == 'Bronze'));
-      allow update: if isVerifiedUser() && isValidId(userId) && isValidRewardsAccount(incoming())
+      allow update: if isSignedIn() && isValidId(userId) && isValidRewardsAccount(incoming())
         && incoming().userId == existing().userId
         && incoming().customerCode == existing().customerCode
         && incoming().updatedAt == request.time
@@ -636,7 +636,7 @@ service cloud.firestore {
     match /rewards_transactions/{txId} {
       allow get: if isValidId(txId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(txId) && isValidRewardsTransaction(incoming())
+      allow create: if isSignedIn() && isValidId(txId) && isValidRewardsTransaction(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (
@@ -645,7 +645,7 @@ service cloud.firestore {
           isStationOrGasManager() ||
           (incoming().userId == request.auth.uid && incoming().type == 'redeem_request' && incoming().status == 'pending')
         );
-      allow update: if isVerifiedUser() && isValidId(txId) && isValidRewardsTransaction(incoming())
+      allow update: if isSignedIn() && isValidId(txId) && isValidRewardsTransaction(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -666,11 +666,11 @@ service cloud.firestore {
     match /vouchers/{voucherId} {
       allow get: if isValidId(voucherId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent() || isStationOrGasManager());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(voucherId) && isValidVoucher(incoming())
+      allow create: if isSignedIn() && isValidId(voucherId) && isValidVoucher(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (isAdmin() || (incoming().userId == request.auth.uid && incoming().status == 'pending_approval'));
-      allow update: if isVerifiedUser() && isValidId(voucherId) && isValidVoucher(incoming())
+      allow update: if isSignedIn() && isValidId(voucherId) && isValidVoucher(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -686,13 +686,13 @@ service cloud.firestore {
     match /gas_orders/{orderId} {
       allow get: if isValidId(orderId) && (isOwner(existing().customerId) || isOwner(existing().agentId) || (('stationManagerUid' in existing()) && isOwner(existing().stationManagerUid)) || isAdmin());
       allow list: if isSignedIn() && (existing().customerId == request.auth.uid || existing().agentId == request.auth.uid || existing().stationManagerUid == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(orderId) && isValidGasOrder(incoming())
+      allow create: if isSignedIn() && isValidId(orderId) && isValidGasOrder(incoming())
         && incoming().customerId == request.auth.uid
         && incoming().status == 'pending'
         && incoming().paymentStatus == 'pending'
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(orderId) && isValidGasOrder(incoming())
+      allow update: if isSignedIn() && isValidId(orderId) && isValidGasOrder(incoming())
         && incoming().customerId == existing().customerId
         && incoming().orderNumber == existing().orderNumber
         && incoming().createdAt == existing().createdAt
@@ -717,7 +717,7 @@ service cloud.firestore {
     match /order_items/{itemId} {
       allow get: if isValidId(itemId) && (isOwner(existing().customerId) || isAdmin());
       allow list: if isSignedIn() && (existing().customerId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(itemId) && isValidOrderItem(incoming())
+      allow create: if isSignedIn() && isValidId(itemId) && isValidOrderItem(incoming())
         && incoming().customerId == request.auth.uid
         && incoming().createdAt == request.time;
       allow update, delete: if isValidId(itemId) && isAdmin();
@@ -727,12 +727,12 @@ service cloud.firestore {
     match /businesses/{businessId} {
       allow get: if isValidId(businessId) && (isOwner(existing().ownerId) || isAdmin());
       allow list: if isSignedIn() && (existing().ownerId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(businessId) && isValidBusiness(incoming())
+      allow create: if isSignedIn() && isValidId(businessId) && isValidBusiness(incoming())
         && incoming().ownerId == request.auth.uid
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (isAdmin() || (incoming().approvalStatus == 'pending' && incoming().creditLimitTzs == 0 && incoming().creditUsedTzs == 0));
-      allow update: if isVerifiedUser() && isValidId(businessId) && isValidBusiness(incoming())
+      allow update: if isSignedIn() && isValidId(businessId) && isValidBusiness(incoming())
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -747,11 +747,11 @@ service cloud.firestore {
     match /business_members/{memberId} {
       allow get: if isValidId(memberId) && (isOwner(existing().ownerId) || isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (existing().ownerId == request.auth.uid || existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(memberId) && isValidBusinessMember(incoming())
+      allow create: if isSignedIn() && isValidId(memberId) && isValidBusinessMember(incoming())
         && incoming().ownerId == request.auth.uid
         && exists(/databases/$(database)/documents/businesses/$(incoming().businessId))
         && incoming().createdAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(memberId) && isValidBusinessMember(incoming())
+      allow update: if isSignedIn() && isValidId(memberId) && isValidBusinessMember(incoming())
         && incoming().businessId == existing().businessId
         && incoming().ownerId == existing().ownerId
         && (isOwner(existing().ownerId) || isAdmin())
@@ -763,13 +763,13 @@ service cloud.firestore {
     match /business_orders/{orderId} {
       allow get: if isValidId(orderId) && (isOwner(existing().ownerId) || isOwner(existing().requesterId) || isAdmin());
       allow list: if isSignedIn() && (existing().ownerId == request.auth.uid || existing().requesterId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(orderId) && isValidBusinessOrder(incoming())
+      allow create: if isSignedIn() && isValidId(orderId) && isValidBusinessOrder(incoming())
         && incoming().requesterId == request.auth.uid
         && exists(/databases/$(database)/documents/businesses/$(incoming().businessId))
         && incoming().deliveryStatus == 'pending'
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(orderId) && isValidBusinessOrder(incoming())
+      allow update: if isSignedIn() && isValidId(orderId) && isValidBusinessOrder(incoming())
         && incoming().businessId == existing().businessId
         && incoming().ownerId == existing().ownerId
         && incoming().requesterId == existing().requesterId
@@ -787,11 +787,11 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow get: if isValidId(invoiceId) && (isOwner(existing().ownerId) || isAdmin());
       allow list: if isSignedIn() && (existing().ownerId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(invoiceId) && isValidInvoice(incoming())
+      allow create: if isSignedIn() && isValidId(invoiceId) && isValidInvoice(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (isAdmin() || (incoming().ownerId == request.auth.uid && incoming().status == 'unpaid'));
-      allow update: if isVerifiedUser() && isValidId(invoiceId) && isValidInvoice(incoming())
+      allow update: if isSignedIn() && isValidId(invoiceId) && isValidInvoice(incoming())
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -803,14 +803,14 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow get: if isValidId(paymentId) && (isOwner(existing().userId) || isAdmin() || isApprovedAgent());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(paymentId) && isValidPayment(incoming())
+      allow create: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming())
         && incoming().userId == request.auth.uid
         && incoming().mode == 'SANDBOX_TEST'
         && incoming().status == 'pending'
         && incoming().callbackVerified == false
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
-      allow update: if isVerifiedUser() && isValidId(paymentId) && isValidPayment(incoming())
+      allow update: if isSignedIn() && isValidId(paymentId) && isValidPayment(incoming())
         && incoming().userId == existing().userId
         && incoming().orderId == existing().orderId
         && incoming().amountTzs == existing().amountTzs
@@ -824,16 +824,16 @@ service cloud.firestore {
     match /agents/{agentId} {
       allow get: if isValidId(agentId) && (existing().approvalStatus == 'approved' || isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (existing().approvalStatus == 'approved' || existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(agentId) && isValidAgent(incoming())
+      allow create: if isSignedIn() && isValidId(agentId) && isValidAgent(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (
           isAdmin() ||
-          (agentId == request.auth.uid && incoming().userId == request.auth.uid
+          (isVerifiedUser() && agentId == request.auth.uid && incoming().userId == request.auth.uid
             && ('provisionId' in incoming())
             && hasValidPendingProvision(incoming().provisionId, 'agent'))
         );
-      allow update: if isVerifiedUser() && isValidId(agentId) && isValidAgent(incoming())
+      allow update: if isSignedIn() && isValidId(agentId) && isValidAgent(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -851,10 +851,10 @@ service cloud.firestore {
     match /agent_inventory/{invId} {
       allow get: if isValidId(invId) && (isOwner(existing().agentUid) || isAdmin());
       allow list: if isSignedIn() && (existing().agentUid == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(invId) && isValidAgentInventory(incoming())
+      allow create: if isSignedIn() && isValidId(invId) && isValidAgentInventory(incoming())
         && incoming().updatedAt == request.time
         && (isAdmin() || (incoming().agentUid == request.auth.uid && isApprovedAgent()));
-      allow update: if isVerifiedUser() && isValidId(invId) && isValidAgentInventory(incoming())
+      allow update: if isSignedIn() && isValidId(invId) && isValidAgentInventory(incoming())
         && incoming().agentUid == existing().agentUid
         && incoming().updatedAt == request.time
         && (isAdmin() || (isOwner(existing().agentUid) && isApprovedAgent()));
@@ -865,7 +865,7 @@ service cloud.firestore {
     match /stock_movements/{moveId} {
       allow get: if isValidId(moveId) && (isOwner(existing().agentUid) || isAdmin());
       allow list: if isSignedIn() && (existing().agentUid == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(moveId) && isValidStockMovement(incoming())
+      allow create: if isSignedIn() && isValidId(moveId) && isValidStockMovement(incoming())
         && incoming().createdAt == request.time
         && (isAdmin() || (incoming().agentUid == request.auth.uid && isApprovedAgent()));
       allow update, delete: if isValidId(moveId) && isAdmin();
@@ -875,11 +875,11 @@ service cloud.firestore {
     match /deliveries/{deliveryId} {
       allow get: if isValidId(deliveryId) && (isOwner(existing().customerId) || isOwner(existing().agentUid) || isAdmin());
       allow list: if isSignedIn() && (existing().customerId == request.auth.uid || existing().agentUid == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(deliveryId) && isValidDelivery(incoming())
+      allow create: if isSignedIn() && isValidId(deliveryId) && isValidDelivery(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (isAdmin() || (incoming().agentUid == request.auth.uid && (isApprovedAgent() || isStationOrGasManager())));
-      allow update: if isVerifiedUser() && isValidId(deliveryId) && isValidDelivery(incoming())
+      allow update: if isSignedIn() && isValidId(deliveryId) && isValidDelivery(incoming())
         && incoming().orderId == existing().orderId
         && incoming().customerId == existing().customerId
         && incoming().agentUid == existing().agentUid
@@ -893,10 +893,10 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow get: if isValidId(notifId) && (isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (existing().userId == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(notifId) && isValidNotification(incoming())
+      allow create: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming())
         && incoming().createdAt == request.time
         && (isAdmin() || isApprovedAgent() || isStationOrGasManager() || incoming().userId == request.auth.uid);
-      allow update: if isVerifiedUser() && isValidId(notifId) && isValidNotification(incoming())
+      allow update: if isSignedIn() && isValidId(notifId) && isValidNotification(incoming())
         && incoming().userId == existing().userId
         && incoming().createdAt == existing().createdAt
         && (isOwner(existing().userId) || isAdmin())
@@ -908,7 +908,7 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow get: if isValidId(logId) && isAdmin();
       allow list: if isBootstrappedAdmin();
-      allow create: if isVerifiedUser() && isValidId(logId) && isValidAuditLog(incoming())
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming())
         && incoming().actorId == request.auth.uid
         && incoming().createdAt == request.time;
       allow update, delete: if false;
@@ -950,9 +950,9 @@ service cloud.firestore {
 
     // 27. Station Staff (Strictly scoped to Admin and the assigned Station/Gas Manager)
     match /station_staff/{staffId} {
-      allow get: if isValidId(staffId) && (isAdmin() || (isVerifiedUser() && existing().managerUid == request.auth.uid));
+      allow get: if isValidId(staffId) && (isAdmin() || (isSignedIn() && existing().managerUid == request.auth.uid));
       allow list: if isSignedIn() && (existing().managerUid == request.auth.uid || isBootstrappedAdmin());
-      allow create: if isVerifiedUser() && isValidId(staffId) && isValidStationStaff(incoming())
+      allow create: if isSignedIn() && isValidId(staffId) && isValidStationStaff(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time
         && (
@@ -960,7 +960,7 @@ service cloud.firestore {
           (incoming().managerUid == request.auth.uid
             && get(/databases/$(database)/documents/stations/$(incoming().stationId)).data.managerUid == request.auth.uid)
         );
-      allow update: if isVerifiedUser() && isValidId(staffId) && isValidStationStaff(incoming())
+      allow update: if isSignedIn() && isValidId(staffId) && isValidStationStaff(incoming())
         && incoming().stationId == existing().stationId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
@@ -970,7 +970,7 @@ service cloud.firestore {
             && incoming().managerUid == existing().managerUid
             && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone', 'staffRole', 'shift', 'status', 'updatedAt']))
         );
-      allow delete: if isValidId(staffId) && (isAdmin() || (isVerifiedUser() && existing().managerUid == request.auth.uid));
+      allow delete: if isValidId(staffId) && (isAdmin() || (isSignedIn() && existing().managerUid == request.auth.uid));
     }
   }
 }

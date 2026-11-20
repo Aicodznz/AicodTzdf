@@ -338,16 +338,16 @@ export async function ensureUserDocuments(
         resolvedRole = provision.role;
         await setDoc(userRef, {
           uid,
-          fullName: fbUser.displayName || provision.fullName || email.split('@')[0],
-          phone: fbUser.phoneNumber || provision.phone || '',
-          email,
+          fullName: (fbUser.displayName || provision.fullName || email.split('@')[0] || 'Mteja wa OILCOM').slice(0, 120),
+          phone: (fbUser.phoneNumber || provision.phone || '').slice(0, 32),
+          email: (email || 'unknown@oilcom.tz').slice(0, 160),
           role: provision.role,
-          assignedStationId: provision.assignedStationId || '',
-          provisionedBy: provision.createdBy,
-          provisionId: provision.id,
+          assignedStationId: (provision.assignedStationId || '').slice(0, 128),
+          provisionedBy: (provision.createdBy || '').slice(0, 128),
+          provisionId: provision.id.slice(0, 128),
           language: preferredLang,
           status: 'active',
-          photoUrl: fbUser.photoURL || '',
+          photoUrl: (fbUser.photoURL || '').slice(0, 500),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -367,13 +367,13 @@ export async function ensureUserDocuments(
           try {
             await setDoc(doc(db, 'agents', uid), {
               userId: uid,
-              businessName: provision.businessName || provision.fullName,
+              businessName: (provision.businessName || provision.fullName || 'OILCOM Agent').slice(0, 140),
               licenseNumber:
-                provision.licenseNumber || `OIL-LIC-${uid.slice(0, 6).toUpperCase()}`,
-              stationId: provision.assignedStationId || '',
-              provisionId: provision.id,
-              region: provision.region || 'Dar es Salaam',
-              phone: fbUser.phoneNumber || provision.phone || '+255700000000',
+                (provision.licenseNumber || `OIL-LIC-${uid.slice(0, 6).toUpperCase()}`).slice(0, 60),
+              stationId: (provision.assignedStationId || '').slice(0, 128),
+              provisionId: provision.id.slice(0, 128),
+              region: (provision.region || 'Dar es Salaam').slice(0, 80),
+              phone: (fbUser.phoneNumber || provision.phone || '+255700000000').slice(0, 32),
               approvalStatus: 'approved',
               commissionRatePct: 5,
               totalSalesTzs: 0,
@@ -393,7 +393,7 @@ export async function ensureUserDocuments(
           try {
             await updateDoc(doc(db, 'stations', provision.assignedStationId), {
               managerUid: uid,
-              managerName: fbUser.displayName || provision.fullName,
+              managerName: (fbUser.displayName || provision.fullName || 'Manager').slice(0, 120),
               updatedAt: serverTimestamp(),
             });
           } catch (err) {
@@ -405,8 +405,8 @@ export async function ensureUserDocuments(
           try {
             await setDoc(doc(db, 'admins', uid), {
               uid,
-              email,
-              provisionId: provision.id,
+              email: (email || 'unknown@oilcom.tz').slice(0, 160),
+              provisionId: provision.id.slice(0, 128),
               createdAt: serverTimestamp(),
             });
           } catch (err) {
@@ -416,13 +416,13 @@ export async function ensureUserDocuments(
       } else {
         await setDoc(userRef, {
           uid,
-          fullName: fbUser.displayName || email.split('@')[0] || 'Mteja wa OILCOM',
-          phone: fbUser.phoneNumber || '',
-          email: fbUser.email || 'unknown@oilcom.tz',
+          fullName: (fbUser.displayName || email.split('@')[0] || 'Mteja wa OILCOM').slice(0, 120),
+          phone: (fbUser.phoneNumber || '').slice(0, 32),
+          email: (fbUser.email || 'unknown@oilcom.tz').slice(0, 160),
           role: isBootstrappedAdmin ? 'admin' : 'customer',
           language: preferredLang,
           status: 'active',
-          photoUrl: fbUser.photoURL || '',
+          photoUrl: (fbUser.photoURL || '').slice(0, 500),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });

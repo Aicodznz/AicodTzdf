@@ -3,6 +3,7 @@ import {
   AdvancedMarker,
   AltitudeMode,
   APIProvider,
+  ColorScheme,
   GestureHandling,
   Map as GoogleMapView,
   Map3D,
@@ -383,7 +384,7 @@ function TrackingWorkspace({
         {isNative3D ? (
           <Map3D
             id={`order-track-3d-${order.id}`}
-            mode={MapMode.ROADMAP}
+            mode={MapMode.HYBRID}
             defaultLabelsDisabled={false}
             gestureHandling={GestureHandling.GREEDY}
             defaultCenter={map3dCamera.center}
@@ -465,6 +466,7 @@ function TrackingWorkspace({
         ) : (
           <GoogleMapView
             mapId="DEMO_MAP_ID"
+            colorScheme={ColorScheme.LIGHT}
             defaultCenter={origin}
             defaultZoom={13}
             tilt={viewMode === '3d' ? 45 : 0}

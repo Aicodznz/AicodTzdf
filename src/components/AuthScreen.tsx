@@ -6,8 +6,9 @@ import {
   signInWithPopup,
   updateProfile,
 } from 'firebase/auth';
+import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Eye, EyeOff, Globe, Lock, Mail, Moon, Sun, User } from 'lucide-react';
-import { auth, googleProvider } from '../lib/firebase';
+import { auth, db, googleProvider } from '../lib/firebase';
 import { t } from '../i18n/translations';
 import type { Language, ThemeMode } from '../types/oilcom';
 import { OilcomFullLogo, OilcomWordmark } from './OilcomBrand';
@@ -109,7 +110,16 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         await signInWithEmailAndPassword(auth, email.trim(), password);
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        await updateProfile(cred.user, { displayName: fullName.trim() });
+        const cleanName = fullName.trim().slice(0, 120);
+        await updateProfile(cred.user, { displayName: cleanName });
+        try {
+          await updateDoc(doc(db, 'users', cred.user.uid), {
+            fullName: cleanName,
+            updatedAt: serverTimestamp(),
+          });
+        } catch {
+          // ensureUserDocuments may still be creating the doc with updated displayName
+        }
       }
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code || '';

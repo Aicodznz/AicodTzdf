@@ -3,6 +3,7 @@ import {
   AdvancedMarker,
   AltitudeMode,
   APIProvider,
+  ColorScheme,
   GestureHandling,
   InfoWindow,
   Map as GoogleMapView,
@@ -507,20 +508,20 @@ function StationsMapWorkspace({
           selectedStation?.lng ??
           selectedPlace?.lng ??
           DEFAULT_CENTER.lng;
-        const currentZoom = mapInstance?.getZoom() ?? 12;
+        const currentZoom = Math.max(mapInstance?.getZoom() ?? 12, 10);
         const cosLat = Math.max(0.2, Math.cos((anchorLat * Math.PI) / 180));
         const computedRange = Math.min(
           Math.max(
             Math.round(((40075016 * cosLat) / Math.pow(2, currentZoom)) * 1.4),
-            800
+            1200
           ),
-          900000
+          45000
         );
         setMap3dCamera((cam) => ({
           ...cam,
           center: { lat: anchorLat, lng: anchorLng, altitude: 80 },
           range: computedRange,
-          tilt: currentZoom < 10 ? 38 : 60,
+          tilt: 60,
         }));
         if (!supportsWebGL2) {
           setPlacesNotice(
@@ -1112,7 +1113,7 @@ function StationsMapWorkspace({
             <Map3D
               id="oilcom-map-3d"
               ref={map3dRef}
-              mode={mapType === 'hybrid' ? MapMode.HYBRID : MapMode.ROADMAP}
+              mode={mapType === 'hybrid' ? MapMode.SATELLITE : MapMode.HYBRID}
               defaultLabelsDisabled={false}
               gestureHandling={GestureHandling.GREEDY}
               defaultCenter={map3dCamera.center}
@@ -1279,6 +1280,7 @@ function StationsMapWorkspace({
           ) : (
             <GoogleMapView
               mapId="DEMO_MAP_ID"
+              colorScheme={ColorScheme.LIGHT}
               defaultCenter={synced2DView.center}
               defaultZoom={synced2DView.zoom}
               tilt={viewMode === '3d' ? 45 : 0}
