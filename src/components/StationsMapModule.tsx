@@ -14,6 +14,8 @@ import {
   Popover,
   useMap,
   useMapsLibrary,
+  type MapCameraChangedEvent,
+  type MapMouseEvent,
 } from '@vis.gl/react-google-maps';
 import {
   Polygon3D,
@@ -25,40 +27,61 @@ import {
   Box,
   ChevronDown,
   ChevronUp,
+  CircleDot,
   Clock,
+  Clock3,
+  Columns2,
   Compass,
+  Crop,
+  Download,
   Droplets,
   ExternalLink,
   Flame,
   Fuel,
   Globe,
+  Hexagon,
   Layers,
   List,
   Loader2,
   MapPin,
   Navigation,
+  Pause,
+  Phone,
+  Play,
+  Radar,
   RotateCw,
   Route as RouteIcon,
   Search,
+  Star,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import {
+  analyzeSpatialBBox,
+  buildBBoxGeoJsonFeature,
+  buildDemandHotspotsGeoJson,
+  buildOilcomGeoJsonExport,
+  buildStationBuffersGeoJson,
+  buildStationVoronoiGeoJson,
+  downloadGeoJsonFile,
   extract3DOverlaysFromGeoJson,
   extractGeoJsonPoints,
-  normalizeGeoJsonInput,
   OILCOM_GIS_FEATURE_COLLECTION,
+  parseAnySpatialFileToGeoJson,
+  type GeoBoundingBox,
   type GeoJsonFeature,
   type GeoJsonFeatureCollection,
+  type TimeSliceKey,
 } from '../data/oilcomGeoJson';
 import { t } from '../i18n/translations';
-import type { Language, Station } from '../types/oilcom';
+import type { GasOrder, Language, Station } from '../types/oilcom';
 import { formatTzs } from './OilcomBrand';
 
 interface StationsMapModuleProps {
   lang: Language;
   stations: Station[];
+  orders?: GasOrder[];
   googleMapsApiKey: string;
   onOrderAtStation: (station: Station, orderKind?: 'gas' | 'fuel') => void;
 }
@@ -69,6 +92,15 @@ interface DiscoveredPlace {
   address: string;
   lat: number;
   lng: number;
+  category?: string;
+  rating?: number;
+  userRatingCount?: number;
+  openNow?: boolean | null;
+  weekdayHours?: string[];
+  phone?: string;
+  websiteURI?: string;
+  editorialSummary?: string;
+  photoUrl?: string;
   businessStatus?: string;
   googleMapsURI?: string;
 }
@@ -182,8 +214,12 @@ interface RawPlaceResult {
   id: string;
   displayName?: string | null;
   formattedAddress?: string | null;
+  primaryTypeDisplayName?: string | null;
+  rating?: number | null;
+  userRatingCount?: number | null;
   businessStatus?: string | null;
   googleMapsURI?: string | null;
+  photos?: Array<{ getURI?: (opts?: { maxWidth?: number; maxHeight?: number }) => string }>;
   location?: { lat: () => number; lng: () => number } | null;
 }
 
@@ -202,11 +238,18 @@ function MapInstanceBridge({
 function StationsMapWorkspace({
   lang,
   stations,
+  orders = [],
   onOrderAtStation,
 }: Omit<StationsMapModuleProps, 'googleMapsApiKey'>) {
   const [mapInstance, setMapInstance] = useState<GoogleMapInstance>(null);
   const map3dRef = useRef<Map3DRef | null>(null);
+  const [map3dElement, setMap3dElement] = useState<EventTarget | null>(null);
   const geojsonInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleMap3dRef = useCallback((instance: Map3DRef | null) => {
+    map3dRef.current = instance;
+    setMap3dElement(instance?.map3d ?? null);
+  }, []);
 
   const placesLib = useMapsLibrary('places');
   const routesLib = useMapsLibrary('routes');
@@ -242,8 +285,27 @@ function StationsMapWorkspace({
   const [mobileListOpen, setMobileListOpen] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
-  // Open Geospatial (OGC GeoJSON GIS) layer state
+  // Open Geospatial (OGC GeoJSON GIS + opengeos tools) layer state
   const [showGisLayer, setShowGisLayer] = useState(true);
+  const [bufferRadiusKm, setBufferRadiusKm] = useState<0 | 3 | 5 | 10>(5);
+  const [showVoronoi, setShowVoronoi] = useState(false);
+  const [showHotspots, setShowHotspots] = useState(false);
+  const [timeSlice, setTimeSlice] = useState<TimeSliceKey>('all');
+  const [timePlaying, setTimePlaying] = useState(false);
+
+  // Interactive Spatial BBox Filter (pure React + Maps click, no deprecated DrawingManager)
+  const [bboxDrawMode, setBboxDrawMode] = useState(false);
+  const [bboxCorner1, setBboxCorner1] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
+  const [activeBBox, setActiveBBox] = useState<GeoBoundingBox | null>(null);
+
+  // Split-Map Swipe Comparison (leafmap.split_map inspired, 2D mode)
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitPercent, setSplitPercent] = useState(50);
+  const [splitRightMap, setSplitRightMap] = useState<GoogleMapInstance>(null);
+  const splitSyncLockRef = useRef<'left' | 'right' | null>(null);
+
   const [customGeoJson, setCustomGeoJson] =
     useState<GeoJsonFeatureCollection | null>(null);
   const [customGeoJsonName, setCustomGeoJsonName] = useState<string | null>(null);
@@ -264,6 +326,7 @@ function StationsMapWorkspace({
 
   const [discoveredPlaces, setDiscoveredPlaces] = useState<DiscoveredPlace[]>([]);
   const [placesLoading, setPlacesLoading] = useState(false);
+  const [poiDetailsLoading, setPoiDetailsLoading] = useState(false);
   const [placesNotice, setPlacesNotice] = useState<string | null>(null);
 
   const [routeLoading, setRouteLoading] = useState(false);
@@ -275,21 +338,30 @@ function StationsMapWorkspace({
 
   const isNative3DActive = viewMode === '3d' && supportsWebGL2;
 
-  const combinedGeoJson = useMemo<GeoJsonFeatureCollection>(
-    () => ({
-      type: 'FeatureCollection',
-      features: [
-        ...OILCOM_GIS_FEATURE_COLLECTION.features,
-        ...(customGeoJson?.features ?? []),
-      ],
-    }),
-    [customGeoJson]
-  );
+  const hasAnyGisOverlay =
+    showGisLayer ||
+    bufferRadiusKm > 0 ||
+    showVoronoi ||
+    showHotspots ||
+    Boolean(activeBBox) ||
+    Boolean(customGeoJson) ||
+    splitMode;
 
-  const overlays3D = useMemo(
-    () => extract3DOverlaysFromGeoJson(combinedGeoJson),
-    [combinedGeoJson]
-  );
+  useEffect(() => {
+    if (!showHotspots) {
+      setTimePlaying(false);
+      return;
+    }
+    if (!timePlaying) return;
+    const sequence: TimeSliceKey[] = ['morning', 'midday', 'evening', 'night'];
+    const id = window.setInterval(() => {
+      setTimeSlice((prev) => {
+        const idx = sequence.indexOf(prev);
+        return sequence[(idx + 1) % sequence.length];
+      });
+    }, 1800);
+    return () => window.clearInterval(id);
+  }, [timePlaying, showHotspots]);
 
   const summarizeGisFeature = useCallback(
     (
@@ -305,9 +377,25 @@ function StationsMapWorkspace({
             ? lang === 'sw'
               ? 'Ukanda wa Usafirishaji (GIS)'
               : 'Supply Corridor (GIS)'
-            : customGeoJsonName
-              ? `GeoJSON · ${customGeoJsonName}`
-              : 'GeoJSON Layer';
+            : kind === 'buffer'
+              ? lang === 'sw'
+                ? 'Mduara wa Huduma (Service Buffer)'
+                : 'Service Radius Buffer (GIS)'
+              : kind === 'voronoi'
+                ? lang === 'sw'
+                  ? 'Eneo la Kituo (Voronoi Territory)'
+                  : 'Voronoi Catchment Territory'
+                : kind === 'bbox'
+                  ? lang === 'sw'
+                    ? 'Eneo la Uchambuzi (Spatial BBox)'
+                    : 'Spatial Filter Bounding Box'
+                  : kind === 'hotspot'
+                    ? lang === 'sw'
+                      ? 'Msongamano wa Mahitaji (Spatial Density)'
+                      : 'Demand Spatial Hotspot (GIS)'
+                    : customGeoJsonName
+                      ? `GIS · ${customGeoJsonName}`
+                      : 'GeoJSON Layer';
       const title = String(
         (lang === 'sw' ? props?.nameSw : props?.nameEn) ||
           props?.nameSw ||
@@ -353,72 +441,6 @@ function StationsMapWorkspace({
     };
   }, []);
 
-  // Sync OGC GeoJSON layer onto the 2D Google Map Data Layer (map.data)
-  useEffect(() => {
-    if (!mapInstance || isNative3DActive) return;
-
-    const dataLayer = mapInstance.data as unknown as DataLayerHandle;
-    dataLayer.forEach((feature: DataLayerFeature) => {
-      dataLayer.remove(feature);
-    });
-
-    if (!showGisLayer) {
-      return;
-    }
-
-    dataLayer.addGeoJson(combinedGeoJson as unknown as object);
-
-    dataLayer.setStyle((feature: DataLayerFeature) => {
-      const strokeColor =
-        (feature.getProperty('strokeColor') as string) || '#2563EB';
-      const fillColor =
-        (feature.getProperty('fillColor') as string) || strokeColor;
-      const kind = (feature.getProperty('kind') as string) || 'zone';
-      return {
-        fillColor,
-        fillOpacity: kind === 'custom' ? 0.24 : 0.18,
-        strokeColor,
-        strokeWeight: kind === 'corridor' ? 4 : 2,
-        strokeOpacity: 0.9,
-      };
-    });
-
-    const overListener = dataLayer.addListener(
-      'mouseover',
-      (ev: DataLayerMouseEvent) => {
-        dataLayer.revertStyle();
-        dataLayer.overrideStyle(ev.feature, {
-          strokeWeight: 4,
-          fillOpacity: 0.34,
-        });
-      }
-    );
-
-    const outListener = dataLayer.addListener('mouseout', () => {
-      dataLayer.revertStyle();
-    });
-
-    const clickListener = dataLayer.addListener(
-      'click',
-      (ev: DataLayerMouseEvent) => {
-        const props: Record<string, unknown> = {};
-        ev.feature.forEachProperty((value: unknown, key: string) => {
-          props[key] = value;
-        });
-        setSelectedGisFeature(summarizeGisFeature(props));
-      }
-    );
-
-    return () => {
-      overListener.remove();
-      outListener.remove();
-      clickListener.remove();
-      dataLayer.forEach((feature: DataLayerFeature) => {
-        dataLayer.remove(feature);
-      });
-    };
-  }, [mapInstance, isNative3DActive, showGisLayer, combinedGeoJson, summarizeGisFeature]);
-
   const hasActiveFilter = only24h || onlyGas || onlyFuel || onlyLubricants;
 
   const filteredStations = useMemo(() => {
@@ -445,6 +467,229 @@ function StationsMapWorkspace({
     }
     return list;
   }, [stations, searchQuery, only24h, onlyGas, onlyFuel, onlyLubricants, userCoords]);
+
+  const voronoiGeoJson = useMemo<GeoJsonFeatureCollection>(
+    () =>
+      showVoronoi
+        ? buildStationVoronoiGeoJson(filteredStations)
+        : { type: 'FeatureCollection', features: [] },
+    [showVoronoi, filteredStations]
+  );
+
+  const hotspotGeoJson = useMemo<GeoJsonFeatureCollection>(
+    () =>
+      showHotspots || splitMode
+        ? buildDemandHotspotsGeoJson(stations, orders, timeSlice)
+        : { type: 'FeatureCollection', features: [] },
+    [showHotspots, splitMode, stations, orders, timeSlice]
+  );
+
+  const bboxGeoJsonFeature = useMemo<GeoJsonFeature | null>(
+    () => (activeBBox ? buildBBoxGeoJsonFeature(activeBBox) : null),
+    [activeBBox]
+  );
+
+  const bboxStats = useMemo(
+    () => (activeBBox ? analyzeSpatialBBox(activeBBox, stations, orders) : null),
+    [activeBBox, stations, orders]
+  );
+
+  const combinedGeoJson = useMemo<GeoJsonFeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: [
+        ...(showGisLayer ? OILCOM_GIS_FEATURE_COLLECTION.features : []),
+        ...(bufferRadiusKm > 0
+          ? buildStationBuffersGeoJson(filteredStations, bufferRadiusKm).features
+          : []),
+        ...voronoiGeoJson.features,
+        ...(showHotspots ? hotspotGeoJson.features : []),
+        ...(bboxGeoJsonFeature ? [bboxGeoJsonFeature] : []),
+        ...(customGeoJson?.features ?? []),
+      ],
+    }),
+    [
+      showGisLayer,
+      bufferRadiusKm,
+      filteredStations,
+      voronoiGeoJson,
+      showHotspots,
+      hotspotGeoJson,
+      bboxGeoJsonFeature,
+      customGeoJson,
+    ]
+  );
+
+  // Split-map left pane focuses on Service Buffers + Voronoi Catchments + Zones
+  const leftSplitGeoJson = useMemo<GeoJsonFeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: [
+        ...OILCOM_GIS_FEATURE_COLLECTION.features.filter(
+          (f) => f.properties?.kind === 'zone'
+        ),
+        ...buildStationBuffersGeoJson(
+          filteredStations,
+          bufferRadiusKm > 0 ? bufferRadiusKm : 5
+        ).features,
+        ...(voronoiGeoJson.features.length > 0
+          ? voronoiGeoJson.features
+          : buildStationVoronoiGeoJson(filteredStations).features),
+        ...(bboxGeoJsonFeature ? [bboxGeoJsonFeature] : []),
+        ...(customGeoJson?.features ?? []),
+      ],
+    }),
+    [filteredStations, bufferRadiusKm, voronoiGeoJson, bboxGeoJsonFeature, customGeoJson]
+  );
+
+  // Split-map right pane focuses on Satellite view + Demand Hotspots & Supply Corridors
+  const rightSplitGeoJson = useMemo<GeoJsonFeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: [
+        ...OILCOM_GIS_FEATURE_COLLECTION.features.filter(
+          (f) => f.properties?.kind === 'corridor'
+        ),
+        ...hotspotGeoJson.features,
+        ...(bboxGeoJsonFeature ? [bboxGeoJsonFeature] : []),
+      ],
+    }),
+    [hotspotGeoJson, bboxGeoJsonFeature]
+  );
+
+  const overlays3D = useMemo(
+    () => extract3DOverlaysFromGeoJson(combinedGeoJson),
+    [combinedGeoJson]
+  );
+
+  const bindDataLayerGeoJson = useCallback(
+    (
+      targetMap: GoogleMapInstance,
+      geoJson: GeoJsonFeatureCollection
+    ): (() => void) | undefined => {
+      if (!targetMap) return undefined;
+      const dataLayer = targetMap.data as unknown as DataLayerHandle;
+      dataLayer.forEach((feature: DataLayerFeature) => {
+        dataLayer.remove(feature);
+      });
+
+      if (geoJson.features.length === 0) {
+        return undefined;
+      }
+
+      dataLayer.addGeoJson(geoJson as unknown as object);
+
+      dataLayer.setStyle((feature: DataLayerFeature) => {
+        const strokeColor =
+          (feature.getProperty('strokeColor') as string) || '#2563EB';
+        const fillColor =
+          (feature.getProperty('fillColor') as string) || strokeColor;
+        const kind = (feature.getProperty('kind') as string) || 'zone';
+        const customFillOpacity = feature.getProperty('fillOpacity');
+        const fillOpacity =
+          typeof customFillOpacity === 'number'
+            ? customFillOpacity
+            : kind === 'buffer'
+              ? 0.09
+              : kind === 'voronoi'
+                ? 0.14
+                : kind === 'bbox'
+                  ? 0.14
+                  : kind === 'hotspot'
+                    ? 0.34
+                    : kind === 'custom'
+                      ? 0.24
+                      : 0.16;
+        return {
+          fillColor,
+          fillOpacity,
+          strokeColor,
+          strokeWeight:
+            kind === 'corridor'
+              ? 4
+              : kind === 'bbox'
+                ? 3
+                : kind === 'buffer'
+                  ? 1.5
+                  : 2,
+          strokeOpacity: kind === 'buffer' ? 0.72 : 0.92,
+          zIndex:
+            kind === 'bbox'
+              ? 6
+              : kind === 'hotspot'
+                ? 5
+                : kind === 'voronoi'
+                  ? 3
+                  : kind === 'zone'
+                    ? 3
+                    : 2,
+        };
+      });
+
+      const overListener = dataLayer.addListener(
+        'mouseover',
+        (ev: DataLayerMouseEvent) => {
+          dataLayer.revertStyle();
+          dataLayer.overrideStyle(ev.feature, {
+            strokeWeight: 3.5,
+            fillOpacity: 0.36,
+          });
+        }
+      );
+
+      const outListener = dataLayer.addListener('mouseout', () => {
+        dataLayer.revertStyle();
+      });
+
+      const clickListener = dataLayer.addListener(
+        'click',
+        (ev: DataLayerMouseEvent) => {
+          const props: Record<string, unknown> = {};
+          ev.feature.forEachProperty((value: unknown, key: string) => {
+            props[key] = value;
+          });
+          setSelectedGisFeature(summarizeGisFeature(props));
+        }
+      );
+
+      return () => {
+        overListener.remove();
+        outListener.remove();
+        clickListener.remove();
+        dataLayer.forEach((feature: DataLayerFeature) => {
+          dataLayer.remove(feature);
+        });
+      };
+    },
+    [summarizeGisFeature]
+  );
+
+  // Sync OGC GeoJSON layer onto primary 2D Google Map Data Layer (map.data)
+  useEffect(() => {
+    if (!mapInstance || isNative3DActive) return;
+    if (!hasAnyGisOverlay) {
+      return bindDataLayerGeoJson(mapInstance, {
+        type: 'FeatureCollection',
+        features: [],
+      });
+    }
+    const targetFc = splitMode ? leftSplitGeoJson : combinedGeoJson;
+    return bindDataLayerGeoJson(mapInstance, targetFc);
+  }, [
+    mapInstance,
+    isNative3DActive,
+    hasAnyGisOverlay,
+    splitMode,
+    leftSplitGeoJson,
+    combinedGeoJson,
+    bindDataLayerGeoJson,
+  ]);
+
+  // Sync Split-Map Right Data Layer (Hotspots & Corridors)
+  useEffect(() => {
+    if (!splitRightMap || !splitMode || isNative3DActive) return;
+    return bindDataLayerGeoJson(splitRightMap, rightSplitGeoJson);
+  }, [splitRightMap, splitMode, isNative3DActive, rightSplitGeoJson, bindDataLayerGeoJson]);
 
   useEffect(() => {
     if (
@@ -497,6 +742,7 @@ function StationsMapWorkspace({
     setViewMode((prev) => {
       const next = prev === '2d' ? '3d' : '2d';
       if (next === '3d') {
+        setSplitMode(false);
         const center2d = mapInstance?.getCenter();
         const anchorLat =
           center2d?.lat() ??
@@ -574,6 +820,124 @@ function StationsMapWorkspace({
     });
   }, [map3dCamera]);
 
+  const fetchFullPlaceDetails = useCallback(
+    async (
+      placeId: string,
+      fallbackCoords?: { lat: number; lng: number },
+      panToPlace = true
+    ) => {
+      if (!placesLib || !placeId) return;
+      setPoiDetailsLoading(true);
+      setPlacesNotice(null);
+      try {
+        const place = new placesLib.Place({
+          id: placeId,
+          requestedLanguage: lang,
+          requestedRegion: 'tz',
+        });
+        await place.fetchFields({
+          fields: [
+            'id',
+            'displayName',
+            'formattedAddress',
+            'location',
+            'primaryTypeDisplayName',
+            'rating',
+            'userRatingCount',
+            'regularOpeningHours',
+            'nationalPhoneNumber',
+            'internationalPhoneNumber',
+            'websiteURI',
+            'googleMapsURI',
+            'businessStatus',
+            'editorialSummary',
+            'photos',
+          ],
+        });
+
+        let openNow: boolean | null = null;
+        try {
+          const isOpenFn = (
+            place as unknown as { isOpen?: () => Promise<boolean | undefined> }
+          ).isOpen;
+          if (typeof isOpenFn === 'function') {
+            const resOpen = await isOpenFn.call(place);
+            if (typeof resOpen === 'boolean') openNow = resOpen;
+          }
+        } catch {
+          openNow = null;
+        }
+
+        let photoUrl: string | undefined;
+        try {
+          photoUrl = place.photos?.[0]?.getURI({
+            maxWidth: 640,
+            maxHeight: 360,
+          });
+        } catch {
+          photoUrl = undefined;
+        }
+
+        const lat = place.location?.lat() ?? fallbackCoords?.lat ?? DEFAULT_CENTER.lat;
+        const lng = place.location?.lng() ?? fallbackCoords?.lng ?? DEFAULT_CENTER.lng;
+
+        const detailed: DiscoveredPlace = {
+          id: place.id || placeId,
+          name: place.displayName || (lang === 'sw' ? 'Eneo Lililochaguliwa' : 'Selected Place'),
+          address:
+            place.formattedAddress ||
+            (lang === 'sw' ? 'Anwani haikupatikana' : 'Address unavailable'),
+          lat,
+          lng,
+          category: place.primaryTypeDisplayName || undefined,
+          rating: typeof place.rating === 'number' ? place.rating : undefined,
+          userRatingCount:
+            typeof place.userRatingCount === 'number'
+              ? place.userRatingCount
+              : undefined,
+          openNow,
+          weekdayHours: place.regularOpeningHours?.weekdayDescriptions?.length
+            ? place.regularOpeningHours.weekdayDescriptions
+            : undefined,
+          phone:
+            place.nationalPhoneNumber ||
+            place.internationalPhoneNumber ||
+            undefined,
+          websiteURI: place.websiteURI || undefined,
+          editorialSummary: place.editorialSummary || undefined,
+          photoUrl,
+          businessStatus: place.businessStatus || undefined,
+          googleMapsURI: place.googleMapsURI || undefined,
+        };
+
+        setDiscoveredPlaces((prev) => {
+          const idx = prev.findIndex((p) => p.id === detailed.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], ...detailed };
+            return copy;
+          }
+          return [detailed, ...prev.slice(0, 11)];
+        });
+        setSelectedStation(null);
+        setSelectedPlace(detailed);
+        setInfoOpen(true);
+        setDetailsExpanded(true);
+        setMobileListOpen(false);
+        if (panToPlace) {
+          focusCoords(lat, lng, 16);
+        }
+      } catch (err) {
+        if (isQuotaError(err)) {
+          window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+        }
+      } finally {
+        setPoiDetailsLoading(false);
+      }
+    },
+    [placesLib, lang, focusCoords]
+  );
+
   const handleSelectStation = useCallback(
     (station: Station) => {
       setSelectedPlace(null);
@@ -590,10 +954,14 @@ function StationsMapWorkspace({
       setSelectedStation(null);
       setSelectedPlace(place);
       setInfoOpen(true);
+      setDetailsExpanded(true);
       setMobileListOpen(false);
       focusCoords(place.lat, place.lng, 15);
+      if (!place.phone && !place.weekdayHours && !place.editorialSummary) {
+        void fetchFullPlaceDetails(place.id, { lat: place.lat, lng: place.lng }, false);
+      }
     },
-    [focusCoords]
+    [focusCoords, fetchFullPlaceDetails]
   );
 
   const fitPointsOnMap = useCallback(
@@ -634,6 +1002,92 @@ function StationsMapWorkspace({
     fitPointsOnMap(pts);
   }, [filteredStations, discoveredPlaces, userCoords, fitPointsOnMap]);
 
+  const handleMapPointClick = useCallback(
+    (lat: number, lng: number) => {
+      if (!bboxDrawMode) return;
+      if (!bboxCorner1) {
+        setBboxCorner1({ lat, lng });
+        return;
+      }
+      const latPad = Math.abs(bboxCorner1.lat - lat) < 0.002 ? 0.008 : 0;
+      const lngPad = Math.abs(bboxCorner1.lng - lng) < 0.002 ? 0.008 : 0;
+      const south = Math.min(bboxCorner1.lat, lat) - latPad;
+      const north = Math.max(bboxCorner1.lat, lat) + latPad;
+      const west = Math.min(bboxCorner1.lng, lng) - lngPad;
+      const east = Math.max(bboxCorner1.lng, lng) + lngPad;
+      setActiveBBox({ south, west, north, east });
+      setBboxCorner1(null);
+      setBboxDrawMode(false);
+    },
+    [bboxDrawMode, bboxCorner1]
+  );
+
+  const scanCurrentViewportBBox = useCallback(() => {
+    if (!isNative3DActive && mapInstance) {
+      const bounds = mapInstance.getBounds();
+      if (bounds) {
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        setActiveBBox({
+          south: sw.lat(),
+          west: sw.lng(),
+          north: ne.lat(),
+          east: ne.lng(),
+        });
+        setBboxCorner1(null);
+        setBboxDrawMode(false);
+        return;
+      }
+    }
+    const spanDeg = Math.min(Math.max(map3dCamera.range / 111320, 0.03), 1.5);
+    setActiveBBox({
+      south: map3dCamera.center.lat - spanDeg * 0.65,
+      north: map3dCamera.center.lat + spanDeg * 0.65,
+      west: map3dCamera.center.lng - spanDeg * 0.75,
+      east: map3dCamera.center.lng + spanDeg * 0.75,
+    });
+    setBboxCorner1(null);
+    setBboxDrawMode(false);
+  }, [isNative3DActive, mapInstance, map3dCamera.center.lat, map3dCamera.center.lng, map3dCamera.range]);
+
+  const clearBBoxFilter = useCallback(() => {
+    setActiveBBox(null);
+    setBboxCorner1(null);
+    setBboxDrawMode(false);
+  }, []);
+
+  const handleLeftCameraChanged = useCallback(
+    (ev: MapCameraChangedEvent) => {
+      setSynced2DView({ center: ev.detail.center, zoom: ev.detail.zoom });
+      if (!splitMode || splitSyncLockRef.current === 'right' || !splitRightMap) {
+        return;
+      }
+      splitSyncLockRef.current = 'left';
+      splitRightMap.setCenter(ev.detail.center);
+      splitRightMap.setZoom(ev.detail.zoom);
+      window.requestAnimationFrame(() => {
+        splitSyncLockRef.current = null;
+      });
+    },
+    [splitMode, splitRightMap]
+  );
+
+  const handleRightCameraChanged = useCallback(
+    (ev: MapCameraChangedEvent) => {
+      setSynced2DView({ center: ev.detail.center, zoom: ev.detail.zoom });
+      if (!splitMode || splitSyncLockRef.current === 'left' || !mapInstance) {
+        return;
+      }
+      splitSyncLockRef.current = 'right';
+      mapInstance.setCenter(ev.detail.center);
+      mapInstance.setZoom(ev.detail.zoom);
+      window.requestAnimationFrame(() => {
+        splitSyncLockRef.current = null;
+      });
+    },
+    [splitMode, mapInstance]
+  );
+
   const handleGeoJsonUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -641,33 +1095,33 @@ function StationsMapWorkspace({
       if (!file) return;
       try {
         const text = await file.text();
-        const parsed = JSON.parse(text) as unknown;
-        const normalized = normalizeGeoJsonInput(parsed);
-        if (!normalized) {
+        const result = parseAnySpatialFileToGeoJson(text, file.name);
+        if (!result) {
           setPlacesNotice(
             lang === 'sw'
-              ? 'Faili si GeoJSON sahihi (inapaswa kuwa FeatureCollection, Feature, au Geometry).'
-              : 'Invalid GeoJSON file (expected FeatureCollection, Feature, or Geometry).'
+              ? 'Faili halikutambuliwa. Pakia GeoJSON (.geojson/.json), CSV (yenye safu ya lat/lng), au KML (.kml).'
+              : 'Unsupported spatial file. Upload GeoJSON (.geojson/.json), CSV (with lat/lng columns), or KML (.kml).'
           );
           return;
         }
-        setCustomGeoJson(normalized);
+        setCustomGeoJson(result.data);
         setCustomGeoJsonName(file.name);
         setShowGisLayer(true);
-        const pts = extractGeoJsonPoints(normalized);
+        const pts = extractGeoJsonPoints(result.data);
         if (pts.length > 0) {
           fitPointsOnMap(pts);
         }
+        const fmtLabel = result.format.toUpperCase();
         setPlacesNotice(
           lang === 'sw'
-            ? `Safu ya GIS imepakiwa (${normalized.features.length} vipengele kutoka ${file.name}).`
-            : `Loaded GeoJSON layer (${normalized.features.length} features from ${file.name}).`
+            ? `Safu ya ${fmtLabel} imebadilishwa kuwa GeoJSON (${result.data.features.length} vipengele kutoka ${file.name}).`
+            : `Converted ${fmtLabel} to GeoJSON (${result.data.features.length} features from ${file.name}).`
         );
       } catch {
         setPlacesNotice(
           lang === 'sw'
-            ? 'Imeshindwa kusoma faili la GeoJSON. Hakikisha ni JSON sahihi.'
-            : 'Could not parse GeoJSON file. Please verify valid JSON syntax.'
+            ? 'Imeshindwa kusoma faili la GIS. Hakikisha muundo wa faili ni sahihi.'
+            : 'Could not read spatial file. Please verify valid syntax.'
         );
       }
     },
@@ -738,8 +1192,12 @@ function StationsMapWorkspace({
             'displayName',
             'location',
             'formattedAddress',
+            'primaryTypeDisplayName',
+            'rating',
+            'userRatingCount',
             'businessStatus',
             'googleMapsURI',
+            'photos',
           ],
           locationBias: bias,
           maxResultCount: 8,
@@ -752,15 +1210,28 @@ function StationsMapWorkspace({
         const places = res?.places ?? [];
         const mapped: DiscoveredPlace[] = places
           .filter((p) => p.location != null)
-          .map((p) => ({
-            id: p.id,
-            name: p.displayName || 'Station',
-            address: p.formattedAddress || '',
-            lat: p.location!.lat(),
-            lng: p.location!.lng(),
-            businessStatus: p.businessStatus || undefined,
-            googleMapsURI: p.googleMapsURI || undefined,
-          }));
+          .map((p) => {
+            let photoUrl: string | undefined;
+            try {
+              photoUrl = p.photos?.[0]?.getURI?.({ maxWidth: 640, maxHeight: 360 });
+            } catch {
+              photoUrl = undefined;
+            }
+            return {
+              id: p.id,
+              name: p.displayName || 'Station',
+              address: p.formattedAddress || '',
+              lat: p.location!.lat(),
+              lng: p.location!.lng(),
+              category: p.primaryTypeDisplayName || undefined,
+              rating: typeof p.rating === 'number' ? p.rating : undefined,
+              userRatingCount:
+                typeof p.userRatingCount === 'number' ? p.userRatingCount : undefined,
+              photoUrl,
+              businessStatus: p.businessStatus || undefined,
+              googleMapsURI: p.googleMapsURI || undefined,
+            };
+          });
 
         setDiscoveredPlaces(mapped);
         if (mapped.length > 0) {
@@ -768,6 +1239,11 @@ function StationsMapWorkspace({
           setSelectedStation(null);
           setSelectedPlace(mapped[0]);
           setInfoOpen(true);
+          void fetchFullPlaceDetails(
+            mapped[0].id,
+            { lat: mapped[0].lat, lng: mapped[0].lng },
+            false
+          );
         } else {
           setPlacesNotice(
             lang === 'sw'
@@ -789,7 +1265,15 @@ function StationsMapWorkspace({
         setPlacesLoading(false);
       }
     },
-    [placesLib, isNative3DActive, mapInstance, map3dCamera.center, lang, fitPointsOnMap]
+    [
+      placesLib,
+      isNative3DActive,
+      mapInstance,
+      map3dCamera.center,
+      lang,
+      fitPointsOnMap,
+      fetchFullPlaceDetails,
+    ]
   );
 
   // Live Google Places Nearby Gas Stations Search — works in both 2D and 3D
@@ -821,8 +1305,12 @@ function StationsMapWorkspace({
           'displayName',
           'location',
           'formattedAddress',
+          'primaryTypeDisplayName',
+          'rating',
+          'userRatingCount',
           'businessStatus',
           'googleMapsURI',
+          'photos',
         ],
         locationRestriction: {
           center,
@@ -838,21 +1326,39 @@ function StationsMapWorkspace({
       const places = res?.places ?? [];
       const mapped: DiscoveredPlace[] = places
         .filter((p) => p.location != null)
-        .map((p) => ({
-          id: p.id,
-          name: p.displayName || 'Gas Station',
-          address: p.formattedAddress || '',
-          lat: p.location!.lat(),
-          lng: p.location!.lng(),
-          businessStatus: p.businessStatus || undefined,
-          googleMapsURI: p.googleMapsURI || undefined,
-        }));
+        .map((p) => {
+          let photoUrl: string | undefined;
+          try {
+            photoUrl = p.photos?.[0]?.getURI?.({ maxWidth: 640, maxHeight: 360 });
+          } catch {
+            photoUrl = undefined;
+          }
+          return {
+            id: p.id,
+            name: p.displayName || 'Gas Station',
+            address: p.formattedAddress || '',
+            lat: p.location!.lat(),
+            lng: p.location!.lng(),
+            category: p.primaryTypeDisplayName || undefined,
+            rating: typeof p.rating === 'number' ? p.rating : undefined,
+            userRatingCount:
+              typeof p.userRatingCount === 'number' ? p.userRatingCount : undefined,
+            photoUrl,
+            businessStatus: p.businessStatus || undefined,
+            googleMapsURI: p.googleMapsURI || undefined,
+          };
+        });
 
       setDiscoveredPlaces(mapped);
       if (mapped.length > 0) {
         setSelectedStation(null);
         setSelectedPlace(mapped[0]);
         setInfoOpen(true);
+        void fetchFullPlaceDetails(
+          mapped[0].id,
+          { lat: mapped[0].lat, lng: mapped[0].lng },
+          false
+        );
       } else {
         setPlacesNotice(
           lang === 'sw'
@@ -880,6 +1386,7 @@ function StationsMapWorkspace({
     map3dCamera.center,
     map3dCamera.range,
     lang,
+    fetchFullPlaceDetails,
   ]);
 
   // Modern Routes API: Route.computeRoutes + 2D polylines & 3D Polyline3D coordinates
@@ -997,6 +1504,35 @@ function StationsMapWorkspace({
     [routesLib, mapInstance, isNative3DActive, userCoords, lang, fly3DCameraTo]
   );
 
+  // Intercept 3D POI clicks via native gmp-click to suppress default minimal popover and show full Place Details
+  useEffect(() => {
+    if (!map3dElement) return;
+    const onNative3DClick = (ev: Event) => {
+      const clickEv = ev as Event & {
+        placeId?: string;
+        position?: { lat: number; lng: number; altitude?: number } | null;
+      };
+      if (bboxDrawMode && clickEv.position) {
+        clickEv.preventDefault();
+        handleMapPointClick(clickEv.position.lat, clickEv.position.lng);
+        return;
+      }
+      if (clickEv.placeId) {
+        clickEv.preventDefault();
+        void fetchFullPlaceDetails(
+          clickEv.placeId,
+          clickEv.position
+            ? { lat: clickEv.position.lat, lng: clickEv.position.lng }
+            : undefined
+        );
+      }
+    };
+    map3dElement.addEventListener('gmp-click', onNative3DClick);
+    return () => {
+      map3dElement.removeEventListener('gmp-click', onNative3DClick);
+    };
+  }, [map3dElement, bboxDrawMode, handleMapPointClick, fetchFullPlaceDetails]);
+
   const activeTarget = selectedStation
     ? {
         kind: 'station' as const,
@@ -1025,6 +1561,15 @@ function StationsMapWorkspace({
           subtitle: selectedPlace.address,
           lat: selectedPlace.lat,
           lng: selectedPlace.lng,
+          category: selectedPlace.category,
+          rating: selectedPlace.rating,
+          userRatingCount: selectedPlace.userRatingCount,
+          openNow: selectedPlace.openNow,
+          weekdayHours: selectedPlace.weekdayHours,
+          phone: selectedPlace.phone,
+          websiteURI: selectedPlace.websiteURI,
+          editorialSummary: selectedPlace.editorialSummary,
+          photoUrl: selectedPlace.photoUrl,
           googleMapsURI: selectedPlace.googleMapsURI,
           businessStatus: selectedPlace.businessStatus,
         }
@@ -1040,13 +1585,227 @@ function StationsMapWorkspace({
         )
       : null;
 
+  const renderMapPopupCard = () => {
+    if (!activeTarget) return null;
+    return (
+      <div className="w-[272px] sm:w-[296px] rounded-xl overflow-hidden bg-white text-neutral-900 shadow-2xl border border-neutral-200/80">
+        {activeTarget.kind === 'place' && activeTarget.photoUrl ? (
+          <div className="relative h-28 w-full bg-[#0B2A6F]">
+            <img
+              src={activeTarget.photoUrl}
+              alt={activeTarget.name}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
+            <span className="absolute bottom-2 left-2.5 px-2 py-0.5 rounded-md bg-[#F5B800] text-[#0B2A6F] text-[10px] font-extrabold uppercase tracking-wide shadow">
+              {activeTarget.category || (lang === 'sw' ? 'Eneo la Google' : 'Google Place')}
+            </span>
+            <button
+              type="button"
+              onClick={() => setInfoOpen(false)}
+              aria-label="Close popup"
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/55 hover:bg-black/75 text-white flex items-center justify-center cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="bg-[#0B2A6F] px-3 py-2.5 flex items-center justify-between gap-2">
+            <span className="px-2 py-0.5 rounded-md bg-[#F5B800] text-[#0B2A6F] text-[10px] font-extrabold uppercase tracking-wide truncate">
+              {activeTarget.kind === 'station'
+                ? `OILCOM · ${activeTarget.code}`
+                : activeTarget.category || 'GOOGLE PLACES'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setInfoOpen(false)}
+              aria-label="Close popup"
+              className="w-6 h-6 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center shrink-0 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        <div className="p-3 space-y-2">
+          <div>
+            <h4 className="font-display font-bold text-sm text-neutral-900 leading-snug">
+              {activeTarget.name}
+            </h4>
+            <p className="text-[11px] text-neutral-600 mt-0.5 flex items-start gap-1 leading-snug">
+              <MapPin className="w-3 h-3 text-[#0B2A6F] shrink-0 mt-0.5" />
+              <span>{activeTarget.subtitle}</span>
+            </p>
+          </div>
+
+          {activeTarget.kind === 'place' && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              {activeTarget.rating !== undefined && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 font-bold font-mono-num">
+                  <Star className="w-3 h-3 fill-[#F5B800] text-[#F5B800]" />
+                  {activeTarget.rating.toFixed(1)}
+                  {activeTarget.userRatingCount !== undefined && (
+                    <span className="text-neutral-500 font-normal">
+                      ({activeTarget.userRatingCount.toLocaleString()})
+                    </span>
+                  )}
+                </span>
+              )}
+              {activeTarget.openNow === true && (
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                  {lang === 'sw' ? 'Wazi Sasa' : 'Open Now'}
+                </span>
+              )}
+              {activeTarget.openNow === false && (
+                <span className="px-1.5 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 font-semibold">
+                  {lang === 'sw' ? 'Imefungwa' : 'Closed'}
+                </span>
+              )}
+              {activeDistanceKm !== null && (
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-[#0B2A6F] font-mono-num font-semibold">
+                  {activeDistanceKm.toFixed(1)} km
+                </span>
+              )}
+            </div>
+          )}
+
+          {activeTarget.kind === 'station' && (
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-[#0B2A6F] font-semibold inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {activeTarget.open24Hours ? '24/7' : '06:00 - 22:00'}
+                </span>
+                {activeDistanceKm !== null && (
+                  <span className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-900 font-mono-num font-semibold">
+                    {activeDistanceKm.toFixed(1)} km
+                  </span>
+                )}
+              </div>
+              {(activeTarget.petrolPriceTzs || activeTarget.dieselPriceTzs) && (
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono-num">
+                  <div className="px-2 py-1 rounded-lg bg-neutral-100">
+                    <span className="text-neutral-500 block">Petrol</span>
+                    <span className="font-bold text-[#0B2A6F]">
+                      {formatTzs(activeTarget.petrolPriceTzs || 0)}/L
+                    </span>
+                  </div>
+                  <div className="px-2 py-1 rounded-lg bg-neutral-100">
+                    <span className="text-neutral-500 block">Diesel</span>
+                    <span className="font-bold text-[#0B2A6F]">
+                      {formatTzs(activeTarget.dieselPriceTzs || 0)}/L
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTarget.kind === 'place' && activeTarget.editorialSummary && (
+            <p className="text-[11px] text-neutral-600 leading-relaxed line-clamp-3 bg-neutral-50 p-2 rounded-lg border border-neutral-100">
+              {activeTarget.editorialSummary}
+            </p>
+          )}
+
+          {activeTarget.kind === 'place' &&
+            (activeTarget.phone || activeTarget.websiteURI || activeTarget.weekdayHours) && (
+              <div className="space-y-1 text-[11px] text-neutral-700 pt-0.5 border-t border-neutral-100">
+                {activeTarget.weekdayHours && activeTarget.weekdayHours.length > 0 && (
+                  <p className="text-[10px] text-neutral-600 flex items-start gap-1.5">
+                    <Clock className="w-3 h-3 text-[#0B2A6F] shrink-0 mt-0.5" />
+                    <span className="line-clamp-2">
+                      {activeTarget.weekdayHours[(new Date().getDay() + 6) % 7] ||
+                        activeTarget.weekdayHours[0]}
+                    </span>
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                  {activeTarget.phone && (
+                    <a
+                      href={`tel:${activeTarget.phone}`}
+                      className="inline-flex items-center gap-1 font-semibold text-[#0B2A6F] hover:underline"
+                    >
+                      <Phone className="w-3 h-3 text-[#F5B800]" />
+                      <span>{activeTarget.phone}</span>
+                    </a>
+                  )}
+                  {activeTarget.websiteURI && (
+                    <a
+                      href={activeTarget.websiteURI}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline"
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>{lang === 'sw' ? 'Tovuti' : 'Website'}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => computeDirections(activeTarget)}
+              disabled={routeLoading}
+              className="flex-1 min-w-[96px] py-1.5 px-2.5 rounded-lg bg-[#0B2A6F] hover:bg-[#092055] text-white font-semibold text-[11px] flex items-center justify-center gap-1 cursor-pointer"
+            >
+              {routeLoading ? (
+                <Loader2 className="w-3 h-3 text-[#F5B800] animate-spin" />
+              ) : (
+                <RouteIcon className="w-3 h-3 text-[#F5B800]" />
+              )}
+              <span>{lang === 'sw' ? 'Maelekezo' : 'Directions'}</span>
+            </button>
+
+            {activeTarget.kind === 'station' ? (
+              <>
+                {activeTarget.hasGas && (
+                  <button
+                    type="button"
+                    onClick={() => onOrderAtStation(activeTarget.stationObj, 'gas')}
+                    className="py-1.5 px-2.5 rounded-lg bg-[#F5B800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Gesi' : 'Gas'}
+                  </button>
+                )}
+                {activeTarget.hasFuel && (
+                  <button
+                    type="button"
+                    onClick={() => onOrderAtStation(activeTarget.stationObj, 'fuel')}
+                    className="py-1.5 px-2.5 rounded-lg bg-[#D92027] text-white font-bold text-[11px] cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Mafuta' : 'Fuel'}
+                  </button>
+                )}
+              </>
+            ) : (
+              activeTarget.googleMapsURI && (
+                <a
+                  href={activeTarget.googleMapsURI}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] inline-flex items-center gap-1"
+                >
+                  <span>Google Maps</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-0 lg:space-y-3">
-      {/* Hidden GeoJSON file upload input */}
+      {/* Hidden GeoJSON / CSV / KML spatial file upload input */}
       <input
         ref={geojsonInputRef}
         type="file"
-        accept=".geojson,.json,application/geo+json,application/json"
+        accept=".geojson,.json,.csv,.tsv,.kml,application/geo+json,application/json,text/csv,application/vnd.google-earth.kml+xml"
         onChange={handleGeoJsonUpload}
         className="hidden"
       />
@@ -1107,13 +1866,14 @@ function StationsMapWorkspace({
 
       {/* Main Responsive Maps Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-4">
-        {/* Interactive Full-Viewport Map (2D or Photorealistic 3D) */}
+        {/* Interactive Full-Viewport Map (2D or 3D Extruded Buildings) */}
         <div className="lg:col-span-8 min-w-0 rounded-none lg:rounded-2xl overflow-hidden border-0 lg:border border-neutral-200 dark:border-blue-950 bg-neutral-100 dark:bg-[#091022] h-[calc(100dvh-7rem)] min-h-[440px] lg:h-[calc(100dvh-9.5rem)] relative">
           {isNative3DActive ? (
             <Map3D
               id="oilcom-map-3d"
-              ref={map3dRef}
-              mode={mapType === 'hybrid' ? MapMode.SATELLITE : MapMode.HYBRID}
+              ref={handleMap3dRef}
+              mode={mapType === 'hybrid' ? MapMode.HYBRID : MapMode.ROADMAP}
+              colorScheme={ColorScheme.LIGHT}
               defaultLabelsDisabled={false}
               gestureHandling={GestureHandling.GREEDY}
               defaultCenter={map3dCamera.center}
@@ -1127,8 +1887,25 @@ function StationsMapWorkspace({
               internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
               style={{ width: '100%', height: '100%' }}
             >
-              {/* 3D GIS GeoJSON Polygons (Delivery Coverage Zones) */}
-              {showGisLayer &&
+              {/* First corner marker during 3D BBox selection */}
+              {bboxCorner1 && (
+                <Marker3D
+                  position={{ lat: bboxCorner1.lat, lng: bboxCorner1.lng, altitude: 65 }}
+                  altitudeMode={AltitudeMode.RELATIVE_TO_GROUND}
+                  extruded
+                  title={lang === 'sw' ? 'Kona ya 1 (BBox)' : 'BBox Corner 1'}
+                >
+                  <Pin
+                    background="#F5B800"
+                    borderColor="#0B2A6F"
+                    glyphColor="#0B2A6F"
+                    scale={1.1}
+                  />
+                </Marker3D>
+              )}
+
+              {/* 3D GIS GeoJSON Polygons (Zones, Buffers, Voronoi Catchments, Hotspots, BBox) */}
+              {hasAnyGisOverlay &&
                 overlays3D.polygons.map((poly) => (
                   <Polygon3D
                     key={poly.key}
@@ -1138,13 +1915,13 @@ function StationsMapWorkspace({
                     extruded
                     fillColor={poly.fillColor}
                     strokeColor={poly.strokeColor}
-                    strokeWidth={3}
+                    strokeWidth={poly.feature.properties?.kind === 'buffer' ? 2 : 3}
                     onClick={() => handleSelect3DGisFeature(poly.feature)}
                   />
                 ))}
 
               {/* 3D GIS GeoJSON Corridors & LineStrings */}
-              {showGisLayer &&
+              {hasAnyGisOverlay &&
                 overlays3D.polylines.map((line) => (
                   <Polyline3D
                     key={line.key}
@@ -1157,7 +1934,7 @@ function StationsMapWorkspace({
                 ))}
 
               {/* 3D GIS GeoJSON Point Features */}
-              {showGisLayer &&
+              {hasAnyGisOverlay &&
                 overlays3D.points.map((pt) => (
                   <Marker3D
                     key={pt.key}
@@ -1261,22 +2038,166 @@ function StationsMapWorkspace({
                   open={infoOpen}
                   onClose={() => setInfoOpen(false)}
                 >
-                  <div className="p-2 text-neutral-900 max-w-[220px] bg-white rounded-lg">
-                    <p className="font-bold text-xs leading-snug">
-                      {activeTarget.name}
-                    </p>
-                    <p className="text-[11px] text-neutral-600 mt-0.5 line-clamp-2">
-                      {activeTarget.subtitle}
-                    </p>
-                    {activeTarget.kind === 'station' && (
-                      <p className="text-[11px] font-semibold text-blue-800 mt-1">
-                        {activeTarget.open24Hours ? '24/7' : '06:00 - 22:00'}
-                      </p>
-                    )}
-                  </div>
+                  {renderMapPopupCard()}
                 </Popover>
               )}
             </Map3D>
+          ) : splitMode ? (
+            <div className="relative w-full h-full">
+              {/* Right Layer: Hybrid Satellite + Demand Hotspots & Supply Corridors */}
+              <GoogleMapView
+                id="oilcom-map-split-right"
+                mapId="DEMO_MAP_ID"
+                colorScheme={ColorScheme.LIGHT}
+                defaultCenter={synced2DView.center}
+                defaultZoom={synced2DView.zoom}
+                gestureHandling="greedy"
+                mapTypeId="hybrid"
+                mapTypeControl={false}
+                streetViewControl={false}
+                fullscreenControl={false}
+                onCameraChanged={handleRightCameraChanged}
+                onClick={(ev: MapMouseEvent) => {
+                  if (bboxDrawMode && ev.detail.latLng) {
+                    handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
+                    return;
+                  }
+                  if (ev.detail.placeId) {
+                    ev.stop();
+                    void fetchFullPlaceDetails(
+                      ev.detail.placeId,
+                      ev.detail.latLng ?? undefined
+                    );
+                  }
+                }}
+                internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <MapInstanceBridge onMapReady={setSplitRightMap} />
+                {bboxCorner1 && (
+                  <AdvancedMarker position={bboxCorner1} zIndex={35}>
+                    <div className="w-4 h-4 rounded-full bg-[#F5B800] border-2 border-[#0B2A6F] shadow-md" />
+                  </AdvancedMarker>
+                )}
+                {filteredStations.map((station) => (
+                  <AdvancedMarker
+                    key={`sr-${station.id}`}
+                    position={{ lat: station.lat, lng: station.lng }}
+                    onClick={() => handleSelectStation(station)}
+                    title={station.name}
+                    zIndex={15}
+                  >
+                    <Pin
+                      background="#D92027"
+                      borderColor="#FFFFFF"
+                      glyphColor="#FFFFFF"
+                      scale={0.9}
+                    />
+                  </AdvancedMarker>
+                ))}
+              </GoogleMapView>
+
+              {/* Left Clipped Layer: Roadmap + Service Buffers & Voronoi Catchments */}
+              <div
+                className="absolute inset-0"
+                style={{ clipPath: `inset(0 ${100 - splitPercent}% 0 0)` }}
+              >
+                <GoogleMapView
+                  id="oilcom-map-split-left"
+                  mapId="DEMO_MAP_ID"
+                  colorScheme={ColorScheme.LIGHT}
+                  defaultCenter={synced2DView.center}
+                  defaultZoom={synced2DView.zoom}
+                  gestureHandling="greedy"
+                  mapTypeId="roadmap"
+                  mapTypeControl={false}
+                  streetViewControl={false}
+                  fullscreenControl={false}
+                  onCameraChanged={handleLeftCameraChanged}
+                  onClick={(ev: MapMouseEvent) => {
+                    if (bboxDrawMode && ev.detail.latLng) {
+                      handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
+                      return;
+                    }
+                    if (ev.detail.placeId) {
+                      ev.stop();
+                      void fetchFullPlaceDetails(
+                        ev.detail.placeId,
+                        ev.detail.latLng ?? undefined
+                      );
+                    }
+                  }}
+                  internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <MapInstanceBridge onMapReady={setMapInstance} />
+                  {bboxCorner1 && (
+                    <AdvancedMarker position={bboxCorner1} zIndex={35}>
+                      <div className="w-4 h-4 rounded-full bg-[#F5B800] border-2 border-[#0B2A6F] shadow-md" />
+                    </AdvancedMarker>
+                  )}
+                  {userCoords && (
+                    <AdvancedMarker
+                      position={userCoords}
+                      title={lang === 'sw' ? 'Eneo Lako' : 'Your Location'}
+                      zIndex={30}
+                    >
+                      <div className="w-4 h-4 rounded-full bg-blue-600 border-2 border-white shadow-[0_0_0_6px_rgba(37,99,235,0.3)]" />
+                    </AdvancedMarker>
+                  )}
+                  {filteredStations.map((station) => {
+                    const isSelected = selectedStation?.id === station.id;
+                    return (
+                      <AdvancedMarker
+                        key={`sl-${station.id}`}
+                        position={{ lat: station.lat, lng: station.lng }}
+                        onClick={() => handleSelectStation(station)}
+                        title={station.name}
+                        zIndex={isSelected ? 25 : 15}
+                      >
+                        <Pin
+                          background={isSelected ? '#F5B800' : '#0B2A6F'}
+                          borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
+                          glyphColor={isSelected ? '#0B2A6F' : '#F5B800'}
+                          scale={isSelected ? 1.15 : 0.95}
+                        />
+                      </AdvancedMarker>
+                    );
+                  })}
+                </GoogleMapView>
+              </div>
+
+              {/* Vertical Split Curtain Line */}
+              <div
+                className="pointer-events-none absolute inset-y-0 z-[5] w-0.5 bg-[#F5B800] shadow-[0_0_10px_rgba(0,0,0,0.45)]"
+                style={{ left: `${splitPercent}%` }}
+              >
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-[#0B2A6F] border-2 border-[#F5B800] flex items-center justify-center shadow-lg">
+                  <Columns2 className="w-4 h-4 text-[#F5B800]" />
+                </div>
+              </div>
+
+              {/* Split View Left / Right Layer Captions & Swipe Range Slider */}
+              <div className="pointer-events-none absolute bottom-24 lg:bottom-4 inset-x-3 z-10 flex flex-col items-center gap-2">
+                <div className="pointer-events-auto flex items-center gap-2 bg-[#091022]/90 text-white px-3 py-1.5 rounded-xl border border-blue-900 shadow-lg text-[11px]">
+                  <span className="font-semibold text-sky-300 whitespace-nowrap">
+                    {lang === 'sw' ? 'Kushoto: Miduara & Voronoi' : 'Left: Buffers & Voronoi'}
+                  </span>
+                  <input
+                    type="range"
+                    min={15}
+                    max={85}
+                    value={splitPercent}
+                    onChange={(e) => setSplitPercent(Number(e.target.value))}
+                    aria-label={lang === 'sw' ? 'Sogeza mstari wa kulinganisha' : 'Split map swipe slider'}
+                    className="w-24 sm:w-36 accent-[#F5B800] cursor-pointer"
+                  />
+                  <span className="font-semibold text-[#F5B800] whitespace-nowrap">
+                    {lang === 'sw' ? 'Kulia: Satellite & Mahitaji' : 'Right: Satellite & Hotspots'}
+                  </span>
+                </div>
+              </div>
+            </div>
           ) : (
             <GoogleMapView
               mapId="DEMO_MAP_ID"
@@ -1290,10 +2211,33 @@ function StationsMapWorkspace({
               mapTypeControl={false}
               streetViewControl={false}
               fullscreenControl={false}
+              onCameraChanged={(ev: MapCameraChangedEvent) => {
+                setSynced2DView({ center: ev.detail.center, zoom: ev.detail.zoom });
+              }}
+              onClick={(ev: MapMouseEvent) => {
+                if (bboxDrawMode && ev.detail.latLng) {
+                  handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
+                  return;
+                }
+                if (ev.detail.placeId) {
+                  ev.stop();
+                  void fetchFullPlaceDetails(
+                    ev.detail.placeId,
+                    ev.detail.latLng ?? undefined
+                  );
+                }
+              }}
               internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
               style={{ width: '100%', height: '100%' }}
             >
               <MapInstanceBridge onMapReady={setMapInstance} />
+
+              {/* First corner marker during 2D BBox selection */}
+              {bboxCorner1 && (
+                <AdvancedMarker position={bboxCorner1} zIndex={35}>
+                  <div className="w-4 h-4 rounded-full bg-[#F5B800] border-2 border-[#0B2A6F] shadow-[0_0_0_4px_rgba(245,184,0,0.35)]" />
+                </AdvancedMarker>
+              )}
 
               {/* User GPS Marker */}
               {userCoords && (
@@ -1351,23 +2295,12 @@ function StationsMapWorkspace({
               {/* Anchored Coordinates InfoWindow */}
               {infoOpen && activeTarget && (
                 <InfoWindow
+                  headerDisabled
                   position={{ lat: activeTarget.lat, lng: activeTarget.lng }}
                   pixelOffset={[0, -34]}
                   onCloseClick={() => setInfoOpen(false)}
                 >
-                  <div className="p-1 text-neutral-900 max-w-[220px]">
-                    <p className="font-bold text-xs leading-snug">
-                      {activeTarget.name}
-                    </p>
-                    <p className="text-[11px] text-neutral-600 mt-0.5 line-clamp-2">
-                      {activeTarget.subtitle}
-                    </p>
-                    {activeTarget.kind === 'station' && (
-                      <p className="text-[11px] font-semibold text-blue-800 mt-1">
-                        {activeTarget.open24Hours ? '24/7' : '06:00 - 22:00'}
-                      </p>
-                    )}
-                  </div>
+                  {renderMapPopupCard()}
                 </InfoWindow>
               )}
             </GoogleMapView>
@@ -1490,10 +2423,7 @@ function StationsMapWorkspace({
               <button
                 type="button"
                 onClick={() => {
-                  setShowGisLayer((v) => {
-                    if (v) setSelectedGisFeature(null);
-                    return !v;
-                  });
+                  setShowGisLayer((v) => !v);
                 }}
                 className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
                   showGisLayer
@@ -1509,14 +2439,170 @@ function StationsMapWorkspace({
                 <span>{lang === 'sw' ? 'Kanda za GIS' : 'GIS Zones'}</span>
               </button>
 
-              {/* Upload Custom GeoJSON Layer */}
+              {/* Service Radius Buffer Cycle (Off / 3 km / 5 km / 10 km) */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBufferRadiusKm((prev) =>
+                    prev === 5 ? 10 : prev === 10 ? 0 : prev === 0 ? 3 : 5
+                  )
+                }
+                title={
+                  lang === 'sw'
+                    ? 'Badili ukubwa wa mduara wa huduma (3 / 5 / 10 km)'
+                    : 'Cycle station service buffer radius (3 / 5 / 10 km)'
+                }
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  bufferRadiusKm > 0
+                    ? 'bg-[#0B2A6F] text-white border-[#0B2A6F]'
+                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
+                }`}
+              >
+                <CircleDot
+                  className={`w-3 h-3 ${
+                    bufferRadiusKm > 0 ? 'text-[#F5B800]' : 'text-[#0B2A6F]'
+                  }`}
+                />
+                <span className="font-mono-num">
+                  {bufferRadiusKm > 0
+                    ? `${lang === 'sw' ? 'Mduara' : 'Buffer'}: ${bufferRadiusKm} km`
+                    : lang === 'sw'
+                      ? 'Mduara: Zima'
+                      : 'Buffer: Off'}
+                </span>
+              </button>
+
+              {/* Non-Deprecated Spatial Demand Hotspots Layer */}
+              <button
+                type="button"
+                onClick={() => setShowHotspots((v) => !v)}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  showHotspots
+                    ? 'bg-[#D92027] text-white border-[#D92027]'
+                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
+                }`}
+              >
+                <Radar
+                  className={`w-3 h-3 ${
+                    showHotspots ? 'text-[#F5B800]' : 'text-[#D92027]'
+                  }`}
+                />
+                <span>{lang === 'sw' ? 'Mahitaji' : 'Hotspots'}</span>
+              </button>
+
+              {/* Voronoi / Thiessen Station Catchment Territories */}
+              <button
+                type="button"
+                onClick={() => setShowVoronoi((v) => !v)}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  showVoronoi
+                    ? 'bg-emerald-700 text-white border-emerald-700'
+                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
+                }`}
+              >
+                <Hexagon
+                  className={`w-3 h-3 ${
+                    showVoronoi ? 'text-[#F5B800]' : 'text-emerald-600'
+                  }`}
+                />
+                <span>{lang === 'sw' ? 'Voronoi' : 'Voronoi'}</span>
+              </button>
+
+              {/* Interactive BBox Spatial Filter Tool */}
+              <button
+                type="button"
+                onClick={() => {
+                  setBboxDrawMode((v) => {
+                    const next = !v;
+                    if (!next) setBboxCorner1(null);
+                    return next;
+                  });
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  bboxDrawMode || activeBBox
+                    ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
+                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
+                }`}
+              >
+                <Crop className="w-3 h-3 text-[#0B2A6F] dark:text-[#F5B800]" />
+                <span>
+                  {bboxDrawMode
+                    ? lang === 'sw'
+                      ? 'Chora BBox...'
+                      : 'Draw BBox...'
+                    : lang === 'sw'
+                      ? 'Pima Eneo (BBox)'
+                      : 'Spatial Filter'}
+                </span>
+              </button>
+
+              {/* Split-Map Swipe Comparison (leafmap.split_map inspired, 2D mode) */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewMode === '3d') {
+                    setViewMode('2d');
+                  }
+                  setSplitMode((v) => !v);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  splitMode && !isNative3DActive
+                    ? 'bg-indigo-700 text-white border-indigo-700'
+                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
+                }`}
+              >
+                <Columns2
+                  className={`w-3 h-3 ${
+                    splitMode && !isNative3DActive ? 'text-[#F5B800]' : 'text-indigo-600'
+                  }`}
+                />
+                <span>{lang === 'sw' ? 'Linganisha (Split)' : 'Split View'}</span>
+              </button>
+
+              {/* Export Active OGC GeoJSON Bundle for QGIS */}
+              <button
+                type="button"
+                onClick={() => {
+                  const bundle = buildOilcomGeoJsonExport(
+                    stations,
+                    orders,
+                    bufferRadiusKm > 0 ? bufferRadiusKm : 5,
+                    {
+                      includeStations: true,
+                      includeZones: true,
+                      includeBuffers: true,
+                      includeVoronoi: true,
+                      includeHotspots: true,
+                      timeSlice,
+                      customFeatures: [
+                        ...(bboxGeoJsonFeature ? [bboxGeoJsonFeature] : []),
+                        ...(customGeoJson?.features ?? []),
+                      ],
+                    }
+                  );
+                  downloadGeoJsonFile('oilcom-tanzania-gis.geojson', bundle);
+                  setPlacesNotice(
+                    lang === 'sw'
+                      ? `Faili la OGC GeoJSON limepakuliwa (${bundle.features.length} vipengele tayari kwa QGIS).`
+                      : `Exported OGC GeoJSON bundle (${bundle.features.length} features ready for QGIS).`
+                  );
+                }}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Download className="w-3 h-3 text-[#F5B800]" />
+                <span>{lang === 'sw' ? 'Pakua GeoJSON' : 'Export GeoJSON'}</span>
+              </button>
+
+              {/* Upload Custom GeoJSON / CSV / KML Layer */}
               <button
                 type="button"
                 onClick={() => geojsonInputRef.current?.click()}
                 className="px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900 flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Upload className="w-3 h-3 text-sky-500" />
-                <span>{lang === 'sw' ? 'Pakia GeoJSON' : 'Load GeoJSON'}</span>
+                <span>
+                  {lang === 'sw' ? 'Pakia GIS / CSV / KML' : 'Load GIS / CSV / KML'}
+                </span>
               </button>
 
               {customGeoJson && (
@@ -1530,7 +2616,7 @@ function StationsMapWorkspace({
                   className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm bg-sky-700 text-white flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Trash2 className="w-3 h-3" />
-                  <span>{lang === 'sw' ? 'Ondoa GeoJSON' : 'Clear GeoJSON'}</span>
+                  <span>{lang === 'sw' ? 'Ondoa GIS' : 'Clear GIS'}</span>
                 </button>
               )}
 
@@ -1590,6 +2676,162 @@ function StationsMapWorkspace({
               )}
             </div>
 
+            {/* Interactive BBox Draw Mode Guidance */}
+            {bboxDrawMode && (
+              <div className="pointer-events-auto px-3 py-2 rounded-xl bg-[#0B2A6F]/95 text-white border border-[#F5B800]/60 text-xs flex flex-wrap items-center justify-between gap-2 shadow-lg max-w-xl">
+                <span className="font-medium">
+                  {bboxCorner1
+                    ? lang === 'sw'
+                      ? 'Sasa bofya kona ya pili kwenye ramani kukamilisha eneo.'
+                      : 'Now click the opposite corner on the map to complete box.'
+                    : lang === 'sw'
+                      ? 'Bofya kona ya 1 kisha kona ya 2 kwenye ramani kupima eneo, au pima eneo lote unaloona.'
+                      : 'Click corner 1 then corner 2 on the map to inspect an area, or scan viewport.'}
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={scanCurrentViewportBBox}
+                    className="px-2.5 py-1 rounded-lg bg-[#F5B800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                  >
+                    {lang === 'sw' ? 'Pima Eneo Hili' : 'Scan Viewport'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBBoxFilter}
+                    className="px-2 py-1 rounded-lg bg-white/15 text-white text-[11px] cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Ghairi' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Temporal Demand Time-Slider Bar */}
+            {(showHotspots || splitMode) && (
+              <div className="pointer-events-auto px-2.5 py-1.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-lg flex flex-wrap items-center gap-1.5 max-w-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!showHotspots) setShowHotspots(true);
+                    setTimePlaying((p) => !p);
+                  }}
+                  aria-label={timePlaying ? 'Pause temporal replay' : 'Play temporal replay'}
+                  className="px-2 py-1 rounded-lg bg-[#D92027] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  {timePlaying ? (
+                    <Pause className="w-3 h-3" />
+                  ) : (
+                    <Play className="w-3 h-3" />
+                  )}
+                  <span>{timePlaying ? 'Pause' : 'Play'}</span>
+                </button>
+                <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-300 flex items-center gap-1 px-1">
+                  <Clock3 className="w-3 h-3 text-[#F5B800]" />
+                </span>
+                {(
+                  [
+                    ['all', lang === 'sw' ? 'Saa 24' : 'All Day'],
+                    ['morning', lang === 'sw' ? 'Asubuhi' : 'Morning'],
+                    ['midday', lang === 'sw' ? 'Mchana' : 'Midday'],
+                    ['evening', lang === 'sw' ? 'Jioni' : 'Evening'],
+                    ['night', lang === 'sw' ? 'Usiku' : 'Night'],
+                  ] as [TimeSliceKey, string][]
+                ).map(([sliceKey, label]) => (
+                  <button
+                    key={sliceKey}
+                    type="button"
+                    onClick={() => {
+                      setTimePlaying(false);
+                      setTimeSlice(sliceKey);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold cursor-pointer whitespace-nowrap transition-colors ${
+                      timeSlice === sliceKey
+                        ? 'bg-[#0B2A6F] text-[#F5B800]'
+                        : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* BBox Spatial Analytics Summary Card */}
+            {bboxStats && activeBBox && (
+              <div className="pointer-events-auto px-3.5 py-2.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-[#F5B800]/70 text-neutral-900 dark:text-white text-xs space-y-2 shadow-xl max-w-md">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-[11px] uppercase tracking-wider text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1.5">
+                    <Crop className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'sw'
+                        ? `Takwimu za Eneo (${bboxStats.areaKm2} km²)`
+                        : `Spatial Box Metrics (${bboxStats.areaKm2} km²)`}
+                    </span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!bboxGeoJsonFeature) return;
+                        downloadGeoJsonFile('oilcom-bbox-selection.geojson', {
+                          type: 'FeatureCollection',
+                          features: [bboxGeoJsonFeature],
+                        });
+                      }}
+                      className="px-2 py-0.5 rounded bg-[#0B2A6F] text-white text-[10px] font-semibold cursor-pointer"
+                    >
+                      GeoJSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearBBoxFilter}
+                      aria-label="Clear spatial box"
+                      className="p-0.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 font-mono-num tabular-nums text-[11px]">
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">
+                      {lang === 'sw' ? 'Vituo' : 'Stations'}
+                    </span>
+                    <span className="font-bold">{bboxStats.stationsCount}</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">
+                      {lang === 'sw' ? 'Oda / Mapato' : 'Orders'}
+                    </span>
+                    <span className="font-bold">{bboxStats.ordersCount}</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">
+                      Overture Score
+                    </span>
+                    <span className="font-bold">{bboxStats.avgOvertureScore}/100</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">
+                      {lang === 'sw' ? 'Mitungi LPG' : 'LPG Stock'}
+                    </span>
+                    <span className="font-bold">{bboxStats.totalLpgCylinders}</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">Pumps</span>
+                    <span className="font-bold">{bboxStats.totalPumps}</span>
+                  </div>
+                  <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-blue-950/60">
+                    <span className="text-[10px] text-neutral-500 block">
+                      {lang === 'sw' ? 'Vitovu' : 'Demand Hubs'}
+                    </span>
+                    <span className="font-bold">{bboxStats.demandHubsCount}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {(locError || placesNotice) && (
               <div className="pointer-events-auto px-3 py-2 rounded-xl bg-amber-50/95 dark:bg-amber-950/95 backdrop-blur-md border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 text-xs flex items-center justify-between gap-2 shadow-md max-w-xl">
                 <span>{placesNotice || locError}</span>
@@ -1608,7 +2850,7 @@ function StationsMapWorkspace({
             )}
 
             {/* Selected GeoJSON GIS Feature Card */}
-            {selectedGisFeature && showGisLayer && (
+            {selectedGisFeature && hasAnyGisOverlay && (
               <div className="pointer-events-auto px-3.5 py-2.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-blue-500/40 text-neutral-900 dark:text-white text-xs flex items-start justify-between gap-3 shadow-lg max-w-md">
                 <div className="min-w-0 space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-[#F5B800]">
@@ -1646,6 +2888,16 @@ function StationsMapWorkspace({
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            )}
+            {poiDetailsLoading && (
+              <div className="pointer-events-auto px-3.5 py-2 rounded-xl bg-[#0B2A6F]/95 text-white border border-[#F5B800]/60 text-xs flex items-center gap-2 shadow-lg max-w-xs">
+                <Loader2 className="w-3.5 h-3.5 text-[#F5B800] animate-spin shrink-0" />
+                <span>
+                  {lang === 'sw'
+                    ? 'Inapakia maelezo kamili ya eneo...'
+                    : 'Loading full place details...'}
+                </span>
               </div>
             )}
           </div>
@@ -1832,18 +3084,88 @@ function StationsMapWorkspace({
                         </div>
                       </div>
                     )}
-                  {activeTarget.kind === 'place' && activeTarget.googleMapsURI && (
-                    <a
-                      href={activeTarget.googleMapsURI}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] underline"
-                    >
-                      <span>
-                        {lang === 'sw' ? 'Fungua Google Maps' : 'Open in Google Maps'}
-                      </span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                  {activeTarget.kind === 'place' && (
+                    <div className="space-y-2">
+                      {activeTarget.photoUrl && (
+                        <img
+                          src={activeTarget.photoUrl}
+                          alt={activeTarget.name}
+                          className="w-full h-28 object-cover rounded-xl border border-neutral-200 dark:border-blue-900"
+                        />
+                      )}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                        {activeTarget.category && (
+                          <span className="px-2 py-0.5 rounded-md bg-[#0B2A6F]/10 dark:bg-[#F5B800]/20 text-[#0B2A6F] dark:text-[#F5B800] font-semibold">
+                            {activeTarget.category}
+                          </span>
+                        )}
+                        {activeTarget.rating !== undefined && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 font-bold font-mono-num">
+                            <Star className="w-3 h-3 fill-[#F5B800] text-[#F5B800]" />
+                            {activeTarget.rating.toFixed(1)}
+                            {activeTarget.userRatingCount !== undefined &&
+                              ` (${activeTarget.userRatingCount.toLocaleString()})`}
+                          </span>
+                        )}
+                        {activeTarget.openNow === true && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">
+                            {lang === 'sw' ? 'Wazi Sasa' : 'Open Now'}
+                          </span>
+                        )}
+                        {activeTarget.openNow === false && (
+                          <span className="px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-semibold">
+                            {lang === 'sw' ? 'Imefungwa' : 'Closed'}
+                          </span>
+                        )}
+                      </div>
+                      {activeTarget.editorialSummary && (
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                          {activeTarget.editorialSummary}
+                        </p>
+                      )}
+                      {activeTarget.weekdayHours && activeTarget.weekdayHours.length > 0 && (
+                        <div className="p-2 rounded-lg bg-neutral-50 dark:bg-blue-950/40 space-y-0.5 text-[10px] text-neutral-600 dark:text-neutral-300">
+                          {activeTarget.weekdayHours.slice(0, 3).map((line) => (
+                            <p key={line} className="truncate">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 text-xs">
+                        {activeTarget.phone && (
+                          <a
+                            href={`tel:${activeTarget.phone}`}
+                            className="inline-flex items-center gap-1 font-semibold text-[#0B2A6F] dark:text-[#F5B800] underline"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{activeTarget.phone}</span>
+                          </a>
+                        )}
+                        {activeTarget.websiteURI && (
+                          <a
+                            href={activeTarget.websiteURI}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-blue-700 dark:text-sky-300 underline"
+                          >
+                            <Globe className="w-3 h-3" />
+                            <span>{lang === 'sw' ? 'Tovuti' : 'Website'}</span>
+                          </a>
+                        )}
+                        {activeTarget.googleMapsURI && (
+                          <a
+                            href={activeTarget.googleMapsURI}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-semibold text-[#0B2A6F] dark:text-[#F5B800] underline"
+                          >
+                            <span>Google Maps</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -1993,56 +3315,134 @@ function StationsMapWorkspace({
         {/* Desktop Side Panel: Active Details + Directory */}
         <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 min-w-0 lg:h-[calc(100dvh-9.5rem)]">
           {activeTarget && (
-            <div className="rounded-2xl bg-[#0B2A6F] text-white p-5 space-y-3.5 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-mono-num text-[11px] text-[#F5B800]">
-                    {activeTarget.kind === 'station'
-                      ? activeTarget.code
-                      : 'GOOGLE PLACES'}
-                  </p>
-                  <h3 className="font-display font-bold text-base mt-0.5">
-                    {activeTarget.name}
-                  </h3>
-                  <p className="text-xs text-blue-100/80 mt-0.5">
-                    {activeTarget.subtitle}
-                  </p>
+            <div className="rounded-2xl bg-[#0B2A6F] text-white overflow-hidden shadow-sm">
+              {activeTarget.kind === 'place' && activeTarget.photoUrl && (
+                <div className="relative h-32 w-full">
+                  <img
+                    src={activeTarget.photoUrl}
+                    alt={activeTarget.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0B2A6F] via-transparent to-black/25" />
                 </div>
-              </div>
+              )}
+              <div className="p-5 space-y-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-mono-num text-[11px] text-[#F5B800] uppercase">
+                      {activeTarget.kind === 'station'
+                        ? activeTarget.code
+                        : activeTarget.category || 'GOOGLE PLACES'}
+                    </p>
+                    <h3 className="font-display font-bold text-base mt-0.5">
+                      {activeTarget.name}
+                    </h3>
+                    <p className="text-xs text-blue-100/80 mt-0.5">
+                      {activeTarget.subtitle}
+                    </p>
+                  </div>
+                </div>
 
-              <div className="flex flex-wrap gap-3 text-xs text-blue-100/90 pt-1">
-                {activeTarget.kind === 'station' && (
-                  <>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-[#F5B800]" />
-                      {activeTarget.open24Hours ? 'Fungua 24/7' : '06:00–22:00'}
+                <div className="flex flex-wrap gap-2.5 text-xs text-blue-100/90 pt-1">
+                  {activeTarget.kind === 'station' ? (
+                    <>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-[#F5B800]" />
+                        {activeTarget.open24Hours ? 'Fungua 24/7' : '06:00–22:00'}
+                      </span>
+                      {activeTarget.hasGas && (
+                        <span className="flex items-center gap-1">
+                          <Flame className="w-3.5 h-3.5 text-[#F5B800]" />
+                          {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
+                        </span>
+                      )}
+                      {activeTarget.hasFuel && (
+                        <span className="flex items-center gap-1">
+                          <Fuel className="w-3.5 h-3.5 text-[#F5B800]" />
+                          {lang === 'sw' ? 'Mafuta' : 'Fuel'}
+                        </span>
+                      )}
+                      {activeTarget.hasLubricants && (
+                        <span className="flex items-center gap-1">
+                          <Droplets className="w-3.5 h-3.5 text-[#F5B800]" />
+                          {lang === 'sw' ? 'Vilainishi' : 'Lubricants'}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {activeTarget.rating !== undefined && (
+                        <span className="flex items-center gap-1 font-mono-num font-bold text-[#F5B800]">
+                          <Star className="w-3.5 h-3.5 fill-[#F5B800] text-[#F5B800]" />
+                          {activeTarget.rating.toFixed(1)}
+                          {activeTarget.userRatingCount !== undefined &&
+                            ` (${activeTarget.userRatingCount.toLocaleString()})`}
+                        </span>
+                      )}
+                      {activeTarget.openNow === true && (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-200 font-semibold">
+                          {lang === 'sw' ? 'Wazi Sasa' : 'Open Now'}
+                        </span>
+                      )}
+                      {activeTarget.openNow === false && (
+                        <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-200 font-semibold">
+                          {lang === 'sw' ? 'Imefungwa' : 'Closed'}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {activeDistanceKm !== null && (
+                    <span className="font-mono-num font-semibold text-[#F5B800]">
+                      {activeDistanceKm.toFixed(1)} km
                     </span>
-                    {activeTarget.hasGas && (
-                      <span className="flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5 text-[#F5B800]" />
-                        {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
-                      </span>
-                    )}
-                    {activeTarget.hasFuel && (
-                      <span className="flex items-center gap-1">
-                        <Fuel className="w-3.5 h-3.5 text-[#F5B800]" />
-                        {lang === 'sw' ? 'Mafuta' : 'Fuel'}
-                      </span>
-                    )}
-                    {activeTarget.hasLubricants && (
-                      <span className="flex items-center gap-1">
-                        <Droplets className="w-3.5 h-3.5 text-[#F5B800]" />
-                        {lang === 'sw' ? 'Vilainishi' : 'Lubricants'}
-                      </span>
-                    )}
-                  </>
-                )}
-                {activeDistanceKm !== null && (
-                  <span className="font-mono-num font-semibold text-[#F5B800]">
-                    {activeDistanceKm.toFixed(1)} km
-                  </span>
-                )}
-              </div>
+                  )}
+                </div>
+
+                {activeTarget.kind === 'place' &&
+                  (activeTarget.editorialSummary ||
+                    activeTarget.phone ||
+                    activeTarget.websiteURI ||
+                    activeTarget.weekdayHours) && (
+                    <div className="space-y-2 pt-2 border-t border-white/10 text-xs text-blue-100/90">
+                      {activeTarget.editorialSummary && (
+                        <p className="leading-relaxed text-blue-50/90">
+                          {activeTarget.editorialSummary}
+                        </p>
+                      )}
+                      {activeTarget.weekdayHours &&
+                        activeTarget.weekdayHours.length > 0 && (
+                          <div className="p-2.5 rounded-xl bg-white/10 space-y-1 text-[11px]">
+                            {activeTarget.weekdayHours.map((line) => (
+                              <p key={line} className="truncate">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {activeTarget.phone && (
+                          <a
+                            href={`tel:${activeTarget.phone}`}
+                            className="inline-flex items-center gap-1.5 font-semibold text-[#F5B800] hover:underline"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{activeTarget.phone}</span>
+                          </a>
+                        )}
+                        {activeTarget.websiteURI && (
+                          <a
+                            href={activeTarget.websiteURI}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 font-semibold text-sky-200 hover:underline"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                            <span>{lang === 'sw' ? 'Tovuti' : 'Website'}</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
               {activeRoute && activeRoute.targetId === activeTarget.id && (
                 <div className="p-2.5 rounded-xl bg-white/10 text-xs space-y-0.5">
@@ -2158,6 +3558,7 @@ function StationsMapWorkspace({
                 ) : null}
               </div>
             </div>
+            </div>
           )}
 
           {/* Directory List */}
@@ -2270,6 +3671,7 @@ function StationsMapWorkspace({
 export function StationsMapModule({
   lang,
   stations,
+  orders = [],
   googleMapsApiKey,
   onOrderAtStation,
 }: StationsMapModuleProps) {
@@ -2349,6 +3751,7 @@ export function StationsMapModule({
       <StationsMapWorkspace
         lang={lang}
         stations={stations}
+        orders={orders}
         onOrderAtStation={onOrderAtStation}
       />
     </APIProvider>

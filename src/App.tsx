@@ -1562,6 +1562,7 @@ export default function App() {
               <StationsMapModule
                 lang={lang}
                 stations={stations}
+                orders={mergedOrders}
                 googleMapsApiKey={googleMapsApiKey}
                 onOrderAtStation={(st, orderKind) => {
                   setPreselectedStationId(st.id);

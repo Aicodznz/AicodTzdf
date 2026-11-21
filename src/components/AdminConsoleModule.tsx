@@ -1,14 +1,33 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
+  Compass,
   Download,
+  FileSpreadsheet,
+  Globe,
+  Hexagon,
   MapPin,
   Pencil,
   Plus,
   ShieldCheck,
   Trash2,
+  Upload,
   UserPlus,
   Users,
 } from 'lucide-react';
+import {
+  analyzeGeospatialNetwork,
+  buildDemandHotspotsGeoJson,
+  buildOilcomGeoJsonExport,
+  buildStationBuffersGeoJson,
+  buildStationVoronoiGeoJson,
+  downloadGeoJsonFile,
+  downloadTextFile,
+  parseAnySpatialFileToGeoJson,
+  SAMPLE_OILCOM_SITES_CSV,
+  type ExpansionSiteCandidate,
+  type GeoJsonFeatureCollection,
+  type TimeSliceKey,
+} from '../data/oilcomGeoJson';
 import {
   Bar,
   BarChart,
@@ -88,6 +107,7 @@ export function AdminConsoleModule({
 }: AdminConsoleModuleProps) {
   const [tab, setTab] = useState<
     | 'overview'
+    | 'gis'
     | 'users'
     | 'businesses'
     | 'agents'
@@ -96,6 +116,14 @@ export function AdminConsoleModule({
     | 'settings'
     | 'logs'
   >('overview');
+  const [gisRadiusKm, setGisRadiusKm] = useState<3 | 5 | 10>(5);
+  const [gisTimeSlice, setGisTimeSlice] = useState<TimeSliceKey>('all');
+  const [convertedSpatial, setConvertedSpatial] = useState<{
+    fileName: string;
+    format: string;
+    collection: GeoJsonFeatureCollection;
+  } | null>(null);
+  const gisConverterInputRef = useRef<HTMLInputElement | null>(null);
   const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d'>('all');
   const [settingsForm, setSettingsForm] = useState<SystemSettings>(settings);
   const [newProd, setNewProd] = useState({
@@ -204,6 +232,86 @@ export function AdminConsoleModule({
   }, [orders]);
 
   const PIE_COLORS = ['#0B2A6F', '#D92027', '#F5B800', '#2563EB', '#EF4444'];
+
+  const gisAnalysis = useMemo(
+    () => analyzeGeospatialNetwork(stations, orders, gisRadiusKm),
+    [stations, orders, gisRadiusKm]
+  );
+
+  const handleSpatialConvertUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseAnySpatialFileToGeoJson(text, file.name);
+      if (!parsed) {
+        setFeedback(
+          lang === 'sw'
+            ? 'Faili halikubadilika. Tumia CSV (yenye safu ya lat/lng), KML (.kml), au GeoJSON.'
+            : 'Could not parse file. Use CSV (with lat/lng columns), KML (.kml), or GeoJSON.'
+        );
+        return;
+      }
+      setConvertedSpatial({
+        fileName: file.name,
+        format: parsed.format.toUpperCase(),
+        collection: parsed.data,
+      });
+      setFeedback(
+        lang === 'sw'
+          ? `Faili ${parsed.format.toUpperCase()} limebadilishwa kuwa GeoJSON (${parsed.data.features.length} vipengele).`
+          : `Converted ${parsed.format.toUpperCase()} into GeoJSON (${parsed.data.features.length} features).`
+      );
+    } catch {
+      setFeedback(
+        lang === 'sw'
+          ? 'Hitilafu wakati wa kusoma faili la GIS.'
+          : 'Error reading uploaded spatial file.'
+      );
+    }
+  };
+
+  const handlePrefillStationFromCandidate = (candidate: ExpansionSiteCandidate) => {
+    const cleanCityCode = candidate.city
+      .replace(/[^A-Za-z]/g, '')
+      .slice(0, 3)
+      .toUpperCase();
+    const kind = candidate.recommendedKind;
+    setEditingStationId(null);
+    setStationForm({
+      name: `OILCOM ${candidate.city} — ${
+        lang === 'sw' ? candidate.nameSw.split('(')[0].trim() : candidate.nameEn.split('(')[0].trim()
+      }`.slice(0, 90),
+      code: `OIL-${cleanCityCode || 'TZ'}-${stations.length + 1}`,
+      stationKind: kind,
+      city: candidate.city,
+      region: candidate.region,
+      address: lang === 'sw' ? candidate.nameSw : candidate.nameEn,
+      lat: Number(candidate.lat.toFixed(5)),
+      lng: Number(candidate.lng.toFixed(5)),
+      open24Hours: true,
+      hasGas: kind === 'gas' || kind === 'both',
+      hasFuel: kind === 'fuel' || kind === 'both',
+      hasLubricants: true,
+      petrolPriceTzs: 3150,
+      dieselPriceTzs: 3050,
+      pumpsCount: kind === 'gas' ? 0 : 6,
+      lpg6kgStock: kind === 'fuel' ? 0 : 40,
+      lpg15kgStock: kind === 'fuel' ? 0 : 30,
+      lpg38kgStock: kind === 'fuel' ? 0 : 12,
+      managerUid: '',
+      status: 'active',
+    });
+    setTab('stations');
+    setFeedback(
+      lang === 'sw'
+        ? `Viwianishi vya ${candidate.city} vimejazwa tayari kuunda kituo kipya.`
+        : `Pre-filled expansion site coordinates for ${candidate.city}.`
+    );
+  };
 
   const exportCsvReport = () => {
     const rows = [
@@ -679,6 +787,7 @@ export function AdminConsoleModule({
         {(
           [
             ['overview', 'Analytics'],
+            ['gis', lang === 'sw' ? 'GIS & Upanuzi' : 'GIS Intelligence'],
             ['users', `Users (${users.length})`],
             ['businesses', `Businesses (${businesses.length})`],
             ['agents', `Agents (${agents.length})`],
@@ -772,6 +881,549 @@ export function AdminConsoleModule({
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'gis' && (
+        <div className="space-y-4 sm:space-y-5">
+          <input
+            ref={gisConverterInputRef}
+            type="file"
+            accept=".csv,.tsv,.kml,.geojson,.json,text/csv,application/vnd.google-earth.kml+xml,application/geo+json,application/json"
+            onChange={handleSpatialConvertUpload}
+            className="hidden"
+          />
+
+          {/* GIS Controls & OGC GeoJSON Export Toolbar */}
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="space-y-1 min-w-0">
+                <h2 className="font-display font-bold text-base sm:text-lg text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-[#F5B800] shrink-0" />
+                  <span>
+                    {lang === 'sw'
+                      ? 'Kituo cha Akili ya Ramani (GIS & Upanuzi wa Mtandao)'
+                      : 'Network GIS & Site Suitability Studio'}
+                  </span>
+                </h2>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                  {lang === 'sw'
+                    ? 'Chambua umbali, mipaka ya Voronoi, alama za Overture Maps, na pakua faili za OGC GeoJSON kwa QGIS.'
+                    : 'Analyze station buffers, Voronoi catchments, Overture morphology scores, and export OGC GeoJSON layers.'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-[#091022]">
+                  {([3, 5, 10] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setGisRadiusKm(r)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono-num cursor-pointer whitespace-nowrap transition-colors ${
+                        gisRadiusKm === r
+                          ? 'bg-[#0B2A6F] text-white'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                      }`}
+                    >
+                      {r} km
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const bundle = buildOilcomGeoJsonExport(
+                      stations,
+                      orders,
+                      gisRadiusKm,
+                      {
+                        includeStations: true,
+                        includeZones: true,
+                        includeBuffers: true,
+                        includeVoronoi: true,
+                        includeHotspots: true,
+                        timeSlice: gisTimeSlice,
+                      }
+                    );
+                    downloadGeoJsonFile(
+                      `oilcom-network-${gisRadiusKm}km-${gisTimeSlice}.geojson`,
+                      bundle
+                    );
+                    setFeedback(
+                      lang === 'sw'
+                        ? `Faili la mtandao (${bundle.features.length} vipengele) limepakuliwa tayari kwa QGIS.`
+                        : `Exported full OGC GeoJSON bundle (${bundle.features.length} features) for QGIS.`
+                    );
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#F5B800]" />
+                  <span>
+                    {lang === 'sw' ? 'Pakua Mtandao (.geojson)' : 'Export Full GeoJSON'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const buffers = buildStationBuffersGeoJson(stations, gisRadiusKm);
+                    downloadGeoJsonFile(
+                      `oilcom-buffers-${gisRadiusKm}km.geojson`,
+                      buffers
+                    );
+                    setFeedback(
+                      lang === 'sw'
+                        ? `Miduara ya ${gisRadiusKm} km (${buffers.features.length}) imepakuliwa.`
+                        : `Exported ${buffers.features.length} station buffer polygons (${gisRadiusKm} km).`
+                    );
+                  }}
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#091022] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Compass className="w-3.5 h-3.5 text-blue-600 dark:text-[#F5B800]" />
+                  <span>{lang === 'sw' ? 'Pakua Buffers' : 'Export Buffers'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const voronoi = buildStationVoronoiGeoJson(stations);
+                    downloadGeoJsonFile('oilcom-voronoi-catchments.geojson', voronoi);
+                    setFeedback(
+                      lang === 'sw'
+                        ? `Maeneo ya Voronoi (${voronoi.features.length} vituo) yamepakuliwa.`
+                        : `Exported ${voronoi.features.length} Voronoi catchment polygons.`
+                    );
+                  }}
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#091022] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Hexagon className="w-3.5 h-3.5 text-emerald-600 dark:text-[#F5B800]" />
+                  <span>{lang === 'sw' ? 'Pakua Voronoi' : 'Export Voronoi'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const hotspots = buildDemandHotspotsGeoJson(
+                      stations,
+                      orders,
+                      gisTimeSlice
+                    );
+                    downloadGeoJsonFile(
+                      `oilcom-demand-hotspots-${gisTimeSlice}.geojson`,
+                      hotspots
+                    );
+                    setFeedback(
+                      lang === 'sw'
+                        ? `Safu ya mahitaji (${hotspots.features.length} vitovu · ${gisTimeSlice}) imepakuliwa.`
+                        : `Exported ${hotspots.features.length} spatial demand hotspots (${gisTimeSlice}).`
+                    );
+                  }}
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#091022] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#D92027]" />
+                  <span>{lang === 'sw' ? 'Pakua Hotspots' : 'Export Hotspots'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Temporal Demand Slice Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-blue-950">
+              <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                {lang === 'sw'
+                  ? 'Muda wa Uchambuzi wa Mahitaji (Temporal Slice):'
+                  : 'Temporal Demand Replay Window:'}
+              </span>
+              <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-[#091022]">
+                {(
+                  [
+                    ['all', lang === 'sw' ? 'Saa 24' : 'All Day'],
+                    ['morning', lang === 'sw' ? 'Asubuhi (06–11)' : 'Morning (06–11)'],
+                    ['midday', lang === 'sw' ? 'Mchana (11–16)' : 'Midday (11–16)'],
+                    ['evening', lang === 'sw' ? 'Jioni (16–21)' : 'Evening (16–21)'],
+                    ['night', lang === 'sw' ? 'Usiku (21–06)' : 'Night (21–06)'],
+                  ] as [TimeSliceKey, string][]
+                ).map(([slice, label]) => (
+                  <button
+                    key={slice}
+                    type="button"
+                    onClick={() => setGisTimeSlice(slice)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer whitespace-nowrap transition-colors ${
+                      gisTimeSlice === slice
+                        ? 'bg-[#0B2A6F] text-[#F5B800]'
+                        : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 5 Spatial & Overture Morphology KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-4">
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
+                {lang === 'sw' ? 'Vituo & Kanda za GIS' : 'Active Stations & Zones'}
+              </p>
+              <p className="font-mono-num tabular-nums text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white mt-1 truncate">
+                {gisAnalysis.activeStationsCount} / {gisAnalysis.deliveryZonesCount}{' '}
+                <span className="text-xs font-medium text-neutral-500">zones</span>
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
+                {lang === 'sw' ? 'Wastani wa Umbali kati ya Vituo' : 'Avg Station Spacing'}
+              </p>
+              <p className="font-mono-num tabular-nums text-base sm:text-lg font-extrabold text-neutral-900 dark:text-white mt-1 truncate">
+                {gisAnalysis.avgNearestStationKm} km
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
+                {lang === 'sw'
+                  ? `Pengo za Upanuzi (> ${gisRadiusKm} km)`
+                  : `Expansion Gaps (> ${gisRadiusKm} km)`}
+              </p>
+              <p className="font-mono-num tabular-nums text-base sm:text-lg font-extrabold text-[#D92027] dark:text-[#F5B800] mt-1 truncate">
+                {gisAnalysis.unservedCandidatesCount}{' '}
+                <span className="text-xs font-medium text-neutral-500">
+                  {lang === 'sw' ? 'maeneo' : 'corridors'}
+                </span>
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0">
+              <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
+                {lang === 'sw'
+                  ? `Ufikiaji wa Mtandao (${gisRadiusKm} km)`
+                  : `Network Coverage (${gisRadiusKm} km)`}
+              </p>
+              <p className="font-mono-num tabular-nums text-base sm:text-lg font-extrabold text-blue-700 dark:text-blue-400 mt-1 truncate">
+                {gisAnalysis.zoneCoveragePct}%{' '}
+                <span className="text-xs font-medium text-neutral-500">
+                  ({gisAnalysis.ordersInZonesCount} {lang === 'sw' ? 'oda' : 'orders'})
+                </span>
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-3.5 sm:p-4 min-w-0 col-span-2 lg:col-span-1">
+              <p className="text-[11px] sm:text-xs text-neutral-500 truncate">
+                {lang === 'sw'
+                  ? 'Alama ya Miji (Overture Index)'
+                  : 'Overture Morphology Index'}
+              </p>
+              <p className="font-mono-num tabular-nums text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-1 truncate">
+                {gisAnalysis.avgOvertureNetworkScore}/100
+              </p>
+            </div>
+          </div>
+
+          {/* Site Suitability & White-Spot Expansion Table with Overture Morphology */}
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+                  {lang === 'sw'
+                    ? 'Mapendekezo ya Maeneo Mapya ya Vituo (Site Suitability & Overture)'
+                    : 'Site Suitability & Overture Urban Morphology'}
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  {lang === 'sw'
+                    ? `Imepangwa kwa maeneo yenye pengo nje ya ${gisRadiusKm} km, msongamano wa majengo/barabara (Overture Maps) na oda.`
+                    : `Ranked by unserved corridors outside ${gisRadiusKm} km, building/road density (Overture Maps), and live orders.`}
+                </p>
+              </div>
+              <span className="text-xs font-mono-num tabular-nums text-neutral-500 shrink-0">
+                {gisAnalysis.expansionCandidates.length}{' '}
+                {lang === 'sw' ? 'vitovu vimechambuliwa' : 'corridors analyzed'}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-200 dark:border-blue-950 text-neutral-500">
+                    <th className="py-2 pr-4">
+                      {lang === 'sw' ? 'Ukanda / Eneo' : 'Corridor / Hub'}
+                    </th>
+                    <th className="py-2 pr-4">
+                      {lang === 'sw' ? 'Kituo cha Karibu' : 'Nearest OILCOM'}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {lang === 'sw' ? 'Umbali' : 'Gap Dist.'}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {lang === 'sw' ? 'Majengo / Barabara' : 'Overture Urban'}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {lang === 'sw' ? 'Alama' : 'Score'}
+                    </th>
+                    <th className="py-2 pr-4">
+                      {lang === 'sw' ? 'Hali ya Huduma' : 'Coverage Status'}
+                    </th>
+                    <th className="py-2 pr-4">
+                      {lang === 'sw' ? 'Pendekezo' : 'Recommended'}
+                    </th>
+                    <th className="py-2 text-right">
+                      {lang === 'sw' ? 'Hatua' : 'Action'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 dark:divide-blue-950">
+                  {gisAnalysis.expansionCandidates.map((cand) => (
+                    <tr
+                      key={cand.id}
+                      className="hover:bg-neutral-50 dark:hover:bg-blue-950/30"
+                    >
+                      <td className="py-3 pr-4">
+                        <p className="font-semibold text-neutral-900 dark:text-white">
+                          {lang === 'sw' ? cand.nameSw : cand.nameEn}
+                        </p>
+                        <p className="text-[11px] text-neutral-500 font-mono-num">
+                          {cand.city} · {cand.lat.toFixed(4)}, {cand.lng.toFixed(4)}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-4 text-neutral-600 dark:text-neutral-300">
+                        {cand.nearestStationName}
+                      </td>
+                      <td className="py-3 pr-4 text-right font-mono-num tabular-nums font-bold">
+                        {cand.nearestStationKm} km
+                      </td>
+                      <td className="py-3 pr-4 text-right font-mono-num tabular-nums text-[11px] text-neutral-600 dark:text-neutral-300 whitespace-nowrap">
+                        {cand.buildingDensityPerKm2.toLocaleString()}/km² ·{' '}
+                        {cand.roadNetworkKmPerKm2} km
+                      </td>
+                      <td className="py-3 pr-4 text-right font-mono-num tabular-nums font-bold text-[#0B2A6F] dark:text-[#F5B800]">
+                        {cand.overtureSuitabilityScore}/100
+                      </td>
+                      <td className="py-3 pr-4 font-semibold whitespace-nowrap">
+                        {cand.coverageStatus === 'unserved' ? (
+                          <span className="text-[#D92027] dark:text-red-400">
+                            {lang === 'sw'
+                              ? 'Pengo Kubwa (White Spot)'
+                              : 'Unserved Gap'}
+                          </span>
+                        ) : cand.coverageStatus === 'partial' ? (
+                          <span className="text-amber-700 dark:text-[#F5B800]">
+                            {lang === 'sw'
+                              ? 'Huduma Nusu (Inahitaji LPG/Mafuta)'
+                              : 'Partial Service'}
+                          </span>
+                        ) : (
+                          <span className="text-blue-700 dark:text-blue-400">
+                            {lang === 'sw' ? 'Inafikiwa' : 'Covered'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 font-mono-num text-[11px]">
+                        {cand.recommendedKind === 'both'
+                          ? 'Fuel + LPG'
+                          : cand.recommendedKind === 'gas'
+                            ? 'LPG Depot'
+                            : 'Fuel Station'}
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handlePrefillStationFromCandidate(cand)}
+                          className="px-3 py-1.5 rounded-lg bg-[#F5B800] hover:bg-[#e5ab00] text-[#0B2A6F] font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                        >
+                          {lang === 'sw' ? '+ Weka Kituo' : '+ Deploy Site'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* CSV / KML -> OGC GeoJSON Importer & Converter */}
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-[#F5B800]" />
+                  <span>
+                    {lang === 'sw'
+                      ? 'Mbadilishaji wa CSV & KML kwenda OGC GeoJSON'
+                      : 'CSV & KML → OGC GeoJSON Converter'}
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  {lang === 'sw'
+                    ? 'Pakia orodha za wateja wa B2B (.csv yenye lat/lng) au alama za Google Earth (.kml) kubadilisha mara moja kuwa GeoJSON.'
+                    : 'Convert field survey spreadsheets (.csv with lat/lng) or Google Earth files (.kml) into standard GeoJSON.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadTextFile(
+                      'oilcom-sample-sites.csv',
+                      SAMPLE_OILCOM_SITES_CSV,
+                      'text/csv;charset=utf-8'
+                    )
+                  }
+                  className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#091022] text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5 text-[#0B2A6F] dark:text-[#F5B800]" />
+                  <span>
+                    {lang === 'sw' ? 'Pakua Kiolezo (.csv)' : 'Sample CSV'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => gisConverterInputRef.current?.click()}
+                  className="px-3.5 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#F5B800]" />
+                  <span>
+                    {lang === 'sw' ? 'Pakia CSV / KML' : 'Upload CSV / KML'}
+                  </span>
+                </button>
+                {convertedSpatial && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadGeoJsonFile(
+                        convertedSpatial.fileName.replace(/\.(csv|tsv|kml|json)$/i, '') +
+                          '.geojson',
+                        convertedSpatial.collection
+                      )
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-[#F5B800] text-[#0B2A6F] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'sw' ? 'Pakua GeoJSON' : 'Download GeoJSON'} (
+                      {convertedSpatial.collection.features.length})
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {convertedSpatial && (
+              <div className="overflow-x-auto border-t border-neutral-100 dark:border-blue-950 pt-3">
+                <p className="text-[11px] font-semibold text-neutral-500 mb-2">
+                  {convertedSpatial.fileName} · {convertedSpatial.format} → GeoJSON (
+                  {convertedSpatial.collection.features.length}{' '}
+                  {lang === 'sw' ? 'vipengele' : 'features'})
+                </p>
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-200 dark:border-blue-950 text-neutral-500">
+                      <th className="py-1.5 pr-4">#</th>
+                      <th className="py-1.5 pr-4">
+                        {lang === 'sw' ? 'Jina la Kipengele' : 'Feature Name'}
+                      </th>
+                      <th className="py-1.5 pr-4">Geometry</th>
+                      <th className="py-1.5 text-right">Coordinates</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100 dark:divide-blue-950">
+                    {convertedSpatial.collection.features
+                      .slice(0, 6)
+                      .map((feat, idx) => {
+                        const geom = feat.geometry;
+                        let coordPreview = '—';
+                        if (geom?.type === 'Point') {
+                          coordPreview = `${geom.coordinates[1].toFixed(4)}, ${geom.coordinates[0].toFixed(4)}`;
+                        } else if (geom?.type === 'Polygon' && geom.coordinates[0]?.[0]) {
+                          coordPreview = `${geom.coordinates[0].length} vertices`;
+                        } else if (geom?.type === 'LineString') {
+                          coordPreview = `${geom.coordinates.length} points`;
+                        }
+                        return (
+                          <tr key={String(feat.id ?? idx)}>
+                            <td className="py-2 pr-4 font-mono-num text-neutral-500">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2 pr-4 font-semibold text-neutral-900 dark:text-white">
+                              {String(
+                                feat.properties?.name ||
+                                  feat.properties?.id ||
+                                  `Feature ${idx + 1}`
+                              )}
+                            </td>
+                            <td className="py-2 pr-4 font-mono-num text-[11px]">
+                              {geom?.type || 'None'}
+                            </td>
+                            <td className="py-2 text-right font-mono-num tabular-nums text-[11px]">
+                              {coordPreview}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Station Spatial Spacing & Coverage Matrix */}
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-3">
+            <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+              {lang === 'sw'
+                ? 'Umbali na Uwezo wa Vituo Kwenye Mtandao'
+                : 'Station Spatial Spacing & Capacity Matrix'}
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-200 dark:border-blue-950 text-neutral-500">
+                    <th className="py-2 pr-4">Code</th>
+                    <th className="py-2 pr-4">Station</th>
+                    <th className="py-2 pr-4">
+                      {lang === 'sw' ? 'Kanda ya GIS' : 'GIS Corridor'}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {lang === 'sw' ? 'Kituo Kingine' : 'Nearest Sibling'}
+                    </th>
+                    <th className="py-2 pr-4 text-right">Pumps / LPG</th>
+                    <th className="py-2 text-right">
+                      {lang === 'sw' ? 'Oda' : 'Orders'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 dark:divide-blue-950">
+                  {gisAnalysis.stationMetrics.map((m) => (
+                    <tr key={m.stationId}>
+                      <td className="py-2.5 pr-4 font-mono-num font-bold text-[#0B2A6F] dark:text-[#F5B800]">
+                        {m.code}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <p className="font-semibold text-neutral-900 dark:text-white">
+                          {m.name}
+                        </p>
+                        <p className="text-[11px] text-neutral-500">{m.city}</p>
+                      </td>
+                      <td className="py-2.5 pr-4 text-neutral-600 dark:text-neutral-300">
+                        {(lang === 'sw' ? m.matchedZoneNameSw : m.matchedZoneNameEn) ||
+                          (lang === 'sw' ? 'Nje ya kanda rasmi' : 'Outside mapped zones')}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right font-mono-num tabular-nums font-semibold">
+                        {m.nearestSiblingKm !== null ? `${m.nearestSiblingKm} km` : '—'}
+                      </td>
+                      <td className="py-2.5 pr-4 text-right font-mono-num tabular-nums">
+                        {m.pumpsCount} pumps · {m.lpgCapacityUnits} cyl
+                      </td>
+                      <td className="py-2.5 text-right font-mono-num tabular-nums font-bold">
+                        {m.ordersCount}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

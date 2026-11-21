@@ -384,7 +384,8 @@ function TrackingWorkspace({
         {isNative3D ? (
           <Map3D
             id={`order-track-3d-${order.id}`}
-            mode={MapMode.HYBRID}
+            mode={MapMode.ROADMAP}
+            colorScheme={ColorScheme.LIGHT}
             defaultLabelsDisabled={false}
             gestureHandling={GestureHandling.GREEDY}
             defaultCenter={map3dCamera.center}
@@ -630,7 +631,13 @@ export function OrderTrackingMap({
   }
 
   return (
-    <APIProvider apiKey={googleMapsApiKey} version="beta" language={lang} region="TZ">
+    <APIProvider
+      apiKey={googleMapsApiKey}
+      version="beta"
+      language={lang}
+      region="TZ"
+      libraries={['maps3d', 'marker']}
+    >
       <TrackingWorkspace
         lang={lang}
         order={order}
