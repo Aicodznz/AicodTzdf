@@ -150,7 +150,11 @@ export default function App() {
     return saved === 'dark' ? 'dark' : 'light';
   });
   const [route, setRoute] = useState<AppRoute>('home');
+  const [guestRoute, setGuestRoute] = useState<'home' | 'stations'>('home');
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
+  const [pendingAuthRoute, setPendingAuthRoute] = useState<AppRoute | null>(null);
   const [preselectedStationId, setPreselectedStationId] = useState<string | null>(null);
+  const [ephemeralSelectedStation, setEphemeralSelectedStation] = useState<Station | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('oilcom_sidebar_collapsed') === 'true';
@@ -249,6 +253,7 @@ export default function App() {
       setFbUser(u);
       setProfileLoaded(false);
       if (u) {
+        setShowAuthScreen(false);
         try {
           const { isBootstrappedAdmin } = await ensureUserDocuments(u, lang);
           setBootstrappedAdmin(isBootstrappedAdmin);
@@ -265,6 +270,8 @@ export default function App() {
         setRewardsAccount(null);
         setPreviewRole(null);
         setProfileLoaded(true);
+        setShowAuthScreen(false);
+        setGuestRoute('home');
         lastAutoRouteKeyRef.current = '';
       }
       setAuthReady(true);
@@ -971,16 +978,21 @@ export default function App() {
     return all.filter((item) => item.roles.includes(effectiveRole));
   }, [lang, effectiveRole]);
 
-  // Automatic landing & hard route guard: redirect immediately to role's home and block unauthorized routes
+  // Automatic landing & hard route guard: redirect immediately to pending destination or role's home
   useEffect(() => {
     if (!authReady || !fbUser || !profileLoaded) return;
     const key = `${fbUser.uid}:${effectiveRole}`;
     const allowedRoutes = navItems.map((n) => n.route);
     if (lastAutoRouteKeyRef.current !== key || !allowedRoutes.includes(route)) {
       lastAutoRouteKeyRef.current = key;
-      setRoute(getDefaultRouteForRole(effectiveRole));
+      if (pendingAuthRoute && allowedRoutes.includes(pendingAuthRoute)) {
+        setRoute(pendingAuthRoute);
+        setPendingAuthRoute(null);
+      } else {
+        setRoute(getDefaultRouteForRole(effectiveRole));
+      }
     }
-  }, [authReady, fbUser, profileLoaded, effectiveRole, navItems, route]);
+  }, [authReady, fbUser, profileLoaded, effectiveRole, navItems, route, pendingAuthRoute]);
 
   const searchResults = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -1050,11 +1062,214 @@ export default function App() {
   }
 
   if (!fbUser || !effectiveUser) {
+    if (showAuthScreen) {
+      return (
+        <>
+          {quotaBanner}
+          <AuthScreen
+            lang={lang}
+            setLang={setLang}
+            theme={theme}
+            setTheme={setTheme}
+            onBackToHome={() => {
+              setPendingAuthRoute(null);
+              setShowAuthScreen(false);
+            }}
+          />
+        </>
+      );
+    }
+
+    const handleGuestNavigate = (next: AppRoute) => {
+      if (next === 'home' || next === 'stations') {
+        setGuestRoute(next);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      setPendingAuthRoute(next);
+      setShowAuthScreen(true);
+    };
+
     return (
-      <>
+      <div className="min-h-screen flex flex-col bg-[#F4F7FB] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100">
         {quotaBanner}
-        <AuthScreen lang={lang} setLang={setLang} theme={theme} setTheme={setTheme} />
-      </>
+
+        {/* Clean 3-Zone Public Top Bar */}
+        <header className="sticky top-0 z-30 bg-[#0B2A6F] text-white border-b border-white/15 shadow-sm">
+          <div className="h-1 w-full grid grid-cols-3">
+            <span className="bg-[#2563EB]" />
+            <span className="bg-[#D92027]" />
+            <span className="bg-[#F5B800]" />
+          </div>
+          <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-7 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-8">
+            {/* Zone 1: Brand Wordmark */}
+            <button
+              type="button"
+              onClick={() => handleGuestNavigate('home')}
+              className="flex items-center shrink-0 cursor-pointer"
+            >
+              <OilcomWordmark className="h-9 sm:h-10" />
+            </button>
+
+            {/* Zone 2: Concise Single-Line Navigation Links */}
+            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-blue-100/90">
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('home')}
+                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  guestRoute === 'home'
+                    ? 'text-[#F5B800] font-bold'
+                    : 'hover:text-white'
+                }`}
+              >
+                {t(lang, 'navHome')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('stations')}
+                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  guestRoute === 'stations'
+                    ? 'text-[#F5B800] font-bold'
+                    : 'hover:text-white'
+                }`}
+              >
+                {t(lang, 'navStations')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('fuel')}
+                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {t(lang, 'navFuel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('gas')}
+                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {t(lang, 'navGas')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('rewards')}
+                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {t(lang, 'navRewards')}
+              </button>
+            </nav>
+
+            {/* Zone 3: Language, Theme & Primary Sign-In Action */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
+                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white cursor-pointer whitespace-nowrap"
+              >
+                {lang.toUpperCase()}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                aria-label="Toggle theme"
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-[#F5B800] cursor-pointer"
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-4 h-4" />
+                ) : (
+                  <Sun className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingAuthRoute(null);
+                  setShowAuthScreen(true);
+                }}
+                className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white text-xs sm:text-sm font-bold cursor-pointer whitespace-nowrap shrink-0 transition-colors"
+              >
+                {lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile quick toggle row for Public Homepage <-> Station Map */}
+          <div className="md:hidden border-t border-white/10 px-3 py-1.5 flex items-center gap-4 text-xs overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              type="button"
+              onClick={() => handleGuestNavigate('home')}
+              className={`whitespace-nowrap shrink-0 py-1 cursor-pointer ${
+                guestRoute === 'home' ? 'text-[#F5B800] font-bold' : 'text-blue-100/80'
+              }`}
+            >
+              {t(lang, 'navHome')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGuestNavigate('stations')}
+              className={`whitespace-nowrap shrink-0 py-1 cursor-pointer ${
+                guestRoute === 'stations' ? 'text-[#F5B800] font-bold' : 'text-blue-100/80'
+              }`}
+            >
+              {t(lang, 'navStations')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGuestNavigate('gas')}
+              className="whitespace-nowrap shrink-0 py-1 text-blue-100/80 cursor-pointer"
+            >
+              {t(lang, 'navGas')}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGuestNavigate('fuel')}
+              className="whitespace-nowrap shrink-0 py-1 text-blue-100/80 cursor-pointer"
+            >
+              {t(lang, 'navFuel')}
+            </button>
+          </div>
+        </header>
+
+        {/* Public Page Content */}
+        <main
+          className={
+            guestRoute === 'stations'
+              ? 'flex-1 w-full min-w-0 p-0'
+              : 'flex-1 w-full max-w-7xl mx-auto min-w-0 p-2.5 sm:p-5 lg:p-7'
+          }
+        >
+          {guestRoute === 'home' ? (
+            <HomeDashboard
+              lang={lang}
+              user={null}
+              effectiveRole="customer"
+              rewards={null}
+              orders={[]}
+              promotions={promotions}
+              products={products}
+              stations={stations}
+              onNavigate={handleGuestNavigate}
+              onOpenAuth={() => {
+                setPendingAuthRoute(null);
+                setShowAuthScreen(true);
+              }}
+            />
+          ) : (
+            <StationsMapModule
+              lang={lang}
+              stations={stations}
+              orders={[]}
+              googleMapsApiKey={googleMapsApiKey}
+              canManageStations={false}
+              onOrderAtStation={(st, kind) => {
+                setEphemeralSelectedStation(st);
+                setPreselectedStationId(st.id);
+                setPendingAuthRoute(kind === 'fuel' ? 'fuel' : 'gas');
+                setShowAuthScreen(true);
+              }}
+            />
+          )}
+        </main>
+      </div>
     );
   }
 
@@ -1719,6 +1934,8 @@ export default function App() {
                 rewards={rewardsAccount}
                 orders={mergedOrders}
                 promotions={promotions}
+                products={products}
+                stations={stations}
                 onNavigate={navigate}
               />
             )}
@@ -1730,7 +1947,12 @@ export default function App() {
                   lang={lang}
                   user={effectiveUser}
                   products={products}
-                  stations={stations}
+                  stations={
+                    ephemeralSelectedStation &&
+                    !stations.some((s) => s.id === ephemeralSelectedStation.id)
+                      ? [...stations, ephemeralSelectedStation]
+                      : stations
+                  }
                   dealers={approvedDealers}
                   addresses={addresses}
                   vouchers={vouchers}
@@ -1776,6 +1998,8 @@ export default function App() {
                 googleMapsApiKey={googleMapsApiKey}
                 canManageStations={trueRole === 'admin'}
                 onOrderAtStation={(st, orderKind) => {
+                  const isCatalogStation = stations.some((s) => s.id === st.id);
+                  setEphemeralSelectedStation(isCatalogStation ? null : st);
                   setPreselectedStationId(st.id);
                   navigate(orderKind || (st.hasGas !== false ? 'gas' : 'fuel'));
                 }}

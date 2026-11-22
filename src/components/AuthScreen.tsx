@@ -7,7 +7,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { Eye, EyeOff, Globe, Lock, Mail, Moon, Sun, User } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Globe, Lock, Mail, Moon, Sun, User } from 'lucide-react';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { t } from '../i18n/translations';
 import type { Language, ThemeMode } from '../types/oilcom';
@@ -18,9 +18,16 @@ interface AuthScreenProps {
   setLang: (lang: Language) => void;
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
+  onBackToHome?: () => void;
 }
 
-export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) {
+export function AuthScreen({
+  lang,
+  setLang,
+  theme,
+  setTheme,
+  onBackToHome,
+}: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -147,8 +154,20 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
           <span className="bg-[#F5B800]" />
         </div>
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center min-w-0 lg:hidden">
-            <OilcomWordmark className="h-9" />
+          <div className="flex items-center gap-2 min-w-0">
+            {onBackToHome && (
+              <button
+                type="button"
+                onClick={onBackToHome}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#F5B800]" />
+                <span>{lang === 'sw' ? 'Nyumbani' : 'Home'}</span>
+              </button>
+            )}
+            <div className="flex items-center min-w-0 lg:hidden">
+              <OilcomWordmark className="h-9" />
+            </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:ml-auto">
             <button

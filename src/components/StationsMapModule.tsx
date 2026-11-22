@@ -97,6 +97,8 @@ interface DiscoveredPlace {
   address: string;
   lat: number;
   lng: number;
+  isOilcom?: boolean;
+  oilcomKind?: 'fuel' | 'gas' | 'both';
   category?: string;
   rating?: number;
   userRatingCount?: number;
@@ -172,6 +174,75 @@ function parseCityRegionFromAddress(address: string): {
     }
   }
   return { city: 'Dar es Salaam', region: 'Dar es Salaam' };
+}
+
+function isOilcomBrandName(name: string): boolean {
+  return /oil\s*com/i.test(name);
+}
+
+function classifyOilcomPlaceKind(
+  name: string,
+  address: string
+): 'fuel' | 'gas' | 'both' {
+  const text = `${name} ${address}`.toLowerCase();
+  const hasExplicitLpg =
+    /\b(lpg|gesi|cooking\s*gas|gas\s*cylinder|mitungi|oilcom\s*gas|gas\s*depot|gas\s*hub|oryx\s*gas|total\s*gas)\b/i.test(
+      text
+    );
+  const hasExplicitFuel =
+    /\b(petrol|diesel|fuel|mafuta|service\s*station|filling\s*station)\b/i.test(
+      text
+    );
+  if (hasExplicitLpg && !hasExplicitFuel) return 'gas';
+  if (hasExplicitLpg && hasExplicitFuel) return 'both';
+  return 'fuel';
+}
+
+function extractQueryFromGoogleMapsInput(raw: string): {
+  query: string;
+  isShortMapsLink: boolean;
+} {
+  const trimmed = raw.trim();
+  if (/https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(trimmed)) {
+    return { query: trimmed, isShortMapsLink: true };
+  }
+  const placeMatch = trimmed.match(
+    /google\.com\/maps\/place\/([^/@?]+)/i
+  );
+  if (placeMatch?.[1]) {
+    try {
+      const decoded = decodeURIComponent(placeMatch[1].replace(/\+/g, ' ')).trim();
+      if (decoded.length >= 2) return { query: decoded, isShortMapsLink: false };
+    } catch {
+      // fall back
+    }
+  }
+  const coordMatch = trimmed.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (coordMatch?.[1] && coordMatch?.[2]) {
+    return { query: `${coordMatch[1]},${coordMatch[2]}`, isShortMapsLink: false };
+  }
+  return { query: trimmed, isShortMapsLink: false };
+}
+
+function discoveredPlaceToStation(pl: DiscoveredPlace): Station {
+  const kind = pl.oilcomKind || classifyOilcomPlaceKind(pl.name, pl.address);
+  const { city, region } = parseCityRegionFromAddress(pl.address);
+  return {
+    id: `gplace-${pl.id}`,
+    name: pl.name,
+    code: suggestStationCode(pl.name, city),
+    stationKind: kind,
+    city,
+    region,
+    address: pl.address || city,
+    lat: pl.lat,
+    lng: pl.lng,
+    open24Hours: true,
+    hasGas: kind === 'gas' || kind === 'both',
+    hasFuel: kind === 'fuel' || kind === 'both',
+    hasLubricants: true,
+    status: 'active',
+  };
 }
 
 function haversineKm(
@@ -423,10 +494,12 @@ function StationsMapWorkspace({
   const [locLoading, setLocLoading] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
+  const [oilcomPlaces, setOilcomPlaces] = useState<DiscoveredPlace[]>([]);
   const [discoveredPlaces, setDiscoveredPlaces] = useState<DiscoveredPlace[]>([]);
   const [placesLoading, setPlacesLoading] = useState(false);
   const [poiDetailsLoading, setPoiDetailsLoading] = useState(false);
   const [placesNotice, setPlacesNotice] = useState<string | null>(null);
+  const hasAutoLoadedOilcomRef = useRef(false);
   const [isDesktop, setIsDesktop] = useState<boolean>(() =>
     typeof window !== 'undefined'
       ? window.matchMedia('(min-width: 1024px)').matches
@@ -578,6 +651,40 @@ function StationsMapWorkspace({
   const hasActiveFilter =
     only24h || oilcomCategoryFilter !== 'all' || onlyLubricants || showExternalPlaces;
 
+  const dedupedOilcomPlaces = useMemo(() => {
+    return oilcomPlaces.filter(
+      (pl) =>
+        !stations.some(
+          (st) => haversineKm(st.lat, st.lng, pl.lat, pl.lng) < 0.15
+        )
+    );
+  }, [oilcomPlaces, stations]);
+
+  const filteredOilcomPlaces = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const list = dedupedOilcomPlaces.filter((pl) => {
+      const kind = pl.oilcomKind || classifyOilcomPlaceKind(pl.name, pl.address);
+      if (oilcomCategoryFilter === 'gas' && kind !== 'gas' && kind !== 'both') {
+        return false;
+      }
+      if (oilcomCategoryFilter === 'fuel' && kind !== 'fuel' && kind !== 'both') {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        pl.name.toLowerCase().includes(q) || pl.address.toLowerCase().includes(q)
+      );
+    });
+    if (userCoords) {
+      return [...list].sort(
+        (a, b) =>
+          haversineKm(userCoords.lat, userCoords.lng, a.lat, a.lng) -
+          haversineKm(userCoords.lat, userCoords.lng, b.lat, b.lng)
+      );
+    }
+    return list;
+  }, [dedupedOilcomPlaces, searchQuery, oilcomCategoryFilter, userCoords]);
+
   const stationCategoryCounts = useMemo(() => {
     let fuel = 0;
     let gas = 0;
@@ -587,8 +694,13 @@ function StationsMapWorkspace({
       if (hasFuel) fuel += 1;
       if (hasGas) gas += 1;
     });
-    return { all: stations.length, fuel, gas };
-  }, [stations]);
+    dedupedOilcomPlaces.forEach((pl) => {
+      const kind = pl.oilcomKind || classifyOilcomPlaceKind(pl.name, pl.address);
+      if (kind === 'fuel' || kind === 'both') fuel += 1;
+      if (kind === 'gas' || kind === 'both') gas += 1;
+    });
+    return { all: stations.length + dedupedOilcomPlaces.length, fuel, gas };
+  }, [stations, dedupedOilcomPlaces]);
 
   const filteredStations = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1072,14 +1184,22 @@ function StationsMapWorkspace({
         const lat = place.location?.lat() ?? fallbackCoords?.lat ?? DEFAULT_CENTER.lat;
         const lng = place.location?.lng() ?? fallbackCoords?.lng ?? DEFAULT_CENTER.lng;
 
+        const placeName =
+          place.displayName || (lang === 'sw' ? 'Eneo Lililochaguliwa' : 'Selected Place');
+        const placeAddr =
+          place.formattedAddress ||
+          (lang === 'sw' ? 'Anwani haikupatikana' : 'Address unavailable');
+        const placeIsOilcom = isOilcomBrandName(placeName);
         const detailed: DiscoveredPlace = {
           id: place.id || placeId,
-          name: place.displayName || (lang === 'sw' ? 'Eneo Lililochaguliwa' : 'Selected Place'),
-          address:
-            place.formattedAddress ||
-            (lang === 'sw' ? 'Anwani haikupatikana' : 'Address unavailable'),
+          name: placeName,
+          address: placeAddr,
           lat,
           lng,
+          isOilcom: placeIsOilcom,
+          oilcomKind: placeIsOilcom
+            ? classifyOilcomPlaceKind(placeName, placeAddr)
+            : undefined,
           category: place.primaryTypeDisplayName || undefined,
           rating: typeof place.rating === 'number' ? place.rating : undefined,
           userRatingCount:
@@ -1101,15 +1221,27 @@ function StationsMapWorkspace({
           googleMapsURI: place.googleMapsURI || undefined,
         };
 
-        setDiscoveredPlaces((prev) => {
-          const idx = prev.findIndex((p) => p.id === detailed.id);
-          if (idx >= 0) {
-            const copy = [...prev];
-            copy[idx] = { ...copy[idx], ...detailed };
-            return copy;
-          }
-          return [detailed, ...prev.slice(0, 11)];
-        });
+        if (placeIsOilcom) {
+          setOilcomPlaces((prev) => {
+            const idx = prev.findIndex((p) => p.id === detailed.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = { ...copy[idx], ...detailed };
+              return copy;
+            }
+            return [detailed, ...prev];
+          });
+        } else {
+          setDiscoveredPlaces((prev) => {
+            const idx = prev.findIndex((p) => p.id === detailed.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = { ...copy[idx], ...detailed };
+              return copy;
+            }
+            return [detailed, ...prev.slice(0, 19)];
+          });
+        }
         setSelectedStation(null);
         setSelectedPlace(detailed);
         setInfoOpen(true);
@@ -1192,19 +1324,27 @@ function StationsMapWorkspace({
     [isNative3DActive, fly3DCameraTo, mapInstance, coreLib]
   );
 
-  const visibleDiscoveredPlaces = useMemo(
-    () => (showExternalPlaces ? discoveredPlaces : []),
-    [showExternalPlaces, discoveredPlaces]
-  );
+  const visibleDiscoveredPlaces = useMemo(() => {
+    if (!showExternalPlaces) return [];
+    const oilcomIdSet = new Set(dedupedOilcomPlaces.map((p) => p.id));
+    return discoveredPlaces.filter((p) => !p.isOilcom && !oilcomIdSet.has(p.id));
+  }, [showExternalPlaces, discoveredPlaces, dedupedOilcomPlaces]);
 
   const fitAllMarkers = useCallback(() => {
     const pts: { lat: number; lng: number }[] = [
       ...filteredStations.map((s) => ({ lat: s.lat, lng: s.lng })),
+      ...filteredOilcomPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
       ...visibleDiscoveredPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
     ];
     if (userCoords) pts.push(userCoords);
     fitPointsOnMap(pts);
-  }, [filteredStations, visibleDiscoveredPlaces, userCoords, fitPointsOnMap]);
+  }, [
+    filteredStations,
+    filteredOilcomPlaces,
+    visibleDiscoveredPlaces,
+    userCoords,
+    fitPointsOnMap,
+  ]);
 
   const handleMapPointClick = useCallback(
     (lat: number, lng: number) => {
@@ -1563,11 +1703,157 @@ function StationsMapWorkspace({
     );
   }, [focusCoords, lang, stations]);
 
+  const mapRawPlacesToDiscovered = useCallback(
+    (places: RawPlaceResult[]): DiscoveredPlace[] => {
+      return places
+        .filter((p) => p.location != null)
+        .map((p) => {
+          let photoUrl: string | undefined;
+          try {
+            photoUrl = p.photos?.[0]?.getURI?.({ maxWidth: 640, maxHeight: 360 });
+          } catch {
+            photoUrl = undefined;
+          }
+          const name = p.displayName || 'Station';
+          const address = p.formattedAddress || '';
+          const placeIsOilcom = isOilcomBrandName(name);
+          return {
+            id: p.id,
+            name,
+            address,
+            lat: p.location!.lat(),
+            lng: p.location!.lng(),
+            isOilcom: placeIsOilcom,
+            oilcomKind: placeIsOilcom
+              ? classifyOilcomPlaceKind(name, address)
+              : undefined,
+            category: p.primaryTypeDisplayName || undefined,
+            rating: typeof p.rating === 'number' ? p.rating : undefined,
+            userRatingCount:
+              typeof p.userRatingCount === 'number'
+                ? p.userRatingCount
+                : undefined,
+            photoUrl,
+            businessStatus: p.businessStatus || undefined,
+            googleMapsURI: p.googleMapsURI || undefined,
+          };
+        });
+    },
+    []
+  );
+
+  // Live automated discovery of official OILCOM stations & LPG gas outlets across Tanzania
+  useEffect(() => {
+    if (!placesLib || hasAutoLoadedOilcomRef.current) return;
+    hasAutoLoadedOilcomRef.current = true;
+    let cancelled = false;
+
+    const fields = [
+      'id',
+      'displayName',
+      'location',
+      'formattedAddress',
+      'primaryTypeDisplayName',
+      'rating',
+      'userRatingCount',
+      'businessStatus',
+      'googleMapsURI',
+      'photos',
+    ];
+    const tanzaniaBounds = {
+      south: -11.75,
+      west: 29.3,
+      north: -0.99,
+      east: 40.45,
+    };
+
+    const queries = [
+      {
+        textQuery: 'Oilcom',
+        includedType: 'gas_station',
+        fields,
+        locationBias: { center: DEFAULT_CENTER, radius: 40000 },
+        maxResultCount: 20,
+        language: lang,
+        region: 'tz',
+      },
+      {
+        textQuery: 'Oilcom petrol station Tanzania',
+        fields,
+        locationBias: tanzaniaBounds,
+        maxResultCount: 20,
+        language: lang,
+        region: 'tz',
+      },
+      {
+        textQuery: 'Oilcom Gas LPG Tanzania',
+        fields,
+        locationBias: tanzaniaBounds,
+        maxResultCount: 20,
+        language: lang,
+        region: 'tz',
+      },
+    ];
+
+    void (async () => {
+      try {
+        const settled = await Promise.allSettled(
+          queries.map((req) => placesLib.Place.searchByText(req))
+        );
+        if (cancelled) return;
+        const byId = new Map<string, DiscoveredPlace>();
+        settled.forEach((result) => {
+          if (result.status !== 'fulfilled') {
+            if (isQuotaError(result.reason)) {
+              window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+            }
+            return;
+          }
+          const raw =
+            ((result.value as { places?: RawPlaceResult[] })?.places ?? []);
+          const mapped = mapRawPlacesToDiscovered(raw).filter(
+            (pl) => pl.isOilcom
+          );
+          mapped.forEach((pl) => {
+            if (!byId.has(pl.id)) byId.set(pl.id, pl);
+          });
+        });
+        if (!cancelled && byId.size > 0) {
+          setOilcomPlaces((prev) => {
+            const merged = new Map<string, DiscoveredPlace>();
+            prev.forEach((p) => merged.set(p.id, p));
+            byId.forEach((p, id) => {
+              const existing = merged.get(id);
+              merged.set(id, existing ? { ...existing, ...p } : p);
+            });
+            return Array.from(merged.values());
+          });
+        }
+      } catch (err) {
+        if (isQuotaError(err)) {
+          window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [placesLib, lang, mapRawPlacesToDiscovered]);
+
   // Live Google Places Text Search (New) — works in both 2D and 3D
   const runPlacesTextSearch = useCallback(
     async (rawQuery: string) => {
-      const q = rawQuery.trim();
+      const { query: q, isShortMapsLink } = extractQueryFromGoogleMapsInput(rawQuery);
       if (!q || !placesLib) return;
+      if (isShortMapsLink) {
+        setPlacesNotice(
+          lang === 'sw'
+            ? 'Kwa kiungo kifupi (maps.app.goo.gl), andika jina la kituo (mf. Oil com - Victoria) au Plus Code (mf. 67C2+QJ Dar es Salaam) kutafuta moja kwa moja.'
+            : 'For shortened maps.app.goo.gl links, type the station name (e.g. Oil com - Victoria) or Plus Code (e.g. 67C2+QJ Dar es Salaam).'
+        );
+        return;
+      }
       setPlacesLoading(true);
       setPlacesNotice(null);
       try {
@@ -1594,42 +1880,29 @@ function StationsMapWorkspace({
             'photos',
           ],
           locationBias: bias,
-          maxResultCount: 8,
+          maxResultCount: 12,
           language: lang,
           region: 'tz',
         };
         const res = (await placesLib.Place.searchByText(request)) as {
           places?: RawPlaceResult[];
         };
-        const places = res?.places ?? [];
-        const mapped: DiscoveredPlace[] = places
-          .filter((p) => p.location != null)
-          .map((p) => {
-            let photoUrl: string | undefined;
-            try {
-              photoUrl = p.photos?.[0]?.getURI?.({ maxWidth: 640, maxHeight: 360 });
-            } catch {
-              photoUrl = undefined;
-            }
-            return {
-              id: p.id,
-              name: p.displayName || 'Station',
-              address: p.formattedAddress || '',
-              lat: p.location!.lat(),
-              lng: p.location!.lng(),
-              category: p.primaryTypeDisplayName || undefined,
-              rating: typeof p.rating === 'number' ? p.rating : undefined,
-              userRatingCount:
-                typeof p.userRatingCount === 'number' ? p.userRatingCount : undefined,
-              photoUrl,
-              businessStatus: p.businessStatus || undefined,
-              googleMapsURI: p.googleMapsURI || undefined,
-            };
-          });
+        const mapped = mapRawPlacesToDiscovered(res?.places ?? []);
+        const oilcomFound = mapped.filter((p) => p.isOilcom);
+        const externalFound = mapped.filter((p) => !p.isOilcom);
 
-        setDiscoveredPlaces(mapped);
+        if (oilcomFound.length > 0) {
+          setOilcomPlaces((prev) => {
+            const next = new Map(prev.map((p) => [p.id, p]));
+            oilcomFound.forEach((p) => next.set(p.id, p));
+            return Array.from(next.values());
+          });
+        }
+        setDiscoveredPlaces(externalFound);
         if (mapped.length > 0) {
-          setShowExternalPlaces(true);
+          if (externalFound.length > 0 && oilcomFound.length === 0) {
+            setShowExternalPlaces(true);
+          }
           fitPointsOnMap(mapped.map((p) => ({ lat: p.lat, lng: p.lng })));
           setSelectedStation(null);
           setSelectedPlace(mapped[0]);
@@ -1668,10 +1941,11 @@ function StationsMapWorkspace({
       lang,
       fitPointsOnMap,
       fetchFullPlaceDetails,
+      mapRawPlacesToDiscovered,
     ]
   );
 
-  // Live Google Places Nearby Gas Stations Search — works in both 2D and 3D
+  // Live Google Places Nearby Gas Stations + OILCOM Area Search — works in both 2D and 3D
   const runNearbyGasStationsSearch = useCallback(async () => {
     if (!placesLib) return;
     setPlacesLoading(true);
@@ -1694,65 +1968,87 @@ function StationsMapWorkspace({
         radius = Math.min(Math.max(Math.round(map3dCamera.range * 1.4), 2500), 25000);
       }
 
-      const res = (await placesLib.Place.searchNearby({
-        fields: [
-          'id',
-          'displayName',
-          'location',
-          'formattedAddress',
-          'primaryTypeDisplayName',
-          'rating',
-          'userRatingCount',
-          'businessStatus',
-          'googleMapsURI',
-          'photos',
-        ],
-        locationRestriction: {
-          center,
-          radius,
-        },
-        includedPrimaryTypes: ['gas_station'],
-        maxResultCount: 10,
-        rankPreference: placesLib.SearchNearbyRankPreference.DISTANCE,
-        language: lang,
-        region: 'tz',
-      })) as { places?: RawPlaceResult[] };
+      const fields = [
+        'id',
+        'displayName',
+        'location',
+        'formattedAddress',
+        'primaryTypeDisplayName',
+        'rating',
+        'userRatingCount',
+        'businessStatus',
+        'googleMapsURI',
+        'photos',
+      ];
 
-      const places = res?.places ?? [];
-      const mapped: DiscoveredPlace[] = places
-        .filter((p) => p.location != null)
-        .map((p) => {
-          let photoUrl: string | undefined;
-          try {
-            photoUrl = p.photos?.[0]?.getURI?.({ maxWidth: 640, maxHeight: 360 });
-          } catch {
-            photoUrl = undefined;
-          }
-          return {
-            id: p.id,
-            name: p.displayName || 'Gas Station',
-            address: p.formattedAddress || '',
-            lat: p.location!.lat(),
-            lng: p.location!.lng(),
-            category: p.primaryTypeDisplayName || undefined,
-            rating: typeof p.rating === 'number' ? p.rating : undefined,
-            userRatingCount:
-              typeof p.userRatingCount === 'number' ? p.userRatingCount : undefined,
-            photoUrl,
-            businessStatus: p.businessStatus || undefined,
-            googleMapsURI: p.googleMapsURI || undefined,
-          };
+      const [nearbyRes, oilcomAreaRes] = await Promise.allSettled([
+        placesLib.Place.searchNearby({
+          fields,
+          locationRestriction: {
+            center,
+            radius,
+          },
+          includedPrimaryTypes: ['gas_station'],
+          maxResultCount: 20,
+          rankPreference: placesLib.SearchNearbyRankPreference.DISTANCE,
+          language: lang,
+          region: 'tz',
+        }),
+        placesLib.Place.searchByText({
+          textQuery: 'Oilcom',
+          fields,
+          locationBias: bounds ?? { center, radius },
+          maxResultCount: 20,
+          language: lang,
+          region: 'tz',
+        }),
+      ]);
+
+      const rawNearby =
+        nearbyRes.status === 'fulfilled'
+          ? ((nearbyRes.value as { places?: RawPlaceResult[] })?.places ?? [])
+          : [];
+      const rawOilcomArea =
+        oilcomAreaRes.status === 'fulfilled'
+          ? ((oilcomAreaRes.value as { places?: RawPlaceResult[] })?.places ?? [])
+          : [];
+
+      const mappedNearby = mapRawPlacesToDiscovered(rawNearby);
+      const mappedOilcom = mapRawPlacesToDiscovered(rawOilcomArea).filter(
+        (p) => p.isOilcom
+      );
+
+      const newOilcom = [
+        ...mappedOilcom,
+        ...mappedNearby.filter((p) => p.isOilcom),
+      ];
+      if (newOilcom.length > 0) {
+        setOilcomPlaces((prev) => {
+          const next = new Map(prev.map((p) => [p.id, p]));
+          newOilcom.forEach((p) => next.set(p.id, p));
+          return Array.from(next.values());
         });
+      }
 
-      setDiscoveredPlaces(mapped);
-      if (mapped.length > 0) {
-        setShowExternalPlaces(true);
+      const externalOnly = mappedNearby.filter((p) => !p.isOilcom);
+      setDiscoveredPlaces(externalOnly);
+
+      const focusList = showExternalPlaces
+        ? [...newOilcom, ...externalOnly]
+        : newOilcom.length > 0
+          ? newOilcom
+          : externalOnly;
+
+      if (focusList.length > 0) {
+        if (externalOnly.length > 0 && newOilcom.length === 0) {
+          setShowExternalPlaces(true);
+        }
         setSelectedStation(null);
-        setSelectedPlace(mapped[0]);
+        setSelectedPlace(focusList[0]);
         setInfoOpen(true);
         void fetchFullPlaceDetails(
-          mapped[0].id,
-          { lat: mapped[0].lat, lng: mapped[0].lng },
+          focusList[0].id,
+          { lat: focusList[0].lat, lng: focusList[0].lng },
           false
         );
       } else {
@@ -1783,6 +2079,8 @@ function StationsMapWorkspace({
     map3dCamera.range,
     lang,
     fetchFullPlaceDetails,
+    mapRawPlacesToDiscovered,
+    showExternalPlaces,
   ]);
 
   // Modern Routes API: Route.computeRoutes + 2D polylines & 3D Polyline3D coordinates
@@ -1969,6 +2267,13 @@ function StationsMapWorkspace({
     : selectedPlace
       ? {
           kind: 'place' as const,
+          placeObj: selectedPlace,
+          isOilcom:
+            Boolean(selectedPlace.isOilcom) ||
+            isOilcomBrandName(selectedPlace.name),
+          oilcomKind:
+            selectedPlace.oilcomKind ||
+            classifyOilcomPlaceKind(selectedPlace.name, selectedPlace.address),
           id: selectedPlace.id,
           name: selectedPlace.name,
           subtitle: selectedPlace.address,
@@ -2031,7 +2336,9 @@ function StationsMapWorkspace({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
             <span className="absolute bottom-2 left-2.5 px-2 py-0.5 rounded-md bg-[#F5B800] text-[#0B2A6F] text-[10px] font-extrabold uppercase tracking-wide shadow">
-              {activeTarget.category || (lang === 'sw' ? 'Eneo la Google' : 'Google Place')}
+              {activeTarget.isOilcom
+                ? 'OILCOM · GOOGLE MAPS'
+                : activeTarget.category || (lang === 'sw' ? 'Eneo la Google' : 'Google Place')}
             </span>
             <button
               type="button"
@@ -2047,7 +2354,9 @@ function StationsMapWorkspace({
             <span className="px-2 py-0.5 rounded-md bg-[#F5B800] text-[#0B2A6F] text-[10px] font-extrabold uppercase tracking-wide truncate">
               {activeTarget.kind === 'station'
                 ? `OILCOM · ${activeTarget.code}`
-                : activeTarget.category || 'GOOGLE PLACES'}
+                : activeTarget.isOilcom
+                  ? 'OILCOM · GOOGLE MAPS'
+                  : activeTarget.category || 'GOOGLE PLACES'}
             </span>
             <button
               type="button"
@@ -2224,6 +2533,37 @@ function StationsMapWorkspace({
               </>
             ) : (
               <>
+                {activeTarget.isOilcom && (
+                  <>
+                    {(activeTarget.oilcomKind === 'gas' ||
+                      activeTarget.oilcomKind === 'both') && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOrderAtStation(
+                            discoveredPlaceToStation(activeTarget.placeObj),
+                            'gas'
+                          )
+                        }
+                        className="py-1.5 px-2.5 rounded-lg bg-[#F5B800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer"
+                      >
+                        {lang === 'sw' ? 'Gesi' : 'Gas'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOrderAtStation(
+                          discoveredPlaceToStation(activeTarget.placeObj),
+                          'fuel'
+                        )
+                      }
+                      className="py-1.5 px-2.5 rounded-lg bg-[#D92027] text-white font-bold text-[11px] cursor-pointer"
+                    >
+                      {lang === 'sw' ? 'Mafuta' : 'Fuel'}
+                    </button>
+                  </>
+                )}
                 {activeTarget.googleMapsURI && (
                   <a
                     href={activeTarget.googleMapsURI}
@@ -2244,6 +2584,9 @@ function StationsMapWorkspace({
                         {
                           name: activeTarget.name,
                           address: activeTarget.subtitle,
+                          stationKind: activeTarget.isOilcom
+                            ? activeTarget.oilcomKind
+                            : undefined,
                           googleMapsURI: activeTarget.googleMapsURI,
                         }
                       )
@@ -2252,9 +2595,13 @@ function StationsMapWorkspace({
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>
-                      {lang === 'sw'
-                        ? 'Sajili Kituo cha Mafuta / Gesi Hapa'
-                        : 'Register Fuel / Gas Station Here'}
+                      {activeTarget.isOilcom
+                        ? lang === 'sw'
+                          ? 'Hifadhi Bei & Stoo (Orodha Rasmi)'
+                          : 'Save Prices & Stock to Catalog'
+                        : lang === 'sw'
+                          ? 'Sajili Kituo cha Mafuta / Gesi Hapa'
+                          : 'Register Fuel / Gas Station Here'}
                     </span>
                   </button>
                 )}
@@ -2467,7 +2814,48 @@ function StationsMapWorkspace({
                 );
               })}
 
-              {/* Discovered Places in 3D */}
+              {/* Live Google Maps OILCOM Stations & Gas Outlets in 3D */}
+              {filteredOilcomPlaces.map((place) => {
+                const isSelected = selectedPlace?.id === place.id;
+                const kind =
+                  place.oilcomKind ||
+                  classifyOilcomPlaceKind(place.name, place.address);
+                const bgColor = isSelected
+                  ? '#F5B800'
+                  : kind === 'gas'
+                    ? '#D97706'
+                    : kind === 'fuel'
+                      ? '#D92027'
+                      : '#0B2A6F';
+                return (
+                  <Marker3D
+                    key={`3d-oilcom-${place.id}`}
+                    position={{ lat: place.lat, lng: place.lng, altitude: 55 }}
+                    altitudeMode={AltitudeMode.RELATIVE_TO_GROUND}
+                    extruded
+                    title={place.name}
+                    onClick={() => handleSelectPlace(place)}
+                  >
+                    <Pin
+                      background={bgColor}
+                      borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
+                      glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      glyphText={
+                        kind === 'gas'
+                          ? 'G'
+                          : kind === 'fuel'
+                            ? lang === 'sw'
+                              ? 'M'
+                              : 'F'
+                            : 'O'
+                      }
+                      scale={isSelected ? 1.25 : 1}
+                    />
+                  </Marker3D>
+                );
+              })}
+
+              {/* Discovered External Places in 3D */}
               {visibleDiscoveredPlaces.map((place) => {
                 const isSelected = selectedPlace?.id === place.id;
                 return (
@@ -2562,6 +2950,45 @@ function StationsMapWorkspace({
                     />
                   </AdvancedMarker>
                 ))}
+                {filteredOilcomPlaces.map((place) => {
+                  const isSelected = selectedPlace?.id === place.id;
+                  const kind =
+                    place.oilcomKind ||
+                    classifyOilcomPlaceKind(place.name, place.address);
+                  return (
+                    <AdvancedMarker
+                      key={`sr-oil-${place.id}`}
+                      position={{ lat: place.lat, lng: place.lng }}
+                      onClick={() => handleSelectPlace(place)}
+                      title={place.name}
+                      zIndex={isSelected ? 24 : 14}
+                    >
+                      <Pin
+                        background={isSelected ? '#F5B800' : kind === 'gas' ? '#D97706' : '#D92027'}
+                        borderColor="#FFFFFF"
+                        glyphColor="#FFFFFF"
+                        glyphText={kind === 'gas' ? 'G' : lang === 'sw' ? 'M' : 'F'}
+                        scale={isSelected ? 1.1 : 0.9}
+                      />
+                    </AdvancedMarker>
+                  );
+                })}
+                {visibleDiscoveredPlaces.map((place) => (
+                  <AdvancedMarker
+                    key={`sr-ext-${place.id}`}
+                    position={{ lat: place.lat, lng: place.lng }}
+                    onClick={() => handleSelectPlace(place)}
+                    title={place.name}
+                    zIndex={10}
+                  >
+                    <Pin
+                      background="#FFFFFF"
+                      borderColor="#64748B"
+                      glyphColor="#334155"
+                      scale={0.85}
+                    />
+                  </AdvancedMarker>
+                ))}
               </GoogleMapView>
 
               {/* Left Clipped Layer: Roadmap + Service Buffers & Voronoi Catchments */}
@@ -2635,6 +3062,63 @@ function StationsMapWorkspace({
                           borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
                           glyphColor={isSelected ? '#0B2A6F' : '#F5B800'}
                           scale={isSelected ? 1.15 : 0.95}
+                        />
+                      </AdvancedMarker>
+                    );
+                  })}
+                  {filteredOilcomPlaces.map((place) => {
+                    const isSelected = selectedPlace?.id === place.id;
+                    const kind =
+                      place.oilcomKind ||
+                      classifyOilcomPlaceKind(place.name, place.address);
+                    const bgColor = isSelected
+                      ? '#F5B800'
+                      : kind === 'gas'
+                        ? '#D97706'
+                        : kind === 'fuel'
+                          ? '#D92027'
+                          : '#0B2A6F';
+                    return (
+                      <AdvancedMarker
+                        key={`sl-oil-${place.id}`}
+                        position={{ lat: place.lat, lng: place.lng }}
+                        onClick={() => handleSelectPlace(place)}
+                        title={place.name}
+                        zIndex={isSelected ? 25 : 15}
+                      >
+                        <Pin
+                          background={bgColor}
+                          borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
+                          glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                          glyphText={
+                            kind === 'gas'
+                              ? 'G'
+                              : kind === 'fuel'
+                                ? lang === 'sw'
+                                  ? 'M'
+                                  : 'F'
+                                : 'O'
+                          }
+                          scale={isSelected ? 1.15 : 0.95}
+                        />
+                      </AdvancedMarker>
+                    );
+                  })}
+                  {visibleDiscoveredPlaces.map((place) => {
+                    const isSelected = selectedPlace?.id === place.id;
+                    return (
+                      <AdvancedMarker
+                        key={`sl-ext-${place.id}`}
+                        position={{ lat: place.lat, lng: place.lng }}
+                        onClick={() => handleSelectPlace(place)}
+                        title={place.name}
+                        zIndex={isSelected ? 24 : 10}
+                      >
+                        <Pin
+                          background={isSelected ? '#111827' : '#ffffff'}
+                          borderColor={isSelected ? '#F5B800' : '#64748B'}
+                          glyphColor={isSelected ? '#F5B800' : '#334155'}
+                          scale={isSelected ? 1.1 : 0.85}
                         />
                       </AdvancedMarker>
                     );
@@ -2782,7 +3266,47 @@ function StationsMapWorkspace({
                 );
               })}
 
-              {/* Live Google Places Search Results */}
+              {/* Live Google Maps OILCOM Stations & Gas Outlets */}
+              {filteredOilcomPlaces.map((place) => {
+                const isSelected = selectedPlace?.id === place.id;
+                const kind =
+                  place.oilcomKind ||
+                  classifyOilcomPlaceKind(place.name, place.address);
+                const bgColor = isSelected
+                  ? '#F5B800'
+                  : kind === 'gas'
+                    ? '#D97706'
+                    : kind === 'fuel'
+                      ? '#D92027'
+                      : '#0B2A6F';
+                return (
+                  <AdvancedMarker
+                    key={`oilcom-pl-${place.id}`}
+                    position={{ lat: place.lat, lng: place.lng }}
+                    onClick={() => handleSelectPlace(place)}
+                    title={place.name}
+                    zIndex={isSelected ? 25 : 16}
+                  >
+                    <Pin
+                      background={bgColor}
+                      borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
+                      glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      glyphText={
+                        kind === 'gas'
+                          ? 'G'
+                          : kind === 'fuel'
+                            ? lang === 'sw'
+                              ? 'M'
+                              : 'F'
+                            : 'O'
+                      }
+                      scale={isSelected ? 1.25 : 1}
+                    />
+                  </AdvancedMarker>
+                );
+              })}
+
+              {/* Live Google Places External Search Results */}
               {visibleDiscoveredPlaces.map((place) => {
                 const isSelected = selectedPlace?.id === place.id;
                 return (
@@ -3259,7 +3783,10 @@ function StationsMapWorkspace({
                 />
                 <span>
                   {lang === 'sw' ? 'Orodha' : 'List'} (
-                  {filteredStations.length + visibleDiscoveredPlaces.length})
+                  {filteredStations.length +
+                    filteredOilcomPlaces.length +
+                    visibleDiscoveredPlaces.length}
+                  )
                 </span>
               </button>
 
@@ -3736,7 +4263,9 @@ function StationsMapWorkspace({
                     <span className="px-1.5 py-0.5 rounded bg-[#F5B800] text-[#0B2A6F] font-extrabold uppercase tracking-wide leading-none">
                       {activeTarget.kind === 'station'
                         ? activeTarget.code
-                        : activeTarget.category || 'GOOGLE'}
+                        : activeTarget.isOilcom
+                          ? 'OILCOM'
+                          : activeTarget.category || 'GOOGLE'}
                     </span>
                     {activeTarget.kind === 'place' &&
                       activeTarget.rating !== undefined && (
@@ -4001,6 +4530,37 @@ function StationsMapWorkspace({
                   </>
                 ) : (
                   <>
+                    {activeTarget.isOilcom && (
+                      <>
+                        {(activeTarget.oilcomKind === 'gas' ||
+                          activeTarget.oilcomKind === 'both') && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOrderAtStation(
+                                discoveredPlaceToStation(activeTarget.placeObj),
+                                'gas'
+                              )
+                            }
+                            className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                          >
+                            {lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOrderAtStation(
+                              discoveredPlaceToStation(activeTarget.placeObj),
+                              'fuel'
+                            )
+                          }
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                        >
+                          {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
+                        </button>
+                      </>
+                    )}
                     {activeTarget.googleMapsURI && (
                       <a
                         href={activeTarget.googleMapsURI}
@@ -4021,6 +4581,9 @@ function StationsMapWorkspace({
                             {
                               name: activeTarget.name,
                               address: activeTarget.subtitle,
+                              stationKind: activeTarget.isOilcom
+                                ? activeTarget.oilcomKind
+                                : undefined,
                               googleMapsURI: activeTarget.googleMapsURI,
                             }
                           )
@@ -4028,7 +4591,15 @@ function StationsMapWorkspace({
                         className="py-1.5 px-2.5 rounded-lg bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-[11px] inline-flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                       >
                         <Plus className="w-3 h-3" />
-                        <span>{lang === 'sw' ? 'Sajili OILCOM' : 'Add Station'}</span>
+                        <span>
+                          {activeTarget.isOilcom
+                            ? lang === 'sw'
+                              ? 'Hifadhi Stoo'
+                              : 'Save Stock'
+                            : lang === 'sw'
+                              ? 'Sajili OILCOM'
+                              : 'Add Station'}
+                        </span>
                       </button>
                     )}
                     {!detailsExpanded && (
@@ -4063,7 +4634,9 @@ function StationsMapWorkspace({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
-                {filteredStations.length === 0 && visibleDiscoveredPlaces.length === 0 && (
+                {filteredStations.length === 0 &&
+                  filteredOilcomPlaces.length === 0 &&
+                  visibleDiscoveredPlaces.length === 0 && (
                   <div className="p-8 text-center space-y-2.5 text-xs text-neutral-500">
                     <p>
                       {lang === 'sw'
@@ -4117,6 +4690,35 @@ function StationsMapWorkspace({
                     )}
                   </button>
                 ))}
+                {filteredOilcomPlaces.map((pl) => {
+                  const kind =
+                    pl.oilcomKind || classifyOilcomPlaceKind(pl.name, pl.address);
+                  return (
+                    <button
+                      key={`m-oil-${pl.id}`}
+                      type="button"
+                      onClick={() => handleSelectPlace(pl)}
+                      className="w-full text-left p-3.5 hover:bg-neutral-50 dark:hover:bg-blue-950/40 flex items-center justify-between gap-3 cursor-pointer"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-xs text-neutral-900 dark:text-white truncate">
+                          {pl.name}
+                        </p>
+                        <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                          {pl.address} ·{' '}
+                          {kind === 'gas'
+                            ? 'Gesi ya OILCOM'
+                            : kind === 'both'
+                              ? 'Mafuta & Gesi'
+                              : 'Sheli ya OILCOM'}
+                        </p>
+                      </div>
+                      <span className="px-1.5 py-0.5 rounded bg-[#0B2A6F] text-[#F5B800] text-[10px] font-bold shrink-0">
+                        OILCOM
+                      </span>
+                    </button>
+                  );
+                })}
                 {visibleDiscoveredPlaces.map((pl) => (
                   <button
                     key={`m-pl-${pl.id}`}
@@ -4159,7 +4761,9 @@ function StationsMapWorkspace({
                     <p className="font-mono-num text-[11px] text-[#F5B800] uppercase">
                       {activeTarget.kind === 'station'
                         ? activeTarget.code
-                        : activeTarget.category || 'GOOGLE PLACES'}
+                        : activeTarget.isOilcom
+                          ? 'OILCOM · GOOGLE MAPS'
+                          : activeTarget.category || 'GOOGLE PLACES'}
                     </p>
                     <h3 className="font-display font-bold text-base mt-0.5">
                       {activeTarget.name}
@@ -4387,6 +4991,37 @@ function StationsMapWorkspace({
                   </>
                 ) : (
                   <>
+                    {activeTarget.isOilcom && (
+                      <>
+                        {(activeTarget.oilcomKind === 'gas' ||
+                          activeTarget.oilcomKind === 'both') && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOrderAtStation(
+                                discoveredPlaceToStation(activeTarget.placeObj),
+                                'gas'
+                              )
+                            }
+                            className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            {lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOrderAtStation(
+                              discoveredPlaceToStation(activeTarget.placeObj),
+                              'fuel'
+                            )
+                          }
+                          className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-xs transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
+                        </button>
+                      </>
+                    )}
                     {activeTarget.googleMapsURI && (
                       <a
                         href={activeTarget.googleMapsURI}
@@ -4407,6 +5042,9 @@ function StationsMapWorkspace({
                             {
                               name: activeTarget.name,
                               address: activeTarget.subtitle,
+                              stationKind: activeTarget.isOilcom
+                                ? activeTarget.oilcomKind
+                                : undefined,
                               googleMapsURI: activeTarget.googleMapsURI,
                             }
                           )
@@ -4415,9 +5053,13 @@ function StationsMapWorkspace({
                       >
                         <Plus className="w-4 h-4" />
                         <span>
-                          {lang === 'sw'
-                            ? 'Ongeza Kama Kituo cha OILCOM'
-                            : 'Add as OILCOM Station'}
+                          {activeTarget.isOilcom
+                            ? lang === 'sw'
+                              ? 'Hifadhi Bei & Stoo (Orodha Rasmi)'
+                              : 'Save Prices & Stock to Catalog'
+                            : lang === 'sw'
+                              ? 'Ongeza Kama Kituo cha OILCOM'
+                              : 'Add as OILCOM Station'}
                         </span>
                       </button>
                     )}
@@ -4434,7 +5076,7 @@ function StationsMapWorkspace({
               <div className="flex items-center gap-2 min-w-0">
                 <span className="truncate">
                   {lang === 'sw' ? 'Vituo vya OILCOM' : 'OILCOM Stations'} (
-                  {filteredStations.length})
+                  {filteredStations.length + filteredOilcomPlaces.length})
                 </span>
                 {visibleDiscoveredPlaces.length > 0 && (
                   <span className="text-[11px] font-semibold text-blue-700 dark:text-[#F5B800] shrink-0">
@@ -4453,7 +5095,9 @@ function StationsMapWorkspace({
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
-              {filteredStations.length === 0 && visibleDiscoveredPlaces.length === 0 && (
+              {filteredStations.length === 0 &&
+                filteredOilcomPlaces.length === 0 &&
+                visibleDiscoveredPlaces.length === 0 && (
                 <div className="p-8 text-center space-y-2.5 text-xs text-neutral-500">
                   <p>
                     {lang === 'sw'
@@ -4510,6 +5154,39 @@ function StationsMapWorkspace({
                     ) : (
                       <Fuel className="w-4 h-4 text-[#0B2A6F] dark:text-[#F5B800] shrink-0" />
                     )}
+                  </button>
+                );
+              })}
+
+              {filteredOilcomPlaces.map((pl) => {
+                const isSelected = selectedPlace?.id === pl.id;
+                const kind =
+                  pl.oilcomKind || classifyOilcomPlaceKind(pl.name, pl.address);
+                return (
+                  <button
+                    key={`d-oil-${pl.id}`}
+                    type="button"
+                    onClick={() => handleSelectPlace(pl)}
+                    className={`w-full text-left p-3.5 hover:bg-neutral-50 dark:hover:bg-blue-950/40 flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-[#F5B800]/10 dark:bg-blue-950/50' : ''
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-neutral-900 dark:text-white truncate">
+                        {pl.name}
+                      </p>
+                      <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                        {pl.address} ·{' '}
+                        {kind === 'gas'
+                          ? 'Gesi ya OILCOM'
+                          : kind === 'both'
+                            ? 'Mafuta & Gesi'
+                            : 'Sheli ya OILCOM'}
+                      </p>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded bg-[#0B2A6F] text-[#F5B800] text-[10px] font-bold shrink-0">
+                      OILCOM
+                    </span>
                   </button>
                 );
               })}
