@@ -43,6 +43,7 @@ interface MapLocationPickerModalProps {
 type GoogleMapInstance = ReturnType<typeof useMap>;
 
 const DAR_CENTER = { lat: -6.7924, lng: 39.2083 };
+const GOOGLE_MAP_LIBRARIES = ['maps3d', 'marker'];
 
 function PickerBridge({
   onMap,
@@ -52,6 +53,9 @@ function PickerBridge({
   const map = useMap();
   useEffect(() => {
     onMap(map);
+    return () => {
+      onMap(null);
+    };
   }, [map, onMap]);
   return null;
 }
@@ -376,7 +380,16 @@ export function MapLocationPickerModal({
         </div>
 
         {googleMapsApiKey ? (
-          <APIProvider apiKey={googleMapsApiKey} version="beta" language={lang} region="TZ">
+          <APIProvider
+            apiKey={googleMapsApiKey}
+            version="beta"
+            language={lang}
+            region="TZ"
+            libraries={GOOGLE_MAP_LIBRARIES}
+            onError={() => {
+              window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+            }}
+          >
             <PickerWorkspace
               lang={lang}
               initialAddress={initialAddress}

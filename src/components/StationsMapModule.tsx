@@ -213,6 +213,9 @@ function isQuotaError(err: unknown): boolean {
 
 type GoogleMapInstance = ReturnType<typeof useMap>;
 
+const GOOGLE_MAP_LIBRARIES = ['maps3d', 'marker'];
+const INFO_WINDOW_PIXEL_OFFSET: [number, number] = [0, -34];
+
 interface MapPolyline {
   setMap: (map: GoogleMapInstance) => void;
   setOptions: (options: Record<string, unknown>) => void;
@@ -272,6 +275,9 @@ function MapInstanceBridge({
   const map = useMap();
   useEffect(() => {
     onMapReady(map);
+    return () => {
+      onMapReady(null);
+    };
   }, [map, onMapReady]);
   return null;
 }
@@ -319,9 +325,11 @@ function StationsMapWorkspace({
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [oilcomCategoryFilter, setOilcomCategoryFilter] = useState<
+    'all' | 'fuel' | 'gas'
+  >('all');
+  const [showExternalPlaces, setShowExternalPlaces] = useState(false);
   const [only24h, setOnly24h] = useState(false);
-  const [onlyGas, setOnlyGas] = useState(false);
-  const [onlyFuel, setOnlyFuel] = useState(false);
   const [onlyLubricants, setOnlyLubricants] = useState(false);
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [mobileListOpen, setMobileListOpen] = useState(false);
@@ -358,9 +366,15 @@ function StationsMapWorkspace({
 
   const [optimisticStations, setOptimisticStations] = useState<Station[]>([]);
   const stations = useMemo(() => {
-    const existingIds = new Set(propStations.map((s) => s.id));
-    const pending = optimisticStations.filter((s) => !existingIds.has(s.id));
-    return pending.length > 0 ? [...propStations, ...pending] : propStations;
+    const validProp = propStations.filter(
+      (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng)
+    );
+    const existingIds = new Set(validProp.map((s) => s.id));
+    const pending = optimisticStations.filter(
+      (s) =>
+        !existingIds.has(s.id) && Number.isFinite(s.lat) && Number.isFinite(s.lng)
+    );
+    return pending.length > 0 ? [...validProp, ...pending] : validProp;
   }, [propStations, optimisticStations]);
 
   const [selectedStation, setSelectedStation] = useState<Station | null>(
@@ -536,7 +550,13 @@ function StationsMapWorkspace({
   );
 
   const clearRoutePolylines = useCallback(() => {
-    polylinesRef.current.forEach((p) => p.setMap(null));
+    polylinesRef.current.forEach((p) => {
+      try {
+        p.setMap(null);
+      } catch {
+        // ignore torn-down map polyline cleanup
+      }
+    });
     polylinesRef.current = [];
     setRoutePath3D([]);
     setActiveRoute(null);
@@ -544,19 +564,40 @@ function StationsMapWorkspace({
 
   useEffect(() => {
     return () => {
-      polylinesRef.current.forEach((p) => p.setMap(null));
+      polylinesRef.current.forEach((p) => {
+        try {
+          p.setMap(null);
+        } catch {
+          // ignore unmount cleanup
+        }
+      });
       polylinesRef.current = [];
     };
   }, []);
 
-  const hasActiveFilter = only24h || onlyGas || onlyFuel || onlyLubricants;
+  const hasActiveFilter =
+    only24h || oilcomCategoryFilter !== 'all' || onlyLubricants || showExternalPlaces;
+
+  const stationCategoryCounts = useMemo(() => {
+    let fuel = 0;
+    let gas = 0;
+    stations.forEach((s) => {
+      const hasFuel = s.stationKind === 'fuel' || s.stationKind === 'both' || s.hasFuel !== false;
+      const hasGas = s.stationKind === 'gas' || s.stationKind === 'both' || s.hasGas !== false;
+      if (hasFuel) fuel += 1;
+      if (hasGas) gas += 1;
+    });
+    return { all: stations.length, fuel, gas };
+  }, [stations]);
 
   const filteredStations = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const list = stations.filter((s) => {
+      const hasGas = s.stationKind === 'gas' || s.stationKind === 'both' || s.hasGas !== false;
+      const hasFuel = s.stationKind === 'fuel' || s.stationKind === 'both' || s.hasFuel !== false;
       if (only24h && !s.open24Hours) return false;
-      if (onlyGas && s.hasGas === false) return false;
-      if (onlyFuel && s.hasFuel === false) return false;
+      if (oilcomCategoryFilter === 'gas' && !hasGas) return false;
+      if (oilcomCategoryFilter === 'fuel' && !hasFuel) return false;
       if (onlyLubricants && !s.hasLubricants) return false;
       if (!q) return true;
       return (
@@ -574,7 +615,14 @@ function StationsMapWorkspace({
       );
     }
     return list;
-  }, [stations, searchQuery, only24h, onlyGas, onlyFuel, onlyLubricants, userCoords]);
+  }, [
+    stations,
+    searchQuery,
+    only24h,
+    oilcomCategoryFilter,
+    onlyLubricants,
+    userCoords,
+  ]);
 
   const voronoiGeoJson = useMemo<GeoJsonFeatureCollection>(
     () =>
@@ -676,16 +724,21 @@ function StationsMapWorkspace({
       geoJson: GeoJsonFeatureCollection
     ): (() => void) | undefined => {
       if (!targetMap) return undefined;
-      const dataLayer = targetMap.data as unknown as DataLayerHandle;
-      dataLayer.forEach((feature: DataLayerFeature) => {
-        dataLayer.remove(feature);
-      });
+      const dataLayer = targetMap.data as unknown as DataLayerHandle | undefined;
+      if (!dataLayer) return undefined;
+      try {
+        dataLayer.forEach((feature: DataLayerFeature) => {
+          dataLayer.remove(feature);
+        });
 
-      if (geoJson.features.length === 0) {
+        if (geoJson.features.length === 0) {
+          return undefined;
+        }
+
+        dataLayer.addGeoJson(geoJson as unknown as object);
+      } catch {
         return undefined;
       }
-
-      dataLayer.addGeoJson(geoJson as unknown as object);
 
       dataLayer.setStyle((feature: DataLayerFeature) => {
         const strokeColor =
@@ -737,36 +790,52 @@ function StationsMapWorkspace({
       const overListener = dataLayer.addListener(
         'mouseover',
         (ev: DataLayerMouseEvent) => {
-          dataLayer.revertStyle();
-          dataLayer.overrideStyle(ev.feature, {
-            strokeWeight: 3.5,
-            fillOpacity: 0.36,
-          });
+          try {
+            dataLayer.revertStyle();
+            dataLayer.overrideStyle(ev.feature, {
+              strokeWeight: 3.5,
+              fillOpacity: 0.36,
+            });
+          } catch {
+            // ignore hover on stale feature
+          }
         }
       );
 
       const outListener = dataLayer.addListener('mouseout', () => {
-        dataLayer.revertStyle();
+        try {
+          dataLayer.revertStyle();
+        } catch {
+          // ignore mouseout on stale feature
+        }
       });
 
       const clickListener = dataLayer.addListener(
         'click',
         (ev: DataLayerMouseEvent) => {
-          const props: Record<string, unknown> = {};
-          ev.feature.forEachProperty((value: unknown, key: string) => {
-            props[key] = value;
-          });
-          setSelectedGisFeature(summarizeGisFeature(props));
+          try {
+            const props: Record<string, unknown> = {};
+            ev.feature.forEachProperty((value: unknown, key: string) => {
+              props[key] = value;
+            });
+            setSelectedGisFeature(summarizeGisFeature(props));
+          } catch {
+            // ignore click on stale feature
+          }
         }
       );
 
       return () => {
-        overListener.remove();
-        outListener.remove();
-        clickListener.remove();
-        dataLayer.forEach((feature: DataLayerFeature) => {
-          dataLayer.remove(feature);
-        });
+        try {
+          overListener.remove();
+          outListener.remove();
+          clickListener.remove();
+          dataLayer.forEach((feature: DataLayerFeature) => {
+            dataLayer.remove(feature);
+          });
+        } catch {
+          // ignore cleanup on destroyed map instance
+        }
       };
     },
     [summarizeGisFeature]
@@ -813,6 +882,7 @@ function StationsMapWorkspace({
 
   const fly3DCameraTo = useCallback(
     (lat: number, lng: number, range = 1600, tilt = 64) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
       const targetCamera = {
         center: { lat, lng, altitude: 80 },
         range,
@@ -821,26 +891,35 @@ function StationsMapWorkspace({
         roll: 0,
       };
       setMap3dCamera(targetCamera);
-      map3dRef.current?.flyCameraTo({
-        endCamera: targetCamera,
-        durationMillis: 1100,
-      });
+      try {
+        map3dRef.current?.flyCameraTo({
+          endCamera: targetCamera,
+          durationMillis: 1100,
+        });
+      } catch {
+        // ignore if 3D map element is still initializing
+      }
     },
     [map3dCamera.heading]
   );
 
   const focusCoords = useCallback(
     (lat: number, lng: number, zoomLevel = 14) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
       if (isNative3DActive) {
         const range = zoomLevel >= 15 ? 950 : zoomLevel >= 13 ? 1700 : 3200;
         fly3DCameraTo(lat, lng, range, 64);
         return;
       }
       if (!mapInstance) return;
-      mapInstance.panTo({ lat, lng });
-      const currentZoom = mapInstance.getZoom() ?? 11;
-      if (currentZoom < zoomLevel) {
-        mapInstance.setZoom(zoomLevel);
+      try {
+        mapInstance.panTo({ lat, lng });
+        const currentZoom = mapInstance.getZoom() ?? 11;
+        if (currentZoom < zoomLevel) {
+          mapInstance.setZoom(zoomLevel);
+        }
+      } catch {
+        // ignore if map is unmounting
       }
     },
     [isNative3DActive, fly3DCameraTo, mapInstance]
@@ -921,11 +1000,15 @@ function StationsMapWorkspace({
 
   const handleOrbit3D = useCallback(() => {
     if (!map3dRef.current) return;
-    map3dRef.current.flyCameraAround({
-      camera: map3dCamera,
-      durationMillis: 6000,
-      rounds: 0.35,
-    });
+    try {
+      map3dRef.current.flyCameraAround({
+        camera: map3dCamera,
+        durationMillis: 6000,
+        rounds: 0.35,
+      });
+    } catch {
+      // ignore if 3D map element is unmounted
+    }
   }, [map3dCamera]);
 
   const fetchFullPlaceDetails = useCallback(
@@ -1094,21 +1177,34 @@ function StationsMapWorkspace({
         return;
       }
       if (!mapInstance || !coreLib) return;
-      const bounds = new coreLib.LatLngBounds();
-      pts.forEach((p) => bounds.extend(p));
-      mapInstance.fitBounds(bounds, 56);
+      try {
+        const bounds = new coreLib.LatLngBounds();
+        pts.forEach((p) => {
+          if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) {
+            bounds.extend(p);
+          }
+        });
+        mapInstance.fitBounds(bounds, 56);
+      } catch {
+        // ignore if map is unmounting
+      }
     },
     [isNative3DActive, fly3DCameraTo, mapInstance, coreLib]
+  );
+
+  const visibleDiscoveredPlaces = useMemo(
+    () => (showExternalPlaces ? discoveredPlaces : []),
+    [showExternalPlaces, discoveredPlaces]
   );
 
   const fitAllMarkers = useCallback(() => {
     const pts: { lat: number; lng: number }[] = [
       ...filteredStations.map((s) => ({ lat: s.lat, lng: s.lng })),
-      ...discoveredPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
+      ...visibleDiscoveredPlaces.map((p) => ({ lat: p.lat, lng: p.lng })),
     ];
     if (userCoords) pts.push(userCoords);
     fitPointsOnMap(pts);
-  }, [filteredStations, discoveredPlaces, userCoords, fitPointsOnMap]);
+  }, [filteredStations, visibleDiscoveredPlaces, userCoords, fitPointsOnMap]);
 
   const handleMapPointClick = useCallback(
     (lat: number, lng: number) => {
@@ -1280,8 +1376,7 @@ function StationsMapWorkspace({
         setOptimisticStations((prev) => [...prev, created]);
         setSearchQuery('');
         setOnly24h(false);
-        setOnlyGas(false);
-        setOnlyFuel(false);
+        setOilcomCategoryFilter('all');
         setOnlyLubricants(false);
         setDraftStationCoords(null);
         setAddStationModalOpen(false);
@@ -1354,8 +1449,12 @@ function StationsMapWorkspace({
         return;
       }
       splitSyncLockRef.current = 'left';
-      splitRightMap.setCenter(ev.detail.center);
-      splitRightMap.setZoom(ev.detail.zoom);
+      try {
+        splitRightMap.setCenter(ev.detail.center);
+        splitRightMap.setZoom(ev.detail.zoom);
+      } catch {
+        // ignore stale split map
+      }
       window.requestAnimationFrame(() => {
         splitSyncLockRef.current = null;
       });
@@ -1370,8 +1469,12 @@ function StationsMapWorkspace({
         return;
       }
       splitSyncLockRef.current = 'right';
-      mapInstance.setCenter(ev.detail.center);
-      mapInstance.setZoom(ev.detail.zoom);
+      try {
+        mapInstance.setCenter(ev.detail.center);
+        mapInstance.setZoom(ev.detail.zoom);
+      } catch {
+        // ignore stale split map
+      }
       window.requestAnimationFrame(() => {
         splitSyncLockRef.current = null;
       });
@@ -1526,6 +1629,7 @@ function StationsMapWorkspace({
 
         setDiscoveredPlaces(mapped);
         if (mapped.length > 0) {
+          setShowExternalPlaces(true);
           fitPointsOnMap(mapped.map((p) => ({ lat: p.lat, lng: p.lng })));
           setSelectedStation(null);
           setSelectedPlace(mapped[0]);
@@ -1642,6 +1746,7 @@ function StationsMapWorkspace({
 
       setDiscoveredPlaces(mapped);
       if (mapped.length > 0) {
+        setShowExternalPlaces(true);
         setSelectedStation(null);
         setSelectedPlace(mapped[0]);
         setInfoOpen(true);
@@ -1882,6 +1987,26 @@ function StationsMapWorkspace({
           businessStatus: selectedPlace.businessStatus,
         }
       : null;
+
+  const activeTargetPosition2D = useMemo(
+    () =>
+      activeTarget &&
+      Number.isFinite(activeTarget.lat) &&
+      Number.isFinite(activeTarget.lng)
+        ? { lat: activeTarget.lat, lng: activeTarget.lng }
+        : null,
+    [activeTarget?.lat, activeTarget?.lng]
+  );
+
+  const activeTargetPosition3D = useMemo(
+    () =>
+      activeTarget &&
+      Number.isFinite(activeTarget.lat) &&
+      Number.isFinite(activeTarget.lng)
+        ? { lat: activeTarget.lat, lng: activeTarget.lng, altitude: 75 }
+        : null,
+    [activeTarget?.lat, activeTarget?.lng]
+  );
 
   const activeDistanceKm =
     activeTarget && userCoords
@@ -2168,7 +2293,6 @@ function StationsMapWorkspace({
               ref={handleMap3dRef}
               mode={mapType === 'hybrid' ? MapMode.HYBRID : MapMode.ROADMAP}
               colorScheme={ColorScheme.LIGHT}
-              defaultLabelsDisabled={false}
               gestureHandling={GestureHandling.GREEDY}
               defaultCenter={map3dCamera.center}
               defaultRange={map3dCamera.range}
@@ -2177,6 +2301,14 @@ function StationsMapWorkspace({
               defaultRoll={map3dCamera.roll}
               onCameraChanged={(ev: Map3DCameraChangedEvent) => {
                 setMap3dCamera(ev.detail);
+              }}
+              onError={() => {
+                setViewMode('2d');
+                setPlacesNotice(
+                  lang === 'sw'
+                    ? 'Ramani ya 3D imepata hitilafu ya kivinjari; tumerudi kwenye ramani ya 2D.'
+                    : '3D view encountered a rendering error; switched back to 2D map.'
+                );
               }}
               internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
               style={{ width: '100%', height: '100%' }}
@@ -2326,6 +2458,9 @@ function StationsMapWorkspace({
                       background={bgColor}
                       borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
                       glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      glyphText={
+                        isGasOnly ? 'G' : isFuelOnly ? (lang === 'sw' ? 'M' : 'F') : 'O'
+                      }
                       scale={isSelected ? 1.25 : 1}
                     />
                   </Marker3D>
@@ -2333,7 +2468,7 @@ function StationsMapWorkspace({
               })}
 
               {/* Discovered Places in 3D */}
-              {discoveredPlaces.map((place) => {
+              {visibleDiscoveredPlaces.map((place) => {
                 const isSelected = selectedPlace?.id === place.id;
                 return (
                   <Marker3D
@@ -2346,8 +2481,8 @@ function StationsMapWorkspace({
                   >
                     <Pin
                       background={isSelected ? '#111827' : '#ffffff'}
-                      borderColor="#0B2A6F"
-                      glyphColor={isSelected ? '#F5B800' : '#0B2A6F'}
+                      borderColor="#475569"
+                      glyphColor={isSelected ? '#F5B800' : '#334155'}
                       scale={isSelected ? 1.15 : 0.95}
                     />
                   </Marker3D>
@@ -2355,13 +2490,9 @@ function StationsMapWorkspace({
               })}
 
               {/* 3D Popover (desktop only; mobile uses unified compact bottom sheet) */}
-              {isDesktop && infoOpen && activeTarget && (
+              {isDesktop && infoOpen && activeTarget && activeTargetPosition3D && (
                 <Popover
-                  position={{
-                    lat: activeTarget.lat,
-                    lng: activeTarget.lng,
-                    altitude: 75,
-                  }}
+                  position={activeTargetPosition3D}
                   altitudeMode={AltitudeMode.RELATIVE_TO_GROUND}
                   open={infoOpen}
                   onClose={() => setInfoOpen(false)}
@@ -2642,6 +2773,9 @@ function StationsMapWorkspace({
                       background={bgColor}
                       borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
                       glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      glyphText={
+                        isGasOnly ? 'G' : isFuelOnly ? (lang === 'sw' ? 'M' : 'F') : 'O'
+                      }
                       scale={isSelected ? 1.25 : 1}
                     />
                   </AdvancedMarker>
@@ -2649,7 +2783,7 @@ function StationsMapWorkspace({
               })}
 
               {/* Live Google Places Search Results */}
-              {discoveredPlaces.map((place) => {
+              {visibleDiscoveredPlaces.map((place) => {
                 const isSelected = selectedPlace?.id === place.id;
                 return (
                   <AdvancedMarker
@@ -2661,8 +2795,8 @@ function StationsMapWorkspace({
                   >
                     <Pin
                       background={isSelected ? '#111827' : '#ffffff'}
-                      borderColor="#0B2A6F"
-                      glyphColor={isSelected ? '#F5B800' : '#0B2A6F'}
+                      borderColor="#475569"
+                      glyphColor={isSelected ? '#F5B800' : '#334155'}
                       scale={isSelected ? 1.15 : 0.95}
                     />
                   </AdvancedMarker>
@@ -2670,11 +2804,11 @@ function StationsMapWorkspace({
               })}
 
               {/* Anchored Coordinates InfoWindow (desktop only; mobile uses unified compact bottom sheet) */}
-              {isDesktop && infoOpen && activeTarget && (
+              {isDesktop && infoOpen && activeTarget && activeTargetPosition2D && (
                 <InfoWindow
                   headerDisabled
-                  position={{ lat: activeTarget.lat, lng: activeTarget.lng }}
-                  pixelOffset={[0, -34]}
+                  position={activeTargetPosition2D}
+                  pixelOffset={INFO_WINDOW_PIXEL_OFFSET}
                   onCloseClick={() => setInfoOpen(false)}
                 >
                   {renderMapPopupCard()}
@@ -2755,39 +2889,100 @@ function StationsMapWorkspace({
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => setOnlyGas((v) => !v)}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
-                  onlyGas
-                    ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
-                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
-                }`}
-              >
-                <Flame
-                  className={`w-3 h-3 ${
-                    onlyGas ? 'text-[#0B2A6F]' : 'text-[#F5B800]'
+              {/* Map Source Scope: OILCOM Only vs Including External/Nearby Google Stations */}
+              <div className="inline-flex items-center p-0.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 border border-neutral-200 dark:border-blue-900 shadow-sm shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExternalPlaces(false);
+                    if (selectedPlace) {
+                      setSelectedPlace(null);
+                      setInfoOpen(false);
+                      if (filteredStations[0]) setSelectedStation(filteredStations[0]);
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer whitespace-nowrap transition-colors ${
+                    !showExternalPlaces
+                      ? 'bg-[#0B2A6F] text-[#F5B800]'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
                   }`}
-                />
-                <span>{lang === 'sw' ? 'Gesi (LPG)' : 'OILCOM Gas'}</span>
-              </button>
+                >
+                  {lang === 'sw' ? 'Vituo vya OILCOM Tuu' : 'OILCOM Only'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExternalPlaces(true);
+                    if (discoveredPlaces.length === 0 && placesLib) {
+                      void runNearbyGasStationsSearch();
+                    }
+                  }}
+                  disabled={placesLoading}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors ${
+                    showExternalPlaces
+                      ? 'bg-[#0B2A6F] text-white'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+                  }`}
+                >
+                  {placesLoading && showExternalPlaces ? (
+                    <Loader2 className="w-3 h-3 animate-spin text-[#F5B800]" />
+                  ) : null}
+                  <span>
+                    {lang === 'sw'
+                      ? `+ Vituo Vingine (${discoveredPlaces.length})`
+                      : `+ Nearby Places (${discoveredPlaces.length})`}
+                  </span>
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setOnlyFuel((v) => !v)}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
-                  onlyFuel
-                    ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
-                    : 'bg-white/95 dark:bg-[#0E172E]/95 text-neutral-800 dark:text-neutral-200 border-neutral-200 dark:border-blue-900'
-                }`}
-              >
-                <Fuel
-                  className={`w-3 h-3 ${
-                    onlyFuel ? 'text-[#0B2A6F]' : 'text-[#F5B800]'
+              {/* OILCOM Service Category: All / Fuel Stations / OILCOM Gas */}
+              <div className="inline-flex items-center p-0.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 border border-neutral-200 dark:border-blue-900 shadow-sm shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOilcomCategoryFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer whitespace-nowrap transition-colors ${
+                    oilcomCategoryFilter === 'all'
+                      ? 'bg-[#F5B800] text-[#0B2A6F] font-bold'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
                   }`}
-                />
-                <span>{lang === 'sw' ? 'Mafuta' : 'Fuel'}</span>
-              </button>
+                >
+                  {lang === 'sw'
+                    ? `Vyote (${stationCategoryCounts.all})`
+                    : `All (${stationCategoryCounts.all})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOilcomCategoryFilter('fuel')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors ${
+                    oilcomCategoryFilter === 'fuel'
+                      ? 'bg-[#D92027] text-white font-bold'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+                  }`}
+                >
+                  <Fuel className="w-3 h-3" />
+                  <span>
+                    {lang === 'sw'
+                      ? `Mafuta (${stationCategoryCounts.fuel})`
+                      : `Fuel (${stationCategoryCounts.fuel})`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOilcomCategoryFilter('gas')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors ${
+                    oilcomCategoryFilter === 'gas'
+                      ? 'bg-[#D97706] text-white font-bold'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+                  }`}
+                >
+                  <Flame className="w-3 h-3" />
+                  <span>
+                    {lang === 'sw'
+                      ? `Gesi ya OILCOM (${stationCategoryCounts.gas})`
+                      : `OILCOM Gas (${stationCategoryCounts.gas})`}
+                  </span>
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -3064,7 +3259,7 @@ function StationsMapWorkspace({
                 />
                 <span>
                   {lang === 'sw' ? 'Orodha' : 'List'} (
-                  {filteredStations.length + discoveredPlaces.length})
+                  {filteredStations.length + visibleDiscoveredPlaces.length})
                 </span>
               </button>
 
@@ -3073,9 +3268,9 @@ function StationsMapWorkspace({
                   type="button"
                   onClick={() => {
                     setOnly24h(false);
-                    setOnlyGas(false);
-                    setOnlyFuel(false);
+                    setOilcomCategoryFilter('all');
                     setOnlyLubricants(false);
+                    setShowExternalPlaces(false);
                   }}
                   className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm bg-neutral-900 text-white flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                 >
@@ -3484,6 +3679,34 @@ function StationsMapWorkspace({
             </button>
           </div>
 
+          {/* Desktop Compact Map Legend (Fuel vs OILCOM Gas vs Fuel+Gas vs External Places) */}
+          <div className="hidden lg:flex items-center gap-2.5 absolute left-3 bottom-3 z-10 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-lg text-[11px] font-semibold text-neutral-700 dark:text-neutral-200 pointer-events-auto">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-md bg-[#0B2A6F] text-[#F5B800] text-[10px] font-extrabold inline-flex items-center justify-center">
+                O
+              </span>
+              <span>{lang === 'sw' ? 'OILCOM (Mafuta + Gesi)' : 'OILCOM (Both)'}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-md bg-[#D92027] text-white text-[10px] font-extrabold inline-flex items-center justify-center">
+                {lang === 'sw' ? 'M' : 'F'}
+              </span>
+              <span>{lang === 'sw' ? 'Mafuta Pekee' : 'Fuel Only'}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-4 h-4 rounded-md bg-[#D97706] text-white text-[10px] font-extrabold inline-flex items-center justify-center">
+                G
+              </span>
+              <span>{lang === 'sw' ? 'Gesi ya OILCOM' : 'OILCOM Gas'}</span>
+            </span>
+            {showExternalPlaces && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-white border border-slate-500 inline-block" />
+                <span>{lang === 'sw' ? 'Vituo Vingine (Google)' : 'Other Stations'}</span>
+              </span>
+            )}
+          </div>
+
           {/* Mobile Compact Bottom Card (single unified card with photo, full scrollable details & close button) */}
           {activeTarget && !mobileListOpen && (
             <div className="lg:hidden absolute bottom-6 inset-x-2.5 z-10 rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-2xl overflow-hidden flex flex-col max-h-[38dvh]">
@@ -3840,7 +4063,7 @@ function StationsMapWorkspace({
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
-                {filteredStations.length === 0 && discoveredPlaces.length === 0 && (
+                {filteredStations.length === 0 && visibleDiscoveredPlaces.length === 0 && (
                   <div className="p-8 text-center space-y-2.5 text-xs text-neutral-500">
                     <p>
                       {lang === 'sw'
@@ -3852,9 +4075,9 @@ function StationsMapWorkspace({
                         type="button"
                         onClick={() => {
                           setOnly24h(false);
-                          setOnlyGas(false);
-                          setOnlyFuel(false);
+                          setOilcomCategoryFilter('all');
                           setOnlyLubricants(false);
+                          setShowExternalPlaces(false);
                         }}
                         className="px-3.5 py-1.5 rounded-xl bg-[#0B2A6F] text-white font-semibold cursor-pointer"
                       >
@@ -3894,7 +4117,7 @@ function StationsMapWorkspace({
                     )}
                   </button>
                 ))}
-                {discoveredPlaces.map((pl) => (
+                {visibleDiscoveredPlaces.map((pl) => (
                   <button
                     key={`m-pl-${pl.id}`}
                     type="button"
@@ -4213,9 +4436,9 @@ function StationsMapWorkspace({
                   {lang === 'sw' ? 'Vituo vya OILCOM' : 'OILCOM Stations'} (
                   {filteredStations.length})
                 </span>
-                {discoveredPlaces.length > 0 && (
+                {visibleDiscoveredPlaces.length > 0 && (
                   <span className="text-[11px] font-semibold text-blue-700 dark:text-[#F5B800] shrink-0">
-                    +{discoveredPlaces.length} Places
+                    +{visibleDiscoveredPlaces.length} Places
                   </span>
                 )}
               </div>
@@ -4230,7 +4453,7 @@ function StationsMapWorkspace({
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
-              {filteredStations.length === 0 && discoveredPlaces.length === 0 && (
+              {filteredStations.length === 0 && visibleDiscoveredPlaces.length === 0 && (
                 <div className="p-8 text-center space-y-2.5 text-xs text-neutral-500">
                   <p>
                     {lang === 'sw'
@@ -4242,9 +4465,9 @@ function StationsMapWorkspace({
                       type="button"
                       onClick={() => {
                         setOnly24h(false);
-                        setOnlyGas(false);
-                        setOnlyFuel(false);
+                        setOilcomCategoryFilter('all');
                         setOnlyLubricants(false);
+                        setShowExternalPlaces(false);
                       }}
                       className="px-3.5 py-1.5 rounded-xl bg-[#0B2A6F] text-white font-semibold cursor-pointer"
                     >
@@ -4291,7 +4514,7 @@ function StationsMapWorkspace({
                 );
               })}
 
-              {discoveredPlaces.map((pl) => {
+              {visibleDiscoveredPlaces.map((pl) => {
                 const isSelected = selectedPlace?.id === pl.id;
                 return (
                   <button
@@ -4844,7 +5067,10 @@ export function StationsMapModule({
       version="beta"
       language={lang}
       region="TZ"
-      libraries={['maps3d', 'marker']}
+      libraries={GOOGLE_MAP_LIBRARIES}
+      onError={() => {
+        window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+      }}
     >
       <StationsMapWorkspace
         lang={lang}

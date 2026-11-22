@@ -43,6 +43,8 @@ interface OrderTrackingMapProps {
 
 type GoogleMapInstance = ReturnType<typeof useMap>;
 
+const GOOGLE_MAP_LIBRARIES = ['maps3d', 'marker'];
+
 interface MapPolyline {
   setMap: (map: GoogleMapInstance) => void;
   setOptions: (options: Record<string, unknown>) => void;
@@ -82,6 +84,9 @@ function TrackingBridge({
   const map = useMap();
   useEffect(() => {
     onMap(map);
+    return () => {
+      onMap(null);
+    };
   }, [map, onMap]);
   return null;
 }
@@ -386,7 +391,6 @@ function TrackingWorkspace({
             id={`order-track-3d-${order.id}`}
             mode={MapMode.ROADMAP}
             colorScheme={ColorScheme.LIGHT}
-            defaultLabelsDisabled={false}
             gestureHandling={GestureHandling.GREEDY}
             defaultCenter={map3dCamera.center}
             defaultRange={map3dCamera.range}
@@ -396,6 +400,7 @@ function TrackingWorkspace({
             onCameraChanged={(ev: Map3DCameraChangedEvent) => {
               setMap3dCamera(ev.detail);
             }}
+            onError={() => setViewMode('2d')}
             internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
             style={{ width: '100%', height: '100%' }}
           >
@@ -636,7 +641,10 @@ export function OrderTrackingMap({
       version="beta"
       language={lang}
       region="TZ"
-      libraries={['maps3d', 'marker']}
+      libraries={GOOGLE_MAP_LIBRARIES}
+      onError={() => {
+        window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
+      }}
     >
       <TrackingWorkspace
         lang={lang}
