@@ -25,6 +25,7 @@ import {
 } from '@vis.gl/react-google-maps/3d';
 import {
   Box,
+  Check,
   ChevronDown,
   ChevronUp,
   CircleDot,
@@ -48,6 +49,7 @@ import {
   Pause,
   Phone,
   Play,
+  Plus,
   Radar,
   RotateCw,
   Route as RouteIcon,
@@ -75,6 +77,7 @@ import {
   type TimeSliceKey,
 } from '../data/oilcomGeoJson';
 import { t } from '../i18n/translations';
+import { createStationRecord } from '../lib/firestoreActions';
 import type { GasOrder, Language, Station } from '../types/oilcom';
 import { formatTzs } from './OilcomBrand';
 
@@ -83,6 +86,7 @@ interface StationsMapModuleProps {
   stations: Station[];
   orders?: GasOrder[];
   googleMapsApiKey: string;
+  canManageStations?: boolean;
   onOrderAtStation: (station: Station, orderKind?: 'gas' | 'fuel') => void;
 }
 
@@ -131,6 +135,42 @@ function detectWebGL2Support(): boolean {
   } catch {
     return false;
   }
+}
+
+function buildGoogleMapsPinUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${lat.toFixed(6)},${lng.toFixed(6)}`
+  )}`;
+}
+
+function suggestStationCode(name: string, city: string): string {
+  const cleanPart = (val: string) =>
+    val
+      .toUpperCase()
+      .replace(/OILCOM/gi, '')
+      .replace(/[^A-Z0-9]+/g, '')
+      .slice(0, 4);
+  const cityTag = cleanPart(city) || 'TZ';
+  const nameTag = cleanPart(name) || 'STN';
+  const suffix = String(Date.now()).slice(-3);
+  return `OIL-${cityTag}-${nameTag}-${suffix}`.slice(0, 24);
+}
+
+function parseCityRegionFromAddress(address: string): {
+  city: string;
+  region: string;
+} {
+  const parts = address
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p && !/^tanzania$/i.test(p));
+  if (parts.length >= 2) {
+    const cityCandidate = parts[parts.length - 1].replace(/\d+/g, '').trim();
+    if (cityCandidate.length >= 2) {
+      return { city: cityCandidate, region: cityCandidate };
+    }
+  }
+  return { city: 'Dar es Salaam', region: 'Dar es Salaam' };
 }
 
 function haversineKm(
@@ -237,8 +277,9 @@ function MapInstanceBridge({
 
 function StationsMapWorkspace({
   lang,
-  stations,
+  stations: propStations,
   orders = [],
+  canManageStations = false,
   onOrderAtStation,
 }: Omit<StationsMapModuleProps, 'googleMapsApiKey'>) {
   const [mapInstance, setMapInstance] = useState<GoogleMapInstance>(null);
@@ -266,8 +307,8 @@ function StationsMapWorkspace({
   });
   const [map3dCamera, setMap3dCamera] = useState({
     center: {
-      lat: stations[0]?.lat ?? DEFAULT_CENTER.lat,
-      lng: stations[0]?.lng ?? DEFAULT_CENTER.lng,
+      lat: propStations[0]?.lat ?? DEFAULT_CENTER.lat,
+      lng: propStations[0]?.lng ?? DEFAULT_CENTER.lng,
       altitude: 80,
     },
     range: 2800,
@@ -312,11 +353,52 @@ function StationsMapWorkspace({
   const [selectedGisFeature, setSelectedGisFeature] =
     useState<SelectedGisSummary | null>(null);
 
+  const [optimisticStations, setOptimisticStations] = useState<Station[]>([]);
+  const stations = useMemo(() => {
+    const existingIds = new Set(propStations.map((s) => s.id));
+    const pending = optimisticStations.filter((s) => !existingIds.has(s.id));
+    return pending.length > 0 ? [...propStations, ...pending] : propStations;
+  }, [propStations, optimisticStations]);
+
   const [selectedStation, setSelectedStation] = useState<Station | null>(
     stations[0] || null
   );
   const [selectedPlace, setSelectedPlace] = useState<DiscoveredPlace | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+
+  // Add Station Directly on Map (2D & 3D + Google Place conversion)
+  const [addStationMode, setAddStationMode] = useState(false);
+  const [draftStationCoords, setDraftStationCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [addStationModalOpen, setAddStationModalOpen] = useState(false);
+  const [addStationLookupLoading, setAddStationLookupLoading] = useState(false);
+  const [savingStation, setSavingStation] = useState(false);
+  const [addStationError, setAddStationError] = useState<string | null>(null);
+  const [createdGoogleMapsBanner, setCreatedGoogleMapsBanner] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
+  const [stationDraft, setStationDraft] = useState({
+    name: '',
+    code: '',
+    stationKind: 'both' as 'fuel' | 'gas' | 'both',
+    city: 'Dar es Salaam',
+    region: 'Dar es Salaam',
+    address: '',
+    lat: DEFAULT_CENTER.lat,
+    lng: DEFAULT_CENTER.lng,
+    open24Hours: true,
+    hasLubricants: true,
+    petrolPriceTzs: 3150,
+    dieselPriceTzs: 3050,
+    pumpsCount: 6,
+    lpg6kgStock: 30,
+    lpg15kgStock: 25,
+    lpg38kgStock: 10,
+    sourceGoogleMapsURI: '',
+  });
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(
     null
@@ -328,6 +410,20 @@ function StationsMapWorkspace({
   const [placesLoading, setPlacesLoading] = useState(false);
   const [poiDetailsLoading, setPoiDetailsLoading] = useState(false);
   const [placesNotice, setPlacesNotice] = useState<string | null>(null);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(min-width: 1024px)').matches
+      : true
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const [routeLoading, setRouteLoading] = useState(false);
   const [activeRoute, setActiveRoute] = useState<ActiveRouteInfo | null>(null);
@@ -1022,6 +1118,189 @@ function StationsMapWorkspace({
     [bboxDrawMode, bboxCorner1]
   );
 
+  const openAddStationModalAt = useCallback(
+    async (
+      coords: { lat: number; lng: number },
+      prefill?: {
+        name?: string;
+        address?: string;
+        city?: string;
+        region?: string;
+        placeId?: string;
+        googleMapsURI?: string;
+        stationKind?: 'fuel' | 'gas' | 'both';
+      }
+    ) => {
+      if (!canManageStations) return;
+      setAddStationMode(false);
+      setBboxDrawMode(false);
+      setBboxCorner1(null);
+      setAddStationError(null);
+      setDraftStationCoords(coords);
+
+      const initialCityRegion = prefill?.address
+        ? parseCityRegionFromAddress(prefill.address)
+        : { city: 'Dar es Salaam', region: 'Dar es Salaam' };
+
+      const baseName = prefill?.name?.trim() || '';
+      const initialCity = prefill?.city || initialCityRegion.city;
+      const initialRegion = prefill?.region || initialCityRegion.region;
+
+      setStationDraft((prev) => ({
+        ...prev,
+        name: baseName,
+        code: suggestStationCode(baseName || 'OILCOM', initialCity),
+        stationKind: prefill?.stationKind || prev.stationKind || 'both',
+        city: initialCity,
+        region: initialRegion,
+        address: prefill?.address?.trim() || '',
+        lat: Number(coords.lat.toFixed(6)),
+        lng: Number(coords.lng.toFixed(6)),
+        sourceGoogleMapsURI:
+          prefill?.googleMapsURI || buildGoogleMapsPinUrl(coords.lat, coords.lng),
+      }));
+      setAddStationModalOpen(true);
+
+      if ((!prefill?.address || prefill?.placeId) && placesLib) {
+        setAddStationLookupLoading(true);
+        try {
+          if (prefill?.placeId) {
+            const place = new placesLib.Place({
+              id: prefill.placeId,
+              requestedLanguage: lang,
+              requestedRegion: 'tz',
+            });
+            await place.fetchFields({
+              fields: ['displayName', 'formattedAddress', 'googleMapsURI'],
+            });
+            const fetchedName = place.displayName || baseName;
+            const fetchedAddr = place.formattedAddress || '';
+            const parsed = fetchedAddr
+              ? parseCityRegionFromAddress(fetchedAddr)
+              : { city: initialCity, region: initialRegion };
+            setStationDraft((prev) => ({
+              ...prev,
+              name: prev.name || fetchedName || '',
+              address: prev.address || fetchedAddr || '',
+              city: parsed.city,
+              region: parsed.region,
+              code: suggestStationCode(
+                prev.name || fetchedName || 'OILCOM',
+                parsed.city
+              ),
+              sourceGoogleMapsURI:
+                place.googleMapsURI ||
+                prev.sourceGoogleMapsURI ||
+                buildGoogleMapsPinUrl(coords.lat, coords.lng),
+            }));
+          } else {
+            const res = (await placesLib.Place.searchNearby({
+              fields: ['displayName', 'formattedAddress'],
+              locationRestriction: {
+                center: coords,
+                radius: 220,
+              },
+              maxResultCount: 1,
+              language: lang,
+              region: 'tz',
+            })) as {
+              places?: { displayName?: string; formattedAddress?: string }[];
+            };
+            const nearest = res?.places?.[0];
+            if (nearest?.formattedAddress || nearest?.displayName) {
+              const suggestedAddr = nearest.formattedAddress
+                ? nearest.formattedAddress
+                : `${nearest.displayName}, Tanzania`;
+              const parsed = parseCityRegionFromAddress(suggestedAddr);
+              setStationDraft((prev) => ({
+                ...prev,
+                address: prev.address || suggestedAddr,
+                city: parsed.city,
+                region: parsed.region,
+              }));
+            }
+          }
+        } catch {
+          // Optional auto-lookup; admin can type freely
+        } finally {
+          setAddStationLookupLoading(false);
+        }
+      }
+    },
+    [canManageStations, placesLib, lang]
+  );
+
+  const handleSaveMapStation = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canManageStations || savingStation) return;
+      if (stationDraft.name.trim().length < 2) {
+        setAddStationError(
+          lang === 'sw'
+            ? 'Tafadhali weka jina la kituo (angalau herufi 2).'
+            : 'Please enter a station name (at least 2 characters).'
+        );
+        return;
+      }
+      setSavingStation(true);
+      setAddStationError(null);
+      try {
+        const created = await createStationRecord({
+          name: stationDraft.name,
+          code: stationDraft.code || suggestStationCode(stationDraft.name, stationDraft.city),
+          stationKind: stationDraft.stationKind,
+          city: stationDraft.city,
+          region: stationDraft.region,
+          address:
+            stationDraft.address.trim() ||
+            `${stationDraft.name.trim()}, ${stationDraft.city.trim()}`,
+          lat: Number(stationDraft.lat),
+          lng: Number(stationDraft.lng),
+          open24Hours: stationDraft.open24Hours,
+          hasLubricants: stationDraft.hasLubricants,
+          petrolPriceTzs: stationDraft.petrolPriceTzs,
+          dieselPriceTzs: stationDraft.dieselPriceTzs,
+          pumpsCount: stationDraft.pumpsCount,
+          lpg6kgStock: stationDraft.lpg6kgStock,
+          lpg15kgStock: stationDraft.lpg15kgStock,
+          lpg38kgStock: stationDraft.lpg38kgStock,
+        });
+        setOptimisticStations((prev) => [...prev, created]);
+        setSearchQuery('');
+        setOnly24h(false);
+        setOnlyGas(false);
+        setOnlyFuel(false);
+        setOnlyLubricants(false);
+        setDraftStationCoords(null);
+        setAddStationModalOpen(false);
+        setSelectedPlace(null);
+        setSelectedStation(created);
+        setInfoOpen(true);
+        setDetailsExpanded(true);
+        setMobileListOpen(false);
+        focusCoords(created.lat, created.lng, 16);
+        const mapsUrl =
+          stationDraft.sourceGoogleMapsURI ||
+          buildGoogleMapsPinUrl(created.lat, created.lng);
+        setCreatedGoogleMapsBanner({
+          name: created.name,
+          url: mapsUrl,
+        });
+      } catch (err) {
+        setAddStationError(
+          err instanceof Error
+            ? err.message
+            : lang === 'sw'
+              ? 'Imeshindwa kuhifadhi kituo. Hakikisha umeingia kama Admin.'
+              : 'Could not save station. Please verify Admin access.'
+        );
+      } finally {
+        setSavingStation(false);
+      }
+    },
+    [canManageStations, savingStation, stationDraft, lang, focusCoords]
+  );
+
   const scanCurrentViewportBBox = useCallback(() => {
     if (!isNative3DActive && mapInstance) {
       const bounds = mapInstance.getBounds();
@@ -1504,7 +1783,7 @@ function StationsMapWorkspace({
     [routesLib, mapInstance, isNative3DActive, userCoords, lang, fly3DCameraTo]
   );
 
-  // Intercept 3D POI clicks via native gmp-click to suppress default minimal popover and show full Place Details
+  // Intercept 3D POI & map clicks via native gmp-click (Add Station pin drop, BBox, or full Place Details)
   useEffect(() => {
     if (!map3dElement) return;
     const onNative3DClick = (ev: Event) => {
@@ -1512,6 +1791,14 @@ function StationsMapWorkspace({
         placeId?: string;
         position?: { lat: number; lng: number; altitude?: number } | null;
       };
+      if (addStationMode && clickEv.position) {
+        clickEv.preventDefault();
+        void openAddStationModalAt(
+          { lat: clickEv.position.lat, lng: clickEv.position.lng },
+          clickEv.placeId ? { placeId: clickEv.placeId } : undefined
+        );
+        return;
+      }
       if (bboxDrawMode && clickEv.position) {
         clickEv.preventDefault();
         handleMapPointClick(clickEv.position.lat, clickEv.position.lng);
@@ -1531,7 +1818,14 @@ function StationsMapWorkspace({
     return () => {
       map3dElement.removeEventListener('gmp-click', onNative3DClick);
     };
-  }, [map3dElement, bboxDrawMode, handleMapPointClick, fetchFullPlaceDetails]);
+  }, [
+    map3dElement,
+    addStationMode,
+    openAddStationModalAt,
+    bboxDrawMode,
+    handleMapPointClick,
+    fetchFullPlaceDetails,
+  ]);
 
   const activeTarget = selectedStation
     ? {
@@ -1542,6 +1836,7 @@ function StationsMapWorkspace({
         subtitle: `${selectedStation.address}, ${selectedStation.city}`,
         lat: selectedStation.lat,
         lng: selectedStation.lng,
+        stationKind: selectedStation.stationKind || 'both',
         open24Hours: selectedStation.open24Hours,
         hasGas: selectedStation.hasGas !== false,
         hasFuel: selectedStation.hasFuel !== false,
@@ -1552,6 +1847,7 @@ function StationsMapWorkspace({
         lpg6kgStock: selectedStation.lpg6kgStock,
         lpg15kgStock: selectedStation.lpg15kgStock,
         lpg38kgStock: selectedStation.lpg38kgStock,
+        googleMapsURI: buildGoogleMapsPinUrl(selectedStation.lat, selectedStation.lng),
       }
     : selectedPlace
       ? {
@@ -1779,19 +2075,53 @@ function StationsMapWorkspace({
                     {lang === 'sw' ? 'Mafuta' : 'Fuel'}
                   </button>
                 )}
-              </>
-            ) : (
-              activeTarget.googleMapsURI && (
                 <a
                   href={activeTarget.googleMapsURI}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] inline-flex items-center gap-1"
+                  className="py-1.5 px-2.5 rounded-lg border border-neutral-200 text-[#0B2A6F] hover:bg-neutral-50 font-bold text-[11px] inline-flex items-center gap-1"
                 >
                   <span>Google Maps</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
-              )
+              </>
+            ) : (
+              <>
+                {activeTarget.googleMapsURI && (
+                  <a
+                    href={activeTarget.googleMapsURI}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] inline-flex items-center gap-1"
+                  >
+                    <span>Google Maps</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+                {canManageStations && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void openAddStationModalAt(
+                        { lat: activeTarget.lat, lng: activeTarget.lng },
+                        {
+                          name: activeTarget.name,
+                          address: activeTarget.subtitle,
+                          googleMapsURI: activeTarget.googleMapsURI,
+                        }
+                      )
+                    }
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-[11px] inline-flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>
+                      {lang === 'sw'
+                        ? 'Sajili Kituo cha Mafuta / Gesi Hapa'
+                        : 'Register Fuel / Gas Station Here'}
+                    </span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1823,6 +2153,32 @@ function StationsMapWorkspace({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canManageStations && (
+            <button
+              type="button"
+              onClick={() => {
+                setBboxDrawMode(false);
+                setBboxCorner1(null);
+                setAddStationMode((v) => !v);
+              }}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors ${
+                addStationMode
+                  ? 'bg-[#D92027] text-white border-[#D92027]'
+                  : 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F] hover:bg-[#092055]'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>
+                {addStationMode
+                  ? lang === 'sw'
+                    ? 'Ghairi Kuongeza'
+                    : 'Cancel Pin'
+                  : lang === 'sw'
+                    ? 'Ongeza Kituo Kwenye Ramani'
+                    : 'Add Station on Map'}
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={toggle3DMode}
@@ -1982,9 +2338,43 @@ function StationsMapWorkspace({
                 </Marker3D>
               )}
 
+              {/* Draft Station Pin in 3D */}
+              {draftStationCoords && (
+                <Marker3D
+                  position={{
+                    lat: draftStationCoords.lat,
+                    lng: draftStationCoords.lng,
+                    altitude: 70,
+                  }}
+                  altitudeMode={AltitudeMode.RELATIVE_TO_GROUND}
+                  extruded
+                  title={lang === 'sw' ? 'Kituo Kipya' : 'New Station Pin'}
+                >
+                  <Pin
+                    background="#D92027"
+                    borderColor="#FFFFFF"
+                    glyphColor="#F5B800"
+                    scale={1.25}
+                  />
+                </Marker3D>
+              )}
+
               {/* OILCOM Catalog Stations in 3D */}
               {filteredStations.map((station) => {
                 const isSelected = selectedStation?.id === station.id;
+                const isGasOnly =
+                  station.stationKind === 'gas' ||
+                  (station.hasGas !== false && station.hasFuel === false);
+                const isFuelOnly =
+                  station.stationKind === 'fuel' ||
+                  (station.hasFuel !== false && station.hasGas === false);
+                const bgColor = isSelected
+                  ? '#F5B800'
+                  : isFuelOnly
+                    ? '#D92027'
+                    : isGasOnly
+                      ? '#D97706'
+                      : '#0B2A6F';
                 return (
                   <Marker3D
                     key={`3d-${station.id}`}
@@ -1995,10 +2385,10 @@ function StationsMapWorkspace({
                     onClick={() => handleSelectStation(station)}
                   >
                     <Pin
-                      background={isSelected ? '#F5B800' : '#0B2A6F'}
+                      background={bgColor}
                       borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
-                      glyphColor={isSelected ? '#0B2A6F' : '#F5B800'}
-                      scale={isSelected ? 1.2 : 1}
+                      glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      scale={isSelected ? 1.25 : 1}
                     />
                   </Marker3D>
                 );
@@ -2026,8 +2416,8 @@ function StationsMapWorkspace({
                 );
               })}
 
-              {/* 3D Popover */}
-              {infoOpen && activeTarget && (
+              {/* 3D Popover (desktop only; mobile uses unified compact bottom sheet) */}
+              {isDesktop && infoOpen && activeTarget && (
                 <Popover
                   position={{
                     lat: activeTarget.lat,
@@ -2058,6 +2448,14 @@ function StationsMapWorkspace({
                 fullscreenControl={false}
                 onCameraChanged={handleRightCameraChanged}
                 onClick={(ev: MapMouseEvent) => {
+                  if (addStationMode && ev.detail.latLng) {
+                    ev.stop();
+                    void openAddStationModalAt(
+                      { lat: ev.detail.latLng.lat, lng: ev.detail.latLng.lng },
+                      ev.detail.placeId ? { placeId: ev.detail.placeId } : undefined
+                    );
+                    return;
+                  }
                   if (bboxDrawMode && ev.detail.latLng) {
                     handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
                     return;
@@ -2115,6 +2513,14 @@ function StationsMapWorkspace({
                   fullscreenControl={false}
                   onCameraChanged={handleLeftCameraChanged}
                   onClick={(ev: MapMouseEvent) => {
+                    if (addStationMode && ev.detail.latLng) {
+                      ev.stop();
+                      void openAddStationModalAt(
+                        { lat: ev.detail.latLng.lat, lng: ev.detail.latLng.lng },
+                        ev.detail.placeId ? { placeId: ev.detail.placeId } : undefined
+                      );
+                      return;
+                    }
                     if (bboxDrawMode && ev.detail.latLng) {
                       handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
                       return;
@@ -2215,6 +2621,14 @@ function StationsMapWorkspace({
                 setSynced2DView({ center: ev.detail.center, zoom: ev.detail.zoom });
               }}
               onClick={(ev: MapMouseEvent) => {
+                if (addStationMode && ev.detail.latLng) {
+                  ev.stop();
+                  void openAddStationModalAt(
+                    { lat: ev.detail.latLng.lat, lng: ev.detail.latLng.lng },
+                    ev.detail.placeId ? { placeId: ev.detail.placeId } : undefined
+                  );
+                  return;
+                }
                 if (bboxDrawMode && ev.detail.latLng) {
                   handleMapPointClick(ev.detail.latLng.lat, ev.detail.latLng.lng);
                   return;
@@ -2231,6 +2645,18 @@ function StationsMapWorkspace({
               style={{ width: '100%', height: '100%' }}
             >
               <MapInstanceBridge onMapReady={setMapInstance} />
+
+              {/* Draft Station Pin in 2D */}
+              {draftStationCoords && (
+                <AdvancedMarker position={draftStationCoords} zIndex={40}>
+                  <Pin
+                    background="#D92027"
+                    borderColor="#FFFFFF"
+                    glyphColor="#F5B800"
+                    scale={1.25}
+                  />
+                </AdvancedMarker>
+              )}
 
               {/* First corner marker during 2D BBox selection */}
               {bboxCorner1 && (
@@ -2253,6 +2679,19 @@ function StationsMapWorkspace({
               {/* OILCOM Catalog Stations */}
               {filteredStations.map((station) => {
                 const isSelected = selectedStation?.id === station.id;
+                const isGasOnly =
+                  station.stationKind === 'gas' ||
+                  (station.hasGas !== false && station.hasFuel === false);
+                const isFuelOnly =
+                  station.stationKind === 'fuel' ||
+                  (station.hasFuel !== false && station.hasGas === false);
+                const bgColor = isSelected
+                  ? '#F5B800'
+                  : isFuelOnly
+                    ? '#D92027'
+                    : isGasOnly
+                      ? '#D97706'
+                      : '#0B2A6F';
                 return (
                   <AdvancedMarker
                     key={station.id}
@@ -2262,10 +2701,10 @@ function StationsMapWorkspace({
                     zIndex={isSelected ? 25 : 15}
                   >
                     <Pin
-                      background={isSelected ? '#F5B800' : '#0B2A6F'}
+                      background={bgColor}
                       borderColor={isSelected ? '#0B2A6F' : '#F5B800'}
-                      glyphColor={isSelected ? '#0B2A6F' : '#F5B800'}
-                      scale={isSelected ? 1.2 : 1}
+                      glyphColor={isSelected ? '#0B2A6F' : '#FFFFFF'}
+                      scale={isSelected ? 1.25 : 1}
                     />
                   </AdvancedMarker>
                 );
@@ -2292,8 +2731,8 @@ function StationsMapWorkspace({
                 );
               })}
 
-              {/* Anchored Coordinates InfoWindow */}
-              {infoOpen && activeTarget && (
+              {/* Anchored Coordinates InfoWindow (desktop only; mobile uses unified compact bottom sheet) */}
+              {isDesktop && infoOpen && activeTarget && (
                 <InfoWindow
                   headerDisabled
                   position={{ lat: activeTarget.lat, lng: activeTarget.lng }}
@@ -2351,6 +2790,33 @@ function StationsMapWorkspace({
 
             {/* Quick Floating Chips */}
             <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {canManageStations && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBboxDrawMode(false);
+                    setBboxCorner1(null);
+                    setAddStationMode((v) => !v);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                    addStationMode
+                      ? 'bg-[#D92027] text-white border-[#D92027]'
+                      : 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F]'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>
+                    {addStationMode
+                      ? lang === 'sw'
+                        ? 'Ghairi Kuongeza'
+                        : 'Cancel Pin'
+                      : lang === 'sw'
+                        ? 'Ongeza Kituo'
+                        : 'Add Station'}
+                  </span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setOnlyGas((v) => !v)}
@@ -2676,6 +3142,82 @@ function StationsMapWorkspace({
               )}
             </div>
 
+            {/* Interactive Add Station Pin-Drop Guidance */}
+            {addStationMode && canManageStations && (
+              <div className="pointer-events-auto px-3 py-2 rounded-xl bg-[#0B2A6F]/95 text-white border border-[#F5B800] text-xs flex flex-wrap items-center justify-between gap-2 shadow-lg max-w-xl">
+                <span className="font-semibold flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#F5B800] shrink-0" />
+                  <span>
+                    {lang === 'sw'
+                      ? 'Gusa popote kwenye ramani (2D au 3D) kuongeza kituo cha mafuta au gesi.'
+                      : 'Tap anywhere on the 2D or 3D map to drop a new fuel or gas station pin.'}
+                  </span>
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fallback = userCoords || synced2DView.center;
+                      void openAddStationModalAt(fallback);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#F5B800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                  >
+                    {userCoords
+                      ? lang === 'sw'
+                        ? 'Tumia GPS Yangu'
+                        : 'Use My GPS'
+                      : lang === 'sw'
+                        ? 'Weka Katikati'
+                        : 'Pin Map Center'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddStationMode(false)}
+                    className="px-2 py-1 rounded-lg bg-white/15 text-white text-[11px] cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Ghairi' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Newly Created Station Success + Direct Google Maps Link */}
+            {createdGoogleMapsBanner && (
+              <div className="pointer-events-auto px-3 py-2 rounded-xl bg-emerald-900/95 text-white border border-emerald-400/50 text-xs flex flex-wrap items-center justify-between gap-2 shadow-lg max-w-xl">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Check className="w-4 h-4 text-[#F5B800] shrink-0" />
+                  <span className="truncate font-semibold">
+                    {lang === 'sw'
+                      ? `${createdGoogleMapsBanner.name} kimewekwa moja kwa moja kwenye ramani!`
+                      : `${createdGoogleMapsBanner.name} is now live on the map!`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <a
+                    href={createdGoogleMapsBanner.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded-lg bg-[#F5B800] text-[#0B2A6F] font-bold text-[11px] inline-flex items-center gap-1 whitespace-nowrap"
+                  >
+                    <span>
+                      {lang === 'sw'
+                        ? 'Fungua Google Maps'
+                        : 'Open on Google Maps'}
+                    </span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setCreatedGoogleMapsBanner(null)}
+                    aria-label="Dismiss confirmation"
+                    className="p-1 text-white/80 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Interactive BBox Draw Mode Guidance */}
             {bboxDrawMode && (
               <div className="pointer-events-auto px-3 py-2 rounded-xl bg-[#0B2A6F]/95 text-white border border-[#F5B800]/60 text-xs flex flex-wrap items-center justify-between gap-2 shadow-lg max-w-xl">
@@ -2964,175 +3506,207 @@ function StationsMapWorkspace({
             </button>
           </div>
 
-          {/* Mobile Floating Bottom Station Sheet (sits cleanly above Google attribution) */}
+          {/* Mobile Compact Bottom Card (single unified card with photo, full scrollable details & close button) */}
           {activeTarget && !mobileListOpen && (
-            <div className="lg:hidden absolute bottom-6 inset-x-3 z-10 rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 p-3.5 shadow-xl space-y-2.5">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0B2A6F]/10 dark:bg-[#F5B800]/15 flex items-center justify-center shrink-0">
-                  <Fuel className="w-5 h-5 text-[#0B2A6F] dark:text-[#F5B800]" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
-                      {activeTarget.name}
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => setDetailsExpanded((v) => !v)}
-                      aria-label="Toggle details"
-                      className="p-0.5 text-neutral-500 cursor-pointer shrink-0"
-                    >
-                      {detailsExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronUp className="w-4 h-4" />
-                      )}
-                    </button>
+            <div className="lg:hidden absolute bottom-6 inset-x-2.5 z-10 rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-2xl overflow-hidden flex flex-col max-h-[38dvh]">
+              {/* Compact Header */}
+              <div className="px-2.5 pt-2 pb-1.5 flex items-start gap-2.5 shrink-0">
+                {activeTarget.kind === 'place' && activeTarget.photoUrl ? (
+                  <img
+                    src={activeTarget.photoUrl}
+                    alt={activeTarget.name}
+                    className="w-12 h-12 rounded-xl object-cover shrink-0 border border-neutral-200 dark:border-blue-900"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-[#0B2A6F]/10 dark:bg-[#F5B800]/15 flex items-center justify-center shrink-0">
+                    {activeTarget.kind === 'station' ? (
+                      <Fuel className="w-4.5 h-4.5 text-[#0B2A6F] dark:text-[#F5B800]" />
+                    ) : (
+                      <MapPin className="w-4.5 h-4.5 text-[#0B2A6F] dark:text-[#F5B800]" />
+                    )}
                   </div>
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
-                    {activeDistanceKm !== null
-                      ? `${activeDistanceKm.toFixed(1)} km · `
-                      : ''}
-                    {activeTarget.kind === 'station'
-                      ? activeTarget.open24Hours
-                        ? lang === 'sw'
-                          ? 'Fungua 24/7'
-                          : 'Open 24/7'
-                        : '06:00 - 22:00'
-                      : activeTarget.subtitle}
+                )}
+
+                <div
+                  className="min-w-0 flex-1 cursor-pointer"
+                  onClick={() => setDetailsExpanded((v) => !v)}
+                >
+                  <div className="flex flex-wrap items-center gap-1 text-[10px] mb-0.5">
+                    <span className="px-1.5 py-0.5 rounded bg-[#F5B800] text-[#0B2A6F] font-extrabold uppercase tracking-wide leading-none">
+                      {activeTarget.kind === 'station'
+                        ? activeTarget.code
+                        : activeTarget.category || 'GOOGLE'}
+                    </span>
+                    {activeTarget.kind === 'place' &&
+                      activeTarget.rating !== undefined && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 font-bold font-mono-num leading-none">
+                          <Star className="w-2.5 h-2.5 fill-[#F5B800] text-[#F5B800]" />
+                          {activeTarget.rating.toFixed(1)}
+                          {activeTarget.userRatingCount !== undefined && (
+                            <span className="font-normal opacity-75">
+                              ({activeTarget.userRatingCount.toLocaleString()})
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    {activeTarget.kind === 'place' &&
+                      activeTarget.openNow === true && (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold leading-none">
+                          {lang === 'sw' ? 'Wazi' : 'Open'}
+                        </span>
+                      )}
+                    {activeTarget.kind === 'place' &&
+                      activeTarget.openNow === false && (
+                        <span className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 font-semibold leading-none">
+                          {lang === 'sw' ? 'Imefungwa' : 'Closed'}
+                        </span>
+                      )}
+                    {activeTarget.kind === 'station' && (
+                      <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-[#0B2A6F] dark:text-blue-200 font-semibold leading-none">
+                        {activeTarget.open24Hours ? '24/7' : '06:00–22:00'}
+                      </span>
+                    )}
+                    {activeDistanceKm !== null && (
+                      <span className="font-mono-num font-semibold text-[#0B2A6F] dark:text-[#F5B800] leading-none">
+                        {activeDistanceKm.toFixed(1)} km
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="font-display font-bold text-[13px] text-neutral-900 dark:text-white truncate leading-tight">
+                    {activeTarget.name}
+                  </h3>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-300 truncate mt-0.5 leading-tight">
+                    {activeTarget.subtitle}
                   </p>
-                  {activeRoute && activeRoute.targetId === activeTarget.id && (
-                    <p className="text-[11px] font-semibold text-blue-700 dark:text-[#F5B800] mt-0.5 font-mono-num">
-                      {(activeRoute.distanceMeters / 1000).toFixed(1)} km ·{' '}
-                      {Math.max(1, Math.round(activeRoute.durationMillis / 60000))}{' '}
-                      {lang === 'sw' ? 'dakika' : 'min'}
-                    </p>
-                  )}
+                </div>
+
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDetailsExpanded((v) => !v)}
+                    aria-label="Toggle details"
+                    className="p-1 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer"
+                  >
+                    {detailsExpanded ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStation(null);
+                      setSelectedPlace(null);
+                      setInfoOpen(false);
+                    }}
+                    aria-label="Close details"
+                    className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
+              {/* Active Route ETA Bar (if computed) */}
+              {activeRoute && activeRoute.targetId === activeTarget.id && (
+                <div className="px-3 pb-1.5 text-[11px] font-semibold text-blue-700 dark:text-[#F5B800] font-mono-num shrink-0 flex items-center gap-1.5">
+                  <RouteIcon className="w-3 h-3 shrink-0" />
+                  <span>
+                    {(activeRoute.distanceMeters / 1000).toFixed(1)} km ·{' '}
+                    {Math.max(1, Math.round(activeRoute.durationMillis / 60000))}{' '}
+                    {lang === 'sw' ? 'dakika' : 'min'}
+                  </span>
+                </div>
+              )}
+
+              {/* Scrollable Expanded Details (all details visible without hiding the map) */}
               {detailsExpanded && (
-                <div className="pt-2 border-t border-neutral-100 dark:border-blue-950 text-xs space-y-2">
-                  <p className="text-neutral-600 dark:text-neutral-300">
-                    {activeTarget.subtitle}
-                  </p>
+                <div className="flex-1 min-h-0 overflow-y-auto px-2.5 py-1.5 border-t border-neutral-100 dark:border-blue-950 space-y-1.5 text-[11px]">
                   {activeTarget.kind === 'station' && (
-                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-neutral-700 dark:text-neutral-200">
-                      {activeTarget.hasGas && (
-                        <span className="inline-flex items-center gap-1">
-                          <Flame className="w-3.5 h-3.5 text-[#F5B800]" />
-                          {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
-                        </span>
+                    <>
+                      <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-neutral-700 dark:text-neutral-200">
+                        {activeTarget.hasGas && (
+                          <span className="inline-flex items-center gap-1">
+                            <Flame className="w-3 h-3 text-[#F5B800]" />
+                            {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
+                          </span>
+                        )}
+                        {activeTarget.hasFuel && (
+                          <span className="inline-flex items-center gap-1">
+                            <Fuel className="w-3 h-3 text-[#0B2A6F] dark:text-[#F5B800]" />
+                            {lang === 'sw' ? 'Mafuta' : 'Fuel'}
+                          </span>
+                        )}
+                        {activeTarget.hasLubricants && (
+                          <span className="inline-flex items-center gap-1">
+                            <Droplets className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                            {lang === 'sw' ? 'Vilainishi' : 'Lubricants'}
+                          </span>
+                        )}
+                      </div>
+                      {(activeTarget.petrolPriceTzs || activeTarget.dieselPriceTzs) && (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className="px-2 py-1 rounded-lg bg-neutral-50 dark:bg-blue-950/40">
+                            <span className="text-[10px] text-neutral-500 block leading-none">
+                              Petrol
+                            </span>
+                            <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                              {formatTzs(activeTarget.petrolPriceTzs || 0)}/L
+                            </span>
+                          </div>
+                          <div className="px-2 py-1 rounded-lg bg-neutral-50 dark:bg-blue-950/40">
+                            <span className="text-[10px] text-neutral-500 block leading-none">
+                              Diesel
+                            </span>
+                            <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                              {formatTzs(activeTarget.dieselPriceTzs || 0)}/L
+                            </span>
+                          </div>
+                        </div>
                       )}
-                      {activeTarget.hasFuel && (
-                        <span className="inline-flex items-center gap-1">
-                          <Fuel className="w-3.5 h-3.5 text-[#0B2A6F] dark:text-[#F5B800]" />
-                          {lang === 'sw' ? 'Mafuta' : 'Fuel'}
-                        </span>
+                      {(activeTarget.lpg6kgStock !== undefined ||
+                        activeTarget.lpg15kgStock !== undefined ||
+                        activeTarget.lpg38kgStock !== undefined) && (
+                        <div className="grid grid-cols-3 gap-1.5 text-center">
+                          <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                            <span className="text-[9px] text-neutral-500 block leading-none">
+                              LPG 6kg
+                            </span>
+                            <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                              {activeTarget.lpg6kgStock ?? 0}
+                            </span>
+                          </div>
+                          <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                            <span className="text-[9px] text-neutral-500 block leading-none">
+                              LPG 15kg
+                            </span>
+                            <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                              {activeTarget.lpg15kgStock ?? 0}
+                            </span>
+                          </div>
+                          <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
+                            <span className="text-[9px] text-neutral-500 block leading-none">
+                              LPG 38kg
+                            </span>
+                            <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
+                              {activeTarget.lpg38kgStock ?? 0}
+                            </span>
+                          </div>
+                        </div>
                       )}
-                      {activeTarget.hasLubricants && (
-                        <span className="inline-flex items-center gap-1">
-                          <Droplets className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                          {lang === 'sw' ? 'Vilainishi' : 'Lubricants'}
-                        </span>
-                      )}
-                    </div>
+                    </>
                   )}
-                  {activeTarget.kind === 'station' &&
-                    (activeTarget.petrolPriceTzs || activeTarget.dieselPriceTzs) && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-2 rounded-lg bg-neutral-50 dark:bg-blue-950/40">
-                          <span className="text-[10px] text-neutral-500 block">
-                            Petrol (Demo)
-                          </span>
-                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
-                            {formatTzs(activeTarget.petrolPriceTzs || 0)}/L
-                          </span>
-                        </div>
-                        <div className="p-2 rounded-lg bg-neutral-50 dark:bg-blue-950/40">
-                          <span className="text-[10px] text-neutral-500 block">
-                            Diesel (Demo)
-                          </span>
-                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
-                            {formatTzs(activeTarget.dieselPriceTzs || 0)}/L
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  {activeTarget.kind === 'station' &&
-                    (activeTarget.lpg6kgStock !== undefined ||
-                      activeTarget.lpg15kgStock !== undefined ||
-                      activeTarget.lpg38kgStock !== undefined) && (
-                      <div className="grid grid-cols-3 gap-1.5 text-center">
-                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
-                          <span className="text-[10px] text-neutral-500 block">LPG 6kg</span>
-                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
-                            {activeTarget.lpg6kgStock ?? 0}
-                          </span>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
-                          <span className="text-[10px] text-neutral-500 block">LPG 15kg</span>
-                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
-                            {activeTarget.lpg15kgStock ?? 0}
-                          </span>
-                        </div>
-                        <div className="p-1.5 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
-                          <span className="text-[10px] text-neutral-500 block">LPG 38kg</span>
-                          <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
-                            {activeTarget.lpg38kgStock ?? 0}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+
                   {activeTarget.kind === 'place' && (
-                    <div className="space-y-2">
-                      {activeTarget.photoUrl && (
-                        <img
-                          src={activeTarget.photoUrl}
-                          alt={activeTarget.name}
-                          className="w-full h-28 object-cover rounded-xl border border-neutral-200 dark:border-blue-900"
-                        />
-                      )}
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                        {activeTarget.category && (
-                          <span className="px-2 py-0.5 rounded-md bg-[#0B2A6F]/10 dark:bg-[#F5B800]/20 text-[#0B2A6F] dark:text-[#F5B800] font-semibold">
-                            {activeTarget.category}
-                          </span>
-                        )}
-                        {activeTarget.rating !== undefined && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 font-bold font-mono-num">
-                            <Star className="w-3 h-3 fill-[#F5B800] text-[#F5B800]" />
-                            {activeTarget.rating.toFixed(1)}
-                            {activeTarget.userRatingCount !== undefined &&
-                              ` (${activeTarget.userRatingCount.toLocaleString()})`}
-                          </span>
-                        )}
-                        {activeTarget.openNow === true && (
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">
-                            {lang === 'sw' ? 'Wazi Sasa' : 'Open Now'}
-                          </span>
-                        )}
-                        {activeTarget.openNow === false && (
-                          <span className="px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-semibold">
-                            {lang === 'sw' ? 'Imefungwa' : 'Closed'}
-                          </span>
-                        )}
-                      </div>
+                    <>
                       {activeTarget.editorialSummary && (
-                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed">
+                        <p className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-snug">
                           {activeTarget.editorialSummary}
                         </p>
                       )}
-                      {activeTarget.weekdayHours && activeTarget.weekdayHours.length > 0 && (
-                        <div className="p-2 rounded-lg bg-neutral-50 dark:bg-blue-950/40 space-y-0.5 text-[10px] text-neutral-600 dark:text-neutral-300">
-                          {activeTarget.weekdayHours.slice(0, 3).map((line) => (
-                            <p key={line} className="truncate">
-                              {line}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[11px]">
                         {activeTarget.phone && (
                           <a
                             href={`tel:${activeTarget.phone}`}
@@ -3165,22 +3739,32 @@ function StationsMapWorkspace({
                           </a>
                         )}
                       </div>
-                    </div>
+                      {activeTarget.weekdayHours && activeTarget.weekdayHours.length > 0 && (
+                        <div className="p-2 rounded-lg bg-neutral-50 dark:bg-blue-950/40 space-y-0.5 text-[10px] text-neutral-600 dark:text-neutral-300">
+                          {activeTarget.weekdayHours.map((line) => (
+                            <p key={line} className="leading-snug">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2">
+              {/* Compact Action Buttons */}
+              <div className="px-3 py-2 border-t border-neutral-100 dark:border-blue-950 flex flex-wrap gap-1.5 shrink-0 bg-neutral-50/70 dark:bg-[#091229]/60">
                 <button
                   type="button"
                   onClick={() => computeDirections(activeTarget)}
                   disabled={routeLoading}
-                  className="flex-1 min-w-[110px] py-2.5 px-3 rounded-xl bg-[#0B2A6F] text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  className="flex-1 min-w-[90px] py-1.5 px-2.5 rounded-lg bg-[#0B2A6F] text-white font-semibold text-[11px] flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
                 >
                   {routeLoading ? (
-                    <Loader2 className="w-3.5 h-3.5 text-[#F5B800] animate-spin" />
+                    <Loader2 className="w-3 h-3 text-[#F5B800] animate-spin" />
                   ) : (
-                    <RouteIcon className="w-3.5 h-3.5 text-[#F5B800]" />
+                    <RouteIcon className="w-3 h-3 text-[#F5B800]" />
                   )}
                   <span>{lang === 'sw' ? 'Maelekezo' : 'Directions'}</span>
                 </button>
@@ -3190,7 +3774,7 @@ function StationsMapWorkspace({
                       <button
                         type="button"
                         onClick={() => onOrderAtStation(activeTarget.stationObj, 'gas')}
-                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-xs cursor-pointer whitespace-nowrap"
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] cursor-pointer whitespace-nowrap"
                       >
                         {lang === 'sw' ? 'Agiza Gesi' : 'Order Gas'}
                       </button>
@@ -3199,20 +3783,63 @@ function StationsMapWorkspace({
                       <button
                         type="button"
                         onClick={() => onOrderAtStation(activeTarget.stationObj, 'fuel')}
-                        className="flex-1 min-w-[100px] py-2.5 px-3 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-xs cursor-pointer whitespace-nowrap"
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-[11px] cursor-pointer whitespace-nowrap"
                       >
                         {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
                       </button>
                     )}
+                    <a
+                      href={activeTarget.googleMapsURI}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-1.5 px-2.5 rounded-lg border border-neutral-200 dark:border-blue-800 text-[#0B2A6F] dark:text-[#F5B800] font-bold text-[11px] inline-flex items-center justify-center gap-1 whitespace-nowrap"
+                    >
+                      <span>Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setDetailsExpanded((v) => !v)}
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-xs cursor-pointer whitespace-nowrap"
-                  >
-                    {lang === 'sw' ? 'Tazama Maelezo' : 'View Details'}
-                  </button>
+                  <>
+                    {activeTarget.googleMapsURI && (
+                      <a
+                        href={activeTarget.googleMapsURI}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] font-bold text-[11px] inline-flex items-center justify-center gap-1 whitespace-nowrap"
+                      >
+                        <span>Google Maps</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {canManageStations && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void openAddStationModalAt(
+                            { lat: activeTarget.lat, lng: activeTarget.lng },
+                            {
+                              name: activeTarget.name,
+                              address: activeTarget.subtitle,
+                              googleMapsURI: activeTarget.googleMapsURI,
+                            }
+                          )
+                        }
+                        className="py-1.5 px-2.5 rounded-lg bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-[11px] inline-flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>{lang === 'sw' ? 'Sajili OILCOM' : 'Add Station'}</span>
+                      </button>
+                    )}
+                    {!detailsExpanded && (
+                      <button
+                        type="button"
+                        onClick={() => setDetailsExpanded(true)}
+                        className="py-1.5 px-2.5 rounded-lg border border-neutral-200 dark:border-blue-800 text-neutral-700 dark:text-neutral-200 font-semibold text-[11px] cursor-pointer whitespace-nowrap"
+                      >
+                        {lang === 'sw' ? 'Maelezo' : 'Details'}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -3544,18 +4171,58 @@ function StationsMapWorkspace({
                         {lang === 'sw' ? 'Agiza Mafuta' : 'Order Fuel'}
                       </button>
                     )}
+                    <a
+                      href={activeTarget.googleMapsURI}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
+                    >
+                      <span>
+                        {lang === 'sw'
+                          ? 'Fungua Kwenye Google Maps'
+                          : 'Open on Google Maps'}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5 text-[#F5B800]" />
+                    </a>
                   </>
-                ) : activeTarget.googleMapsURI ? (
-                  <a
-                    href={activeTarget.googleMapsURI}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs flex items-center justify-center gap-1 whitespace-nowrap"
-                  >
-                    <span>Google Maps</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ) : null}
+                ) : (
+                  <>
+                    {activeTarget.googleMapsURI && (
+                      <a
+                        href={activeTarget.googleMapsURI}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#071A4A] font-bold text-xs flex items-center justify-center gap-1 whitespace-nowrap"
+                      >
+                        <span>Google Maps</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {canManageStations && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void openAddStationModalAt(
+                            { lat: activeTarget.lat, lng: activeTarget.lng },
+                            {
+                              name: activeTarget.name,
+                              address: activeTarget.subtitle,
+                              googleMapsURI: activeTarget.googleMapsURI,
+                            }
+                          )
+                        }
+                        className="w-full py-2.5 px-3 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>
+                          {lang === 'sw'
+                            ? 'Ongeza Kama Kituo cha OILCOM'
+                            : 'Add as OILCOM Station'}
+                        </span>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
             </div>
@@ -3664,6 +4331,447 @@ function StationsMapWorkspace({
           </div>
         </div>
       </div>
+
+      {/* Add Fuel / Gas Station Directly on Map Modal */}
+      {addStationModalOpen && canManageStations && (
+        <div
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4"
+          onClick={() => {
+            if (!savingStation) {
+              setAddStationModalOpen(false);
+              setDraftStationCoords(null);
+            }
+          }}
+        >
+          <form
+            onSubmit={handleSaveMapStation}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-900 p-4 sm:p-5 shadow-2xl space-y-3.5"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#D92027]" />
+                  <span>
+                    {lang === 'sw'
+                      ? 'Ongeza Kituo Kwenye Ramani'
+                      : 'Add Station Directly on Map'}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  {lang === 'sw'
+                    ? 'Kitaonekana papo hapo kwenye ramani ya 2D & 3D na kuunganishwa na Google Maps.'
+                    : 'Appears immediately on the live 2D & 3D map with direct Google Maps link.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddStationModalOpen(false);
+                  setDraftStationCoords(null);
+                }}
+                aria-label="Close add station modal"
+                className="p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {addStationError && (
+              <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-200">
+                {addStationError}
+              </div>
+            )}
+
+            {/* Station Kind Selector (Fuel / Gas / Both) */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 block mb-1.5">
+                {lang === 'sw' ? 'Aina ya Kituo' : 'Station Type'}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    {
+                      id: 'fuel',
+                      label: lang === 'sw' ? 'Mafuta Pekee' : 'Fuel Only',
+                      icon: Fuel,
+                    },
+                    {
+                      id: 'gas',
+                      label: lang === 'sw' ? 'Gesi LPG Pekee' : 'Gas Depot',
+                      icon: Flame,
+                    },
+                    {
+                      id: 'both',
+                      label: lang === 'sw' ? 'Mafuta & Gesi' : 'Fuel + Gas',
+                      icon: Check,
+                    },
+                  ] as const
+                ).map((item) => {
+                  const Icon = item.icon;
+                  const active = stationDraft.stationKind === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        setStationDraft((prev) => ({
+                          ...prev,
+                          stationKind: item.id,
+                        }))
+                      }
+                      className={`p-2 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+                        active
+                          ? 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F]'
+                          : 'bg-neutral-50 dark:bg-[#091022] text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-blue-950'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="text-[11px] text-center leading-tight">
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  {lang === 'sw' ? 'Jina la Kituo *' : 'Station Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={stationDraft.name}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder={
+                    stationDraft.stationKind === 'gas'
+                      ? 'mf. OILCOM Gesi Kariakoo'
+                      : 'mf. OILCOM Kerege Service Station'
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  {lang === 'sw' ? 'Msimbo (Code)' : 'Station Code'}
+                </label>
+                <input
+                  type="text"
+                  value={stationDraft.code}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({
+                      ...prev,
+                      code: e.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="OIL-DSM-01"
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num text-neutral-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300">
+                  {lang === 'sw' ? 'Mtaa / Anwani Kamili *' : 'Street Address *'}
+                </label>
+                {addStationLookupLoading && (
+                  <span className="text-[10px] text-[#0B2A6F] dark:text-[#F5B800] flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Google Places...</span>
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                required
+                value={stationDraft.address}
+                onChange={(e) =>
+                  setStationDraft((prev) => ({ ...prev, address: e.target.value }))
+                }
+                placeholder="mf. Barabara ya Bagamoyo, Mbezi Beach"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  {lang === 'sw' ? 'Mji / Wilaya' : 'City'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={stationDraft.city}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({ ...prev, city: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  {lang === 'sw' ? 'Mkoa' : 'Region'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={stationDraft.region}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({ ...prev, region: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs text-neutral-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* GPS Coordinates */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  Latitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={stationDraft.lat}
+                  onChange={(e) => {
+                    const lat = Number(e.target.value);
+                    setStationDraft((prev) => ({ ...prev, lat }));
+                    if (Number.isFinite(lat)) {
+                      setDraftStationCoords({ lat, lng: stationDraft.lng });
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num text-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                  Longitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  required
+                  value={stationDraft.lng}
+                  onChange={(e) => {
+                    const lng = Number(e.target.value);
+                    setStationDraft((prev) => ({ ...prev, lng }));
+                    if (Number.isFinite(lng)) {
+                      setDraftStationCoords({ lat: stationDraft.lat, lng });
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-xs font-mono-num text-neutral-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Fuel Pricing & Pumps (Fuel or Both) */}
+            {(stationDraft.stationKind === 'fuel' ||
+              stationDraft.stationKind === 'both') && (
+              <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-neutral-50 dark:bg-[#091022] border border-neutral-200 dark:border-blue-950">
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-500 block mb-1">
+                    Petrol (TZS/L)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.petrolPriceTzs}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        petrolPriceTzs: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-500 block mb-1">
+                    Diesel (TZS/L)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.dieselPriceTzs}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        dieselPriceTzs: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-500 block mb-1">
+                    {lang === 'sw' ? 'Pampu' : 'Pumps'}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.pumpsCount}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        pumpsCount: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* LPG Gas Cylinders Stock (Gas or Both) */}
+            {(stationDraft.stationKind === 'gas' ||
+              stationDraft.stationKind === 'both') && (
+              <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-amber-50/70 dark:bg-blue-950/30 border border-amber-200/70 dark:border-blue-900">
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                    LPG 6kg (cyl)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.lpg6kgStock}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        lpg6kgStock: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                    LPG 15kg (cyl)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.lpg15kgStock}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        lpg15kgStock: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 block mb-1">
+                    LPG 38kg (cyl)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={stationDraft.lpg38kgStock}
+                    onChange={(e) =>
+                      setStationDraft((prev) => ({
+                        ...prev,
+                        lpg38kgStock: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 dark:border-blue-900 bg-white dark:bg-[#0E172E] text-xs font-mono-num"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationDraft.open24Hours}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({
+                      ...prev,
+                      open24Hours: e.target.checked,
+                    }))
+                  }
+                  className="accent-[#0B2A6F]"
+                />
+                <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                  {lang === 'sw' ? 'Wazi Saa 24/7' : 'Open 24/7'}
+                </span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={stationDraft.hasLubricants}
+                  onChange={(e) =>
+                    setStationDraft((prev) => ({
+                      ...prev,
+                      hasLubricants: e.target.checked,
+                    }))
+                  }
+                  className="accent-[#0B2A6F]"
+                />
+                <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                  {lang === 'sw' ? 'Kuna Vilainishi' : 'Has Lubricants'}
+                </span>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-blue-950">
+              <a
+                href={buildGoogleMapsPinUrl(stationDraft.lat, stationDraft.lng)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline inline-flex items-center gap-1"
+              >
+                <span>
+                  {lang === 'sw' ? 'Hakiki Google Maps' : 'Preview on Google Maps'}
+                </span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddStationModalOpen(false);
+                    setDraftStationCoords(null);
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 text-xs font-semibold cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Ghairi' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingStation}
+                  className="px-4 py-2 rounded-xl bg-[#F5B800] hover:bg-[#e0a800] text-[#0B2A6F] text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {savingStation ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>
+                    {savingStation
+                      ? lang === 'sw'
+                        ? 'Inahifadhi...'
+                        : 'Saving...'
+                      : lang === 'sw'
+                        ? 'Hifadhi Kwenye Ramani'
+                        : 'Save to Map'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -3673,6 +4781,7 @@ export function StationsMapModule({
   stations,
   orders = [],
   googleMapsApiKey,
+  canManageStations = false,
   onOrderAtStation,
 }: StationsMapModuleProps) {
   const [selectedFallback, setSelectedFallback] = useState<Station | null>(
@@ -3752,6 +4861,7 @@ export function StationsMapModule({
         lang={lang}
         stations={stations}
         orders={orders}
+        canManageStations={canManageStations}
         onOrderAtStation={onOrderAtStation}
       />
     </APIProvider>

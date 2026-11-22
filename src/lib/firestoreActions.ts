@@ -24,6 +24,7 @@ import type {
   PaymentProvider,
   PaymentStatus,
   ProvisionedRole,
+  Station,
   StationStaffRole,
 } from '../types/oilcom';
 
@@ -612,3 +613,130 @@ export async function deleteStationStaffMember(staffId: string): Promise<void> {
     handleFirestoreError(err, OperationType.DELETE, `station_staff/${staffId}`);
   }
 }
+
+export interface CreateStationInput {
+  name: string;
+  code: string;
+  stationKind: 'fuel' | 'gas' | 'both';
+  city: string;
+  region: string;
+  address: string;
+  lat: number;
+  lng: number;
+  open24Hours: boolean;
+  hasLubricants?: boolean;
+  petrolPriceTzs?: number;
+  dieselPriceTzs?: number;
+  pumpsCount?: number;
+  lpg6kgStock?: number;
+  lpg15kgStock?: number;
+  lpg38kgStock?: number;
+}
+
+export async function createStationRecord(
+  input: CreateStationInput
+): Promise<Station> {
+  const actorUid = auth.currentUser?.uid;
+  if (!actorUid) {
+    throw new Error('Admin authentication required.');
+  }
+
+  const sid = makeId('stn');
+  const rawName = input.name.trim().slice(0, 120);
+  if (rawName.length < 2) {
+    throw new Error('Station name must be at least 2 characters.');
+  }
+
+  const cleanedCode = input.code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+  const finalCode =
+    cleanedCode.length >= 2
+      ? cleanedCode
+      : `OIL-${Date.now().toString().slice(-5)}`;
+
+  const cleanCity = (input.city.trim() || 'Dar es Salaam').slice(0, 80);
+  const cleanRegion = (input.region.trim() || cleanCity).slice(0, 80);
+  const cleanAddress = (
+    input.address.trim() ||
+    `${rawName}, ${cleanCity}`
+  ).slice(0, 200);
+
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error('Valid latitude and longitude are required.');
+  }
+
+  const kind: 'fuel' | 'gas' | 'both' =
+    input.stationKind === 'fuel' || input.stationKind === 'gas'
+      ? input.stationKind
+      : 'both';
+  const hasFuel = kind === 'fuel' || kind === 'both';
+  const hasGas = kind === 'gas' || kind === 'both';
+
+  const stationData: Omit<Station, 'id'> = {
+    name: rawName,
+    code: finalCode,
+    stationKind: kind,
+    city: cleanCity.length >= 2 ? cleanCity : 'Dar es Salaam',
+    region: cleanRegion.length >= 2 ? cleanRegion : 'Dar es Salaam',
+    address: cleanAddress.length >= 2 ? cleanAddress : `${rawName}, Tanzania`,
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6)),
+    open24Hours: Boolean(input.open24Hours),
+    hasGas,
+    hasFuel,
+    hasLubricants: Boolean(input.hasLubricants ?? true),
+    petrolPriceTzs: hasFuel
+      ? Math.max(0, Math.round(Number(input.petrolPriceTzs) || 0))
+      : 0,
+    dieselPriceTzs: hasFuel
+      ? Math.max(0, Math.round(Number(input.dieselPriceTzs) || 0))
+      : 0,
+    pumpsCount: hasFuel
+      ? Math.max(0, Math.round(Number(input.pumpsCount) || 0))
+      : 0,
+    lpg6kgStock: hasGas
+      ? Math.max(0, Math.round(Number(input.lpg6kgStock) || 0))
+      : 0,
+    lpg15kgStock: hasGas
+      ? Math.max(0, Math.round(Number(input.lpg15kgStock) || 0))
+      : 0,
+    lpg38kgStock: hasGas
+      ? Math.max(0, Math.round(Number(input.lpg38kgStock) || 0))
+      : 0,
+    managerUid: '',
+    managerName: '',
+    managerEmail: '',
+    isDemoData: false,
+    status: 'active',
+  };
+
+  try {
+    await setDoc(doc(db, 'stations', sid), {
+      ...stationData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, `stations/${sid}`);
+  }
+
+  await writeAuditLog({
+    action: 'CREATE_STATION_FROM_MAP',
+    targetCollection: 'stations',
+    targetId: sid,
+    summary: `Added ${kind} station ${stationData.name} (${stationData.code}) @ ${stationData.lat},${stationData.lng}`,
+  });
+
+  return {
+    id: sid,
+    ...stationData,
+  };
+}
+

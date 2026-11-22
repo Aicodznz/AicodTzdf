@@ -343,13 +343,43 @@ async function startServer(): Promise<void> {
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
+    const hmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
+      plugins: [
+        {
+          name: 'safe-vite-client-ws',
+          enforce: 'post',
+          transform(code, id) {
+            const cleanId = id.split('?')[0];
+            if (cleanId.endsWith('vite/dist/client/client.mjs')) {
+              if (!hmrDisabled) {
+                return code.replace(
+                  'transport.connect(createHMRHandler(handleMessage));',
+                  'Promise.resolve(transport.connect(createHMRHandler(handleMessage))).catch(() => {});'
+                );
+              }
+              return code
+                .replace(
+                  'transport.connect(createHMRHandler(handleMessage));',
+                  '/* HMR disabled via DISABLE_HMR=true */'
+                )
+                .replace(
+                  'else throw new SendBeforeConnectError("send was called before connect");',
+                  'else return;'
+                )
+                .replace(
+                  'else throw new SendBeforeConnectError("invoke was called before connect");',
+                  'else return;'
+                );
+            }
+            return null;
+          },
+        },
+      ],
       server: {
         middlewareMode: true,
-        hmr:
-          process.env.DISABLE_HMR === 'true'
-            ? false
-            : { server: httpServer },
+        ws: hmrDisabled ? false : undefined,
+        hmr: hmrDisabled ? false : { server: httpServer },
       },
       appType: 'spa',
     });

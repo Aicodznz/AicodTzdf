@@ -1564,6 +1564,7 @@ export default function App() {
                 stations={stations}
                 orders={mergedOrders}
                 googleMapsApiKey={googleMapsApiKey}
+                canManageStations={trueRole === 'admin'}
                 onOrderAtStation={(st, orderKind) => {
                   setPreselectedStationId(st.id);
                   navigate(orderKind || (st.hasGas !== false ? 'gas' : 'fuel'));
