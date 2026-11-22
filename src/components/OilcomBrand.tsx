@@ -1,8 +1,188 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const LOGO_EMBLEM_SRC = '/assets/oilcom-logo-emblem.png';
-const LOGO_FULL_SRC = '/assets/oilcom-logo-full.png';
-const LOGO_WORDMARK_SRC = '/assets/oilcom-logo-wordmark.png';
+const LOGO_OFFICIAL_SRC =
+  '/assets/aistudio/WhatsApp_Image_2026-11-22_at_9.11.35_PM_2f8f326f.jpeg';
+
+let cachedTransparentWordmarkUrl: string | null = null;
+let transparentWordmarkPromise: Promise<string> | null = null;
+
+function buildTransparentWordmark(src: string): Promise<string> {
+  if (cachedTransparentWordmarkUrl) {
+    return Promise.resolve(cachedTransparentWordmarkUrl);
+  }
+  if (transparentWordmarkPromise) {
+    return transparentWordmarkPromise;
+  }
+
+  transparentWordmarkPromise = new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      resolve(src);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h) {
+          resolve(src);
+          return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        const total = w * h;
+        const bgMask = new Uint8Array(total);
+        const queue = new Int32Array(total);
+        let head = 0;
+        let tail = 0;
+
+        const isNearBlack = (p: number): boolean => {
+          const i = p * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const maxC = Math.max(r, g, b);
+          const minC = Math.min(r, g, b);
+          return maxC <= 34 || (maxC <= 52 && maxC - minC <= 14);
+        };
+
+        const enqueueIfBg = (x: number, y: number) => {
+          if (x < 0 || x >= w || y < 0 || y >= h) return;
+          const p = y * w + x;
+          if (bgMask[p] !== 0) return;
+          if (isNearBlack(p)) {
+            bgMask[p] = 1;
+            queue[tail++] = p;
+          }
+        };
+
+        // Seed outer perimeter
+        for (let x = 0; x < w; x++) {
+          enqueueIfBg(x, 0);
+          enqueueIfBg(x, h - 1);
+        }
+        for (let y = 0; y < h; y++) {
+          enqueueIfBg(0, y);
+          enqueueIfBg(w - 1, y);
+        }
+
+        // Seed enclosed black counter-holes ('O' and 'o') while protecting camel droplet interior
+        const camelLeft = Math.floor(w * 0.3);
+        const camelRight = Math.ceil(w * 0.4);
+        const camelTop = Math.floor(h * 0.02);
+        const camelBottom = Math.ceil(h * 0.32);
+
+        for (let y = Math.floor(h * 0.25); y < Math.floor(h * 0.8); y += 2) {
+          for (let x = Math.floor(w * 0.05); x < Math.floor(w * 0.95); x += 2) {
+            if (
+              x >= camelLeft &&
+              x <= camelRight &&
+              y >= camelTop &&
+              y <= camelBottom
+            ) {
+              continue;
+            }
+            const p = y * w + x;
+            if (bgMask[p] === 0) {
+              const i = p * 4;
+              const maxC = Math.max(data[i], data[i + 1], data[i + 2]);
+              const minC = Math.min(data[i], data[i + 1], data[i + 2]);
+              if (maxC <= 26 && maxC - minC <= 10) {
+                bgMask[p] = 1;
+                queue[tail++] = p;
+              }
+            }
+          }
+        }
+
+        while (head < tail) {
+          const p = queue[head++];
+          const x = p % w;
+          const y = (p - x) / w;
+          enqueueIfBg(x + 1, y);
+          enqueueIfBg(x - 1, y);
+          enqueueIfBg(x, y + 1);
+          enqueueIfBg(x, y - 1);
+        }
+
+        // Make background transparent + smooth 1px edge un-premultiply so no black halo remains
+        for (let p = 0; p < total; p++) {
+          const i = p * 4;
+          if (bgMask[p] === 1) {
+            data[i + 3] = 0;
+            continue;
+          }
+
+          const x = p % w;
+          const y = (p - x) / w;
+          const touchesBg =
+            (x > 0 && bgMask[p - 1] === 1) ||
+            (x < w - 1 && bgMask[p + 1] === 1) ||
+            (y > 0 && bgMask[p - w] === 1) ||
+            (y < h - 1 && bgMask[p + w] === 1);
+
+          if (touchesBg) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const maxC = Math.max(r, g, b);
+            if (maxC < 120) {
+              const alphaNorm = Math.min(1, Math.max(0.08, (maxC - 20) / 100));
+              data[i] = Math.min(255, Math.round(r / alphaNorm));
+              data[i + 1] = Math.min(255, Math.round(g / alphaNorm));
+              data[i + 2] = Math.min(255, Math.round(b / alphaNorm));
+              data[i + 3] = Math.round(alphaNorm * 255);
+            }
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        const resultUrl = canvas.toDataURL('image/png');
+        cachedTransparentWordmarkUrl = resultUrl;
+        resolve(resultUrl);
+      } catch {
+        resolve(src);
+      }
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+
+  return transparentWordmarkPromise;
+}
+
+function useTransparentOfficialLogo(): string | null {
+  const [url, setUrl] = useState<string | null>(cachedTransparentWordmarkUrl);
+
+  useEffect(() => {
+    let active = true;
+    if (cachedTransparentWordmarkUrl) {
+      setUrl(cachedTransparentWordmarkUrl);
+      return;
+    }
+    void buildTransparentWordmark(LOGO_OFFICIAL_SRC).then((resolved) => {
+      if (active) setUrl(resolved);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return url;
+}
 
 export function OilcomCamelMark({
   className = 'w-10 h-10',
@@ -23,36 +203,54 @@ export function OilcomCamelMark({
 }
 
 export function OilcomFullLogo({
-  className = 'w-40 h-40',
+  className = 'w-60',
 }: {
   className?: string;
 }) {
+  const transparentWordmark = useTransparentOfficialLogo();
+
   return (
     <span
-      className={`inline-flex items-center justify-center shrink-0 ${className}`}
+      className={`inline-flex flex-col items-center justify-center gap-2 shrink-0 ${className}`}
     >
       <img
-        src={LOGO_FULL_SRC}
+        src={LOGO_EMBLEM_SRC}
+        alt="OILCOM Camel Emblem"
+        className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_4px_16px_rgba(255,255,255,0.28)]"
+      />
+      <img
+        src={transparentWordmark || LOGO_OFFICIAL_SRC}
         alt="OILCOM Official Logo"
-        className="w-full h-full object-contain drop-shadow-[0_4px_16px_rgba(255,255,255,0.32)]"
+        className={`w-full h-auto max-h-20 object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.38)] transition-opacity duration-150 ${
+          transparentWordmark ? 'opacity-100' : 'opacity-0'
+        }`}
       />
     </span>
   );
 }
 
 export function OilcomWordmark({
-  className = 'w-32 h-10',
+  className = 'h-10',
 }: {
   className?: string;
 }) {
+  const transparentWordmark = useTransparentOfficialLogo();
+
   return (
     <span
-      className={`inline-flex items-center justify-center shrink-0 ${className}`}
+      className={`inline-flex items-center gap-1.5 shrink-0 ${className}`}
     >
       <img
-        src={LOGO_WORDMARK_SRC}
+        src={LOGO_EMBLEM_SRC}
+        alt="OILCOM Camel"
+        className="h-full w-auto aspect-square object-contain drop-shadow-[0_2px_6px_rgba(255,255,255,0.28)] shrink-0"
+      />
+      <img
+        src={transparentWordmark || LOGO_OFFICIAL_SRC}
         alt="Oilcom"
-        className="w-full h-full object-contain drop-shadow-[0_1px_8px_rgba(255,255,255,0.38)]"
+        className={`h-[88%] w-auto object-contain drop-shadow-[0_1px_10px_rgba(255,255,255,0.42)] transition-opacity duration-150 ${
+          transparentWordmark ? 'opacity-100' : 'opacity-0'
+        }`}
       />
     </span>
   );

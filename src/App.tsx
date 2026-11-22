@@ -12,14 +12,18 @@ import {
   Bell,
   Briefcase,
   Building2,
+  ChevronRight,
   Flame,
   Fuel,
   Gift,
   Globe,
   Home,
+  LogOut,
   MapPin,
   Menu,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   ShieldCheck,
   Store,
@@ -35,6 +39,7 @@ import { BusinessPortalModule } from './components/BusinessPortalModule';
 import { FuelAndGasModule } from './components/FuelAndGasModule';
 import { HomeDashboard } from './components/HomeDashboard';
 import {
+  OilcomCamelMark,
   OilcomFullLogo,
   OilcomWordmark,
 } from './components/OilcomBrand';
@@ -146,6 +151,13 @@ export default function App() {
   });
   const [route, setRoute] = useState<AppRoute>('home');
   const [preselectedStationId, setPreselectedStationId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('oilcom_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -208,6 +220,17 @@ export default function App() {
     document.documentElement.lang = lang;
     localStorage.setItem('oilcom_lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'oilcom_sidebar_collapsed',
+        sidebarCollapsed ? 'true' : 'false'
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     fetchPublicConfig()
@@ -1019,10 +1042,7 @@ export default function App() {
       <>
         {quotaBanner}
         <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B2A6F] text-white gap-4">
-          <OilcomFullLogo className="w-40 h-40 animate-pulse" />
-          <p className="font-display font-bold text-lg tracking-wide">
-            OILCOM <span className="text-[#F5B800]">SUPER APP</span>
-          </p>
+          <OilcomFullLogo className="w-56 animate-pulse" />
           <p className="text-xs text-blue-200/75">{t(lang, 'loading')}</p>
         </div>
       </>
@@ -1098,49 +1118,235 @@ export default function App() {
       {quotaBanner}
 
       <div className="flex flex-1 min-h-0">
-        {/* Desktop Persistent Sidebar (260px) */}
-        <aside className="hidden lg:flex lg:w-[260px] lg:flex-col lg:fixed lg:inset-y-0 bg-[#0B2A6F] text-white z-30">
+        {/* Desktop Collapsible Sidebar (260px expanded <-> 76px compact icon rail) */}
+        <aside
+          className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 z-30 text-white bg-gradient-to-b from-[#0E358A] via-[#081E54] to-[#050C1F] border-r border-white/12 shadow-[8px_0_32px_rgba(3,8,24,0.35)] transition-all duration-200 ${
+            sidebarCollapsed ? 'lg:w-[76px]' : 'lg:w-[260px]'
+          }`}
+        >
+          {/* OILCOM Top Accent Bar */}
           <div className="h-1 grid grid-cols-3 shrink-0">
             <span className="bg-[#2563EB]" />
             <span className="bg-[#D92027]" />
             <span className="bg-[#F5B800]" />
           </div>
-          <div className="h-16 px-4 flex items-center border-b border-white/10 shrink-0">
-            <OilcomWordmark className="w-36 h-12" />
+
+          {/* Top Brand + Collapse Toggle Row */}
+          <div
+            className={`h-16 flex items-center border-b border-white/10 shrink-0 ${
+              sidebarCollapsed ? 'justify-center px-2 relative' : 'justify-between px-4'
+            }`}
+          >
+            {sidebarCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                title={lang === 'sw' ? 'Panua Menyu' : 'Expand Sidebar'}
+                className="p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <OilcomCamelMark className="w-9 h-9" />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
+                  className="cursor-pointer min-w-0 flex items-center"
+                >
+                  <OilcomWordmark className="h-9" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarCollapsed(true)}
+                  title={lang === 'sw' ? 'Kunja Menyu' : 'Collapse Sidebar'}
+                  aria-label={lang === 'sw' ? 'Kunja Menyu' : 'Collapse Sidebar'}
+                  className="p-1.5 rounded-lg text-blue-200/75 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-            {navItems.map((item) => {
+          {/* Account Summary Strip */}
+          <button
+            type="button"
+            onClick={() => navigate('profile')}
+            title={`${effectiveUser.fullName} (${effectiveRole})`}
+            className={`w-full border-b border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors text-left cursor-pointer shrink-0 flex items-center ${
+              sidebarCollapsed ? 'justify-center py-3 px-2' : 'gap-3 px-4 py-3'
+            }`}
+          >
+            {effectiveUser.photoUrl ? (
+              <img
+                src={effectiveUser.photoUrl}
+                alt={effectiveUser.fullName}
+                className="w-9 h-9 rounded-full object-cover border border-[#F5B800]/60 shrink-0"
+              />
+            ) : (
+              <span className="w-9 h-9 rounded-full bg-gradient-to-br from-[#F5B800] to-[#D97706] text-[#071A4A] font-display font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                {(effectiveUser.fullName || 'O')
+                  .split(' ')
+                  .slice(0, 2)
+                  .map((p) => p[0])
+                  .join('')
+                  .toUpperCase()}
+              </span>
+            )}
+            {!sidebarCollapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white truncate">
+                    {effectiveUser.fullName}
+                  </p>
+                  <p className="text-[10px] text-blue-200/70 truncate mt-0.5 uppercase tracking-wider font-mono-num">
+                    {effectiveRole === 'admin'
+                      ? 'Admin Account'
+                      : effectiveRole.replace('_', ' ')}
+                  </p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-blue-200/60 shrink-0" />
+              </>
+            )}
+          </button>
+
+          {/* Categorized Navigation Menu */}
+          {(() => {
+            const primaryRoutes: AppRoute[] = [
+              'home',
+              'fuel',
+              'gas',
+              'rewards',
+              'orders',
+              'stations',
+            ];
+            const opsRoutes: AppRoute[] = [
+              'station_manager',
+              'agent',
+              'business',
+              'admin',
+            ];
+            const primaryItems = navItems.filter((i) =>
+              primaryRoutes.includes(i.route)
+            );
+            const opsItems = navItems.filter((i) => opsRoutes.includes(i.route));
+            const profileItem = navItems.find((i) => i.route === 'profile');
+            const activeOrdersCount = mergedOrders.filter(
+              (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+            ).length;
+
+            const renderNavButton = (item: (typeof navItems)[number]) => {
               const Icon = item.icon;
               const active = route === item.route;
+              const badgeCount =
+                item.route === 'orders'
+                  ? activeOrdersCount
+                  : item.route === 'profile'
+                    ? unreadCount
+                    : 0;
+
               return (
                 <button
                   key={item.route}
                   type="button"
                   onClick={() => navigate(item.route)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  title={sidebarCollapsed ? item.label : undefined}
+                  className={`group relative w-full flex items-center rounded-xl text-[13px] transition-all cursor-pointer whitespace-nowrap ${
+                    sidebarCollapsed
+                      ? 'justify-center py-2.5 px-2'
+                      : 'gap-3 px-3 py-2.5'
+                  } ${
                     active
-                      ? 'bg-[#F5B800] text-[#0B2A6F] font-bold'
-                      : 'text-blue-100/85 hover:bg-white/10'
+                      ? 'bg-white/14 text-white font-bold border border-[#F5B800]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                      : 'text-blue-100/75 hover:text-white hover:bg-white/[0.08] font-medium border border-transparent'
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
+                  {active && (
+                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#F5B800]" />
+                  )}
+                  <Icon
+                    className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                      active
+                        ? 'text-[#F5B800]'
+                        : 'text-blue-200/80 group-hover:text-white'
+                    }`}
+                  />
+                  {!sidebarCollapsed && (
+                    <span className="truncate flex-1 text-left">{item.label}</span>
+                  )}
+                  {badgeCount > 0 && (
+                    <span
+                      className={`${
+                        sidebarCollapsed
+                          ? 'absolute top-1.5 right-2.5 w-2 h-2 rounded-full bg-[#38BDF8]'
+                          : 'min-w-[18px] h-[18px] px-1.5 rounded-full bg-[#2563EB] text-white text-[10px] font-bold font-mono-num flex items-center justify-center'
+                      }`}
+                    >
+                      {!sidebarCollapsed ? (badgeCount > 9 ? '9+' : badgeCount) : null}
+                    </span>
+                  )}
                 </button>
               );
-            })}
-          </nav>
+            };
 
-          <div className="p-4 border-t border-white/10 text-xs text-blue-100/75 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="truncate font-semibold text-white">
-                {effectiveUser.fullName}
-              </span>
-              <span className="font-mono-num uppercase text-[#F5B800] text-[11px]">
-                {effectiveRole}
-              </span>
-            </div>
-            <p className="text-[11px] opacity-70 truncate">{effectiveUser.email}</p>
+            return (
+              <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {primaryItems.length > 0 && (
+                  <div className="space-y-1">
+                    <p
+                      className={`text-[10px] font-bold uppercase tracking-widest text-blue-200/50 pb-1 ${
+                        sidebarCollapsed ? 'text-center' : 'px-3'
+                      }`}
+                    >
+                      {sidebarCollapsed ? 'MENU' : 'MENU'}
+                    </p>
+                    {primaryItems.map(renderNavButton)}
+                  </div>
+                )}
+
+                {opsItems.length > 0 && (
+                  <div className="pt-2.5 border-t border-white/10 space-y-1">
+                    {!sidebarCollapsed && (
+                      <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-blue-200/50">
+                        {lang === 'sw' ? 'USIMAMIZI' : 'OPERATIONS'}
+                      </p>
+                    )}
+                    {opsItems.map(renderNavButton)}
+                  </div>
+                )}
+
+                {profileItem && (
+                  <div className="pt-2.5 border-t border-white/10 space-y-1">
+                    {renderNavButton(profileItem)}
+                  </div>
+                )}
+              </nav>
+            );
+          })()}
+
+          {/* Sidebar Footer: Expand Toggle (when collapsed) & Sign Out */}
+          <div className="p-2.5 border-t border-white/10 space-y-1 shrink-0 bg-black/20">
+            {sidebarCollapsed && (
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(false)}
+                title={lang === 'sw' ? 'Panua Menyu' : 'Expand Sidebar'}
+                className="w-full flex items-center justify-center py-2 rounded-xl text-blue-200/75 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => auth.signOut()}
+              title={t(lang, 'signOut')}
+              className={`w-full flex items-center rounded-xl text-xs font-semibold text-red-200/90 hover:text-white hover:bg-red-500/20 transition-colors cursor-pointer ${
+                sidebarCollapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2.5'
+              }`}
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              {!sidebarCollapsed && <span>{t(lang, 'signOut')}</span>}
+            </button>
           </div>
         </aside>
 
@@ -1151,9 +1357,9 @@ export default function App() {
               className="fixed inset-0 bg-black/50"
               onClick={() => setMobileDrawerOpen(false)}
             />
-            <aside className="relative w-72 max-w-[82vw] bg-[#0B2A6F] text-white h-full flex flex-col z-10">
+            <aside className="relative w-72 max-w-[82vw] bg-gradient-to-b from-[#0E358A] via-[#081E54] to-[#050C1F] text-white h-full flex flex-col z-10 border-r border-white/15">
               <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
-                <OilcomWordmark className="w-32 h-11" />
+                <OilcomWordmark className="h-9" />
                 <button
                   type="button"
                   onClick={() => setMobileDrawerOpen(false)}
@@ -1173,11 +1379,11 @@ export default function App() {
                       onClick={() => navigate(item.route)}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium cursor-pointer ${
                         active
-                          ? 'bg-[#F5B800] text-[#0B2A6F] font-bold'
+                          ? 'bg-white/15 text-white font-bold border border-[#F5B800]/40'
                           : 'text-blue-100/90 hover:bg-white/10'
                       }`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#F5B800]' : ''}`} />
                       <span>{item.label}</span>
                     </button>
                   );
@@ -1188,7 +1394,11 @@ export default function App() {
         )}
 
         {/* Main Viewport Column */}
-        <div className="flex-1 lg:pl-[260px] flex flex-col min-w-0">
+        <div
+          className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ${
+            sidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-[260px]'
+          }`}
+        >
           {/* 3-Zone Top Header Bar */}
           <header className="h-14 lg:h-16 sticky top-0 z-30 bg-[#0B2A6F] lg:bg-white/95 lg:dark:bg-[#0B1326]/95 lg:backdrop-blur-md border-b border-white/10 lg:border-neutral-200 lg:dark:border-blue-950 px-3 sm:px-6 flex items-center justify-between gap-2">
             {/* Zone 1: Brand / Drawer Trigger */}
@@ -1206,7 +1416,7 @@ export default function App() {
                 onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
                 className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left"
               >
-                <OilcomWordmark className="w-28 h-9" />
+                <OilcomWordmark className="h-8" />
               </button>
               <span className="hidden lg:inline font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
                 {navItems.find((n) => n.route === route)?.label || 'OILCOM'}
@@ -1497,7 +1707,7 @@ export default function App() {
           <main
             className={`flex-1 w-full mx-auto min-w-0 ${
               route === 'stations'
-                ? 'p-0 pb-14 lg:p-4 lg:pb-6 max-w-none'
+                ? 'p-0 pb-14 lg:p-0 lg:pb-0 max-w-none'
                 : 'max-w-7xl p-2.5 sm:p-5 lg:p-7 pb-[72px] lg:pb-8'
             }`}
           >

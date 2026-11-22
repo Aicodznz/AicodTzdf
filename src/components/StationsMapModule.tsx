@@ -24,7 +24,6 @@ import {
   type Map3DRef,
 } from '@vis.gl/react-google-maps/3d';
 import {
-  Box,
   Check,
   ChevronDown,
   ChevronUp,
@@ -45,6 +44,8 @@ import {
   List,
   Loader2,
   MapPin,
+  Maximize2,
+  Minimize2,
   Navigation,
   Pause,
   Phone,
@@ -324,6 +325,8 @@ function StationsMapWorkspace({
   const [onlyLubricants, setOnlyLubricants] = useState(false);
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [mobileListOpen, setMobileListOpen] = useState(false);
+  const [desktopPanelOpen, setDesktopPanelOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   // Open Geospatial (OGC GeoJSON GIS + opengeos tools) layer state
@@ -424,6 +427,15 @@ function StationsMapWorkspace({
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsFullscreen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isFullscreen]);
 
   const [routeLoading, setRouteLoading] = useState(false);
   const [activeRoute, setActiveRoute] = useState<ActiveRouteInfo | null>(null);
@@ -2130,7 +2142,7 @@ function StationsMapWorkspace({
   };
 
   return (
-    <div className="space-y-0 lg:space-y-3">
+    <div className="w-full h-full">
       {/* Hidden GeoJSON / CSV / KML spatial file upload input */}
       <input
         ref={geojsonInputRef}
@@ -2140,90 +2152,16 @@ function StationsMapWorkspace({
         className="hidden"
       />
 
-      {/* Desktop Top Title Row (hidden on mobile/tablet so map fills edge-to-edge) */}
-      <div className="hidden lg:flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold text-neutral-900 dark:text-white truncate">
-            {t(lang, 'navStations')}
-          </h1>
-          <p className="text-xs text-neutral-600 dark:text-neutral-400">
-            {lang === 'sw'
-              ? 'Ramani ya 2D & 3D, safu za OGC GeoJSON GIS, utafutaji wa Places na maelekezo.'
-              : 'Interactive 2D & 3D Maps, OGC GeoJSON GIS layers, Google Places discovery, and routing.'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {canManageStations && (
-            <button
-              type="button"
-              onClick={() => {
-                setBboxDrawMode(false);
-                setBboxCorner1(null);
-                setAddStationMode((v) => !v);
-              }}
-              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors ${
-                addStationMode
-                  ? 'bg-[#D92027] text-white border-[#D92027]'
-                  : 'bg-[#0B2A6F] text-[#F5B800] border-[#0B2A6F] hover:bg-[#092055]'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>
-                {addStationMode
-                  ? lang === 'sw'
-                    ? 'Ghairi Kuongeza'
-                    : 'Cancel Pin'
-                  : lang === 'sw'
-                    ? 'Ongeza Kituo Kwenye Ramani'
-                    : 'Add Station on Map'}
-              </span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={toggle3DMode}
-            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors ${
-              viewMode === '3d'
-                ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
-                : 'border-neutral-200 dark:border-blue-950 bg-white dark:bg-[#0E172E] text-neutral-800 dark:text-neutral-200'
-            }`}
-          >
-            <Box className="w-3.5 h-3.5" />
-            <span>{viewMode === '3d' ? '2D Map' : '3D Maps'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={fitAllMarkers}
-            className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-white dark:bg-[#0E172E] text-neutral-800 dark:text-neutral-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-          >
-            <Compass className="w-3.5 h-3.5 text-[#F5B800]" />
-            <span>{lang === 'sw' ? 'Onyesha Zote' : 'Fit All'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={requestUserLocation}
-            className="px-3 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-          >
-            {locLoading ? (
-              <Loader2 className="w-3.5 h-3.5 text-[#F5B800] animate-spin" />
-            ) : (
-              <Navigation className="w-3.5 h-3.5 text-[#F5B800]" />
-            )}
-            <span>
-              {locLoading
-                ? t(lang, 'loading')
-                : lang === 'sw'
-                  ? 'Eneo Langu'
-                  : 'My GPS'}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Responsive Maps Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-4">
+      {/* Full-Viewport Maps Workspace */}
+      <div className="w-full">
         {/* Interactive Full-Viewport Map (2D or 3D Extruded Buildings) */}
-        <div className="lg:col-span-8 min-w-0 rounded-none lg:rounded-2xl overflow-hidden border-0 lg:border border-neutral-200 dark:border-blue-950 bg-neutral-100 dark:bg-[#091022] h-[calc(100dvh-7rem)] min-h-[440px] lg:h-[calc(100dvh-9.5rem)] relative">
+        <div
+          className={
+            isFullscreen
+              ? 'fixed inset-0 z-50 w-screen h-dvh bg-neutral-100 dark:bg-[#091022] overflow-hidden'
+              : 'w-full min-w-0 bg-neutral-100 dark:bg-[#091022] h-[calc(100dvh-7rem)] min-h-[440px] lg:h-[calc(100dvh-4rem)] relative overflow-hidden'
+          }
+        >
           {isNative3DActive ? (
             <Map3D
               id="oilcom-map-3d"
@@ -2316,8 +2254,8 @@ function StationsMapWorkspace({
                   altitudeMode={AltitudeMode.CLAMP_TO_GROUND}
                   strokeColor="#F5B800"
                   outerColor="#0B2A6F"
-                  strokeWidth={8}
-                  outerWidth={2}
+                  strokeWidth={10}
+                  outerWidth={0.35}
                 />
               )}
 
@@ -3104,10 +3042,26 @@ function StationsMapWorkspace({
 
               <button
                 type="button"
-                onClick={() => setMobileListOpen((v) => !v)}
-                className="lg:hidden px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border bg-[#0B2A6F] text-white border-[#0B2A6F] flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                onClick={() => {
+                  if (isDesktop) {
+                    setDesktopPanelOpen((v) => !v);
+                  } else {
+                    setMobileListOpen((v) => !v);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-sm border flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
+                  (isDesktop ? desktopPanelOpen : mobileListOpen)
+                    ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
+                    : 'bg-[#0B2A6F] text-white border-[#0B2A6F]'
+                }`}
               >
-                <List className="w-3 h-3 text-[#F5B800]" />
+                <List
+                  className={`w-3 h-3 ${
+                    (isDesktop ? desktopPanelOpen : mobileListOpen)
+                      ? 'text-[#0B2A6F]'
+                      : 'text-[#F5B800]'
+                  }`}
+                />
                 <span>
                   {lang === 'sw' ? 'Orodha' : 'List'} (
                   {filteredStations.length + discoveredPlaces.length})
@@ -3502,6 +3456,30 @@ function StationsMapWorkspace({
                 <Loader2 className="w-4 h-4 text-blue-600 dark:text-[#F5B800] animate-spin" />
               ) : (
                 <Navigation className="w-4 h-4 text-blue-600 dark:text-[#F5B800]" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFullscreen((v) => !v)}
+              title={
+                isFullscreen
+                  ? lang === 'sw'
+                    ? 'Ondoka Skrini Nzima'
+                    : 'Exit Fullscreen'
+                  : lang === 'sw'
+                    ? 'Panua Skrini Nzima'
+                    : 'Fullscreen Map'
+              }
+              className={`w-10 h-10 rounded-xl border shadow-md flex items-center justify-center cursor-pointer transition-colors ${
+                isFullscreen
+                  ? 'bg-[#F5B800] text-[#0B2A6F] border-[#F5B800]'
+                  : 'bg-white/95 dark:bg-[#0E172E]/95 border-neutral-200 dark:border-blue-900 text-[#0B2A6F] dark:text-[#F5B800]'
+              }`}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
               )}
             </button>
           </div>
@@ -3937,12 +3915,11 @@ function StationsMapWorkspace({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Desktop Side Panel: Active Details + Directory */}
-        <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 min-w-0 lg:h-[calc(100dvh-9.5rem)]">
-          {activeTarget && (
-            <div className="rounded-2xl bg-[#0B2A6F] text-white overflow-hidden shadow-sm">
+          {/* Desktop Floating Side Drawer: Active Details + Directory (only open on demand so map stays 100% full) */}
+          {desktopPanelOpen && (
+            <div className="hidden lg:flex flex-col gap-3 min-w-0 absolute top-28 right-16 bottom-3 w-[356px] z-20 pointer-events-auto overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {activeTarget && (
+                <div className="rounded-2xl bg-[#0B2A6F]/95 backdrop-blur-md text-white overflow-hidden shadow-2xl border border-white/15 shrink-0">
               {activeTarget.kind === 'place' && activeTarget.photoUrl && (
                 <div className="relative h-32 w-full">
                   <img
@@ -4229,17 +4206,27 @@ function StationsMapWorkspace({
           )}
 
           {/* Directory List */}
-          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 flex-1 flex flex-col overflow-hidden min-h-[240px]">
-            <div className="px-4 py-3 border-b border-neutral-100 dark:border-blue-950 flex items-center justify-between text-xs font-bold text-neutral-900 dark:text-white">
-              <span>
-                {lang === 'sw' ? 'Vituo vya OILCOM' : 'OILCOM Stations'} (
-                {filteredStations.length})
-              </span>
-              {discoveredPlaces.length > 0 && (
-                <span className="text-[11px] font-semibold text-blue-700 dark:text-[#F5B800]">
-                  +{discoveredPlaces.length} Places
+          <div className="rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-950 shadow-2xl flex-1 flex flex-col overflow-hidden min-h-[200px]">
+            <div className="px-4 py-3 border-b border-neutral-100 dark:border-blue-950 flex items-center justify-between gap-2 text-xs font-bold text-neutral-900 dark:text-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="truncate">
+                  {lang === 'sw' ? 'Vituo vya OILCOM' : 'OILCOM Stations'} (
+                  {filteredStations.length})
                 </span>
-              )}
+                {discoveredPlaces.length > 0 && (
+                  <span className="text-[11px] font-semibold text-blue-700 dark:text-[#F5B800] shrink-0">
+                    +{discoveredPlaces.length} Places
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDesktopPanelOpen(false)}
+                aria-label="Close stations drawer"
+                className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-blue-950">
@@ -4329,6 +4316,8 @@ function StationsMapWorkspace({
               })}
             </div>
           </div>
+            </div>
+          )}
         </div>
       </div>
 

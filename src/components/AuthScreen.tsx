@@ -148,7 +148,7 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center min-w-0 lg:hidden">
-            <OilcomWordmark className="w-28 h-9" />
+            <OilcomWordmark className="h-9" />
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:ml-auto">
             <button
@@ -182,7 +182,7 @@ export function AuthScreen({ lang, setLang, theme, setTheme }: AuthScreenProps) 
         {/* Full desktop brand hero */}
         <div className="hidden lg:block my-auto max-w-lg">
           <div className="inline-flex items-center gap-3 mb-6">
-            <OilcomFullLogo className="w-44 h-44" />
+            <OilcomFullLogo className="w-60 xl:w-64" />
           </div>
           <h1 className="font-display text-4xl xl:text-5xl font-extrabold tracking-tight leading-tight text-white">
             {t(lang, 'tagline')}

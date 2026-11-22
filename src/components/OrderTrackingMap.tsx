@@ -405,8 +405,8 @@ function TrackingWorkspace({
                 altitudeMode={AltitudeMode.CLAMP_TO_GROUND}
                 strokeColor="#F5B800"
                 outerColor="#0B2A6F"
-                strokeWidth={7}
-                outerWidth={2}
+                strokeWidth={10}
+                outerWidth={0.35}
               />
             )}
 
