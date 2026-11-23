@@ -497,6 +497,19 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidHomepageSlide(data) {
+      return data.keys().hasAll(['imageUrl', 'sortOrder', 'active', 'createdBy', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['title', 'caption', 'imageUrl', 'sortOrder', 'active', 'createdBy', 'createdAt', 'updatedAt'])
+        && (!('title' in data) || isValidString(data.title, 0, 120))
+        && (!('caption' in data) || isValidString(data.caption, 0, 200))
+        && isValidString(data.imageUrl, 5, 700000)
+        && isNonNegNumber(data.sortOrder)
+        && data.active is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // --- Collection Rules ---
 
     // 1. Users (PII isolated; non-customer roles MUST come from Admin or verified RoleProvision)
@@ -971,6 +984,21 @@ service cloud.firestore {
             && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone', 'staffRole', 'shift', 'status', 'updatedAt']))
         );
       allow delete: if isValidId(staffId) && (isAdmin() || (isSignedIn() && existing().managerUid == request.auth.uid));
+    }
+
+    // 28. Homepage Hero Slides (Public active read for pre-login homepage; Admin write/manage)
+    match /homepage_slides/{slideId} {
+      allow get: if isValidId(slideId) && (existing().active == true || isAdmin());
+      allow list: if existing().active == true || isBootstrappedAdmin();
+      allow create: if isValidId(slideId) && isAdmin() && isValidHomepageSlide(incoming())
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(slideId) && isAdmin() && isValidHomepageSlide(incoming())
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isValidId(slideId) && isAdmin();
     }
   }
 }

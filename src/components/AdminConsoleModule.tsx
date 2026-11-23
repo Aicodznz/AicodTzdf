@@ -57,6 +57,7 @@ import type {
   AuditLogEntry,
   BusinessAccount,
   GasOrder,
+  HomepageSlide,
   Language,
   OilcomUser,
   Product,
@@ -69,6 +70,7 @@ import type {
   SystemSettings,
   UserRole,
 } from '../types/oilcom';
+import { HomepageSlidesManager } from './HomepageSlidesManager';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
 import { formatTimestamp, formatTzs } from './OilcomBrand';
 
@@ -86,6 +88,7 @@ interface AdminConsoleModuleProps {
   inventory: AgentInventoryItem[];
   auditLogs: AuditLogEntry[];
   settings: SystemSettings;
+  homepageSlides?: HomepageSlide[];
   googleMapsApiKey?: string;
 }
 
@@ -103,6 +106,7 @@ export function AdminConsoleModule({
   inventory,
   auditLogs,
   settings,
+  homepageSlides = [],
   googleMapsApiKey = '',
 }: AdminConsoleModuleProps) {
   const [tab, setTab] = useState<
@@ -2481,83 +2485,104 @@ export function AdminConsoleModule({
       )}
 
       {tab === 'settings' && (
-        <form
-          onSubmit={handleSaveSettings}
-          className="max-w-xl rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-4"
-        >
-          <h3 className="font-display font-bold text-base">
-            Configurable Rewards & Order Rules
-          </h3>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1">
-                Points per TZS 1,000
-              </label>
-              <input
-                type="number"
-                value={settingsForm.pointsPer1000Tzs}
-                onChange={(e) =>
-                  setSettingsForm({
-                    ...settingsForm,
-                    pointsPer1000Tzs: Number(e.target.value),
-                  })
-                }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
-              />
+        <div className="space-y-5">
+          {/* Homepage Hero Media / Slideshow Management */}
+          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+                  {lang === 'sw'
+                    ? 'Picha za Homepage (Hero & Slideshow)'
+                    : 'Homepage Hero Photos & Slideshow'}
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {lang === 'sw'
+                    ? 'Badilisha picha ya mbele ya OILCOM au weka picha nyingi zicheze kama slideshow kwa wageni wote.'
+                    : 'Change the public OILCOM hero photo or add multiple photos for a live slideshow.'}
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">
-                Point Value (TZS)
-              </label>
-              <input
-                type="number"
-                value={settingsForm.pointRedemptionValueTzs}
-                onChange={(e) =>
-                  setSettingsForm({
-                    ...settingsForm,
-                    pointRedemptionValueTzs: Number(e.target.value),
-                  })
-                }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">
-                Gas Cancel Window (min)
-              </label>
-              <input
-                type="number"
-                value={settingsForm.gasCancelWindowMinutes}
-                onChange={(e) =>
-                  setSettingsForm({
-                    ...settingsForm,
-                    gasCancelWindowMinutes: Number(e.target.value),
-                  })
-                }
-                className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
-              />
-            </div>
-            <div className="flex items-center gap-2 pt-5">
-              <input
-                type="checkbox"
-                checked={settingsForm.sandboxModeEnabled}
-                onChange={(e) =>
-                  setSettingsForm({
-                    ...settingsForm,
-                    sandboxModeEnabled: e.target.checked,
-                  })
-                }
-              />
-              <span className="text-xs font-semibold">Sandbox Payment Mode</span>
-            </div>
+            <HomepageSlidesManager lang={lang} slides={homepageSlides} />
           </div>
-          <button
-            type="submit"
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
+
+          <form
+            onSubmit={handleSaveSettings}
+            className="max-w-xl rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-6 space-y-4"
           >
-            {t(lang, 'save')}
-          </button>
-        </form>
+            <h3 className="font-display font-bold text-base">
+              Configurable Rewards & Order Rules
+            </h3>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Points per TZS 1,000
+                </label>
+                <input
+                  type="number"
+                  value={settingsForm.pointsPer1000Tzs}
+                  onChange={(e) =>
+                    setSettingsForm({
+                      ...settingsForm,
+                      pointsPer1000Tzs: Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Point Value (TZS)
+                </label>
+                <input
+                  type="number"
+                  value={settingsForm.pointRedemptionValueTzs}
+                  onChange={(e) =>
+                    setSettingsForm({
+                      ...settingsForm,
+                      pointRedemptionValueTzs: Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">
+                  Gas Cancel Window (min)
+                </label>
+                <input
+                  type="number"
+                  value={settingsForm.gasCancelWindowMinutes}
+                  onChange={(e) =>
+                    setSettingsForm({
+                      ...settingsForm,
+                      gasCancelWindowMinutes: Number(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 rounded-xl border border-neutral-200 dark:border-blue-950 bg-neutral-50 dark:bg-[#091022] text-sm font-mono-num"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input
+                  type="checkbox"
+                  checked={settingsForm.sandboxModeEnabled}
+                  onChange={(e) =>
+                    setSettingsForm({
+                      ...settingsForm,
+                      sandboxModeEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span className="text-xs font-semibold">Sandbox Payment Mode</span>
+              </div>
+            </div>
+            <button
+              type="submit"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0B2A6F] text-white text-xs font-semibold cursor-pointer"
+            >
+              {t(lang, 'save')}
+            </button>
+          </form>
+        </div>
       )}
 
       {tab === 'logs' && (

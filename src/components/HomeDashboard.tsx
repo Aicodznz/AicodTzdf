@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
   Briefcase,
@@ -8,7 +8,8 @@ import {
   Compass,
   Flame,
   Fuel,
-  Gift,
+  Handshake,
+  ImagePlus,
   Mail,
   MapPin,
   Megaphone,
@@ -23,6 +24,7 @@ import { t } from '../i18n/translations';
 import type {
   AppRoute,
   GasOrder,
+  HomepageSlide,
   Language,
   OilcomUser,
   Product,
@@ -31,10 +33,11 @@ import type {
   Station,
   UserRole,
 } from '../types/oilcom';
+import {
+  DEFAULT_HERO_TANKER_PHOTO,
+  HomepageSlidesManagerModal,
+} from './HomepageSlidesManager';
 import { formatTzs, OilcomWordmark } from './OilcomBrand';
-
-const HERO_TANKER_PHOTO =
-  '/assets/aistudio/WhatsApp_Image_2026-11-21_at_11.41.08_PM__1__e4bdacfd.jpeg';
 
 interface HomeDashboardProps {
   lang: Language;
@@ -45,6 +48,8 @@ interface HomeDashboardProps {
   promotions: Promotion[];
   products: Product[];
   stations: Station[];
+  homepageSlides?: HomepageSlide[];
+  adminHomepageSlides?: HomepageSlide[];
   onNavigate: (route: AppRoute) => void;
   onOpenAuth?: () => void;
 }
@@ -58,12 +63,54 @@ export function HomeDashboard({
   promotions,
   products,
   stations,
+  homepageSlides = [],
+  adminHomepageSlides,
   onNavigate,
   onOpenAuth,
 }: HomeDashboardProps) {
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
-  const [heroImgFailed, setHeroImgFailed] = useState(false);
+  const [slidesModalOpen, setSlidesModalOpen] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
   const [newsIndex, setNewsIndex] = useState(0);
+
+  const heroSlides = useMemo(() => {
+    const active = [...homepageSlides]
+      .filter((s) => s.active && Boolean(s.imageUrl))
+      .sort((a, b) => {
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        return a.id.localeCompare(b.id);
+      });
+    if (active.length > 0) return active;
+    return [
+      {
+        id: 'default-hero',
+        title: lang === 'sw' ? 'Usambazaji wa Uhakika' : 'Nationwide Distribution',
+        caption: 'Petrol · Diesel · Kerosene · LPG',
+        imageUrl: DEFAULT_HERO_TANKER_PHOTO,
+        sortOrder: 0,
+        active: true,
+        createdBy: 'system',
+      } satisfies HomepageSlide,
+    ];
+  }, [homepageSlides, lang]);
+
+  useEffect(() => {
+    if (slideIndex >= heroSlides.length) {
+      setSlideIndex(0);
+    }
+  }, [heroSlides.length, slideIndex]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1 || slidesModalOpen) return;
+    const timer = window.setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 5500);
+    return () => window.clearInterval(timer);
+  }, [heroSlides.length, slidesModalOpen]);
+
+  const activeSlide = heroSlides[slideIndex % heroSlides.length] || heroSlides[0];
+  const heroImgFailed = Boolean(activeSlide && failedUrls[activeSlide.imageUrl]);
 
   const isGuest = !user;
   const firstName = user?.fullName.split(' ')[0] || (lang === 'sw' ? 'Mgeni' : 'Guest');
@@ -72,7 +119,7 @@ export function HomeDashboard({
     (o) => !['delivered', 'cancelled'].includes(o.status)
   );
 
-  // Pull live prices directly from catalog products
+  // Pull live catalog rates directly from Firestore products
   const livePricing = useMemo(() => {
     const findPrice = (matcher: RegExp, fallback: number) => {
       const match = products.find(
@@ -94,41 +141,35 @@ export function HomeDashboard({
       lang === 'sw'
         ? [
             {
-              title: 'OILCOM Vituo Halisi Kote Tanzania',
-              detail:
-                'Tafuta vituo vyote vya mafuta na gesi ya OILCOM kwenye ramani shirikishi ya 2D na 3D na upate maelekezo ya papo hapo.',
+              title: 'OILCOM inazindua mtandao mpana wa vituo kote Tanzania.',
+              detail: 'Karibu ujaze mafuta safi au upate OILCOM Gas kwa huduma bora zaidi.',
               route: 'stations' as AppRoute,
             },
             {
               title: 'Agiza Mitungi ya OILCOM Gas Nyumbani',
-              detail:
-                'Mitungi ya 6kg, 15kg na 38kg inapatikana kwa uagizaji wa haraka na ufuatiliaji wa dereva mubashara.',
+              detail: 'Mitungi ya 6kg, 15kg na 38kg inapatikana mtandaoni kwa ufuatiliaji mubashara.',
               route: 'gas' as AppRoute,
             },
             {
               title: 'Kusanya Pointi za OILCOM Rewards',
-              detail:
-                'Onyesha QR code yako kwenye kituo chochote cha OILCOM kupata pointi na kukomboa vocha za punguzo.',
+              detail: 'Onyesha QR code yako kwenye kituo chochote kupata pointi na vocha za punguzo.',
               route: 'rewards' as AppRoute,
             },
           ]
         : [
             {
-              title: 'OILCOM Stations Nationwide',
-              detail:
-                'Explore verified OILCOM fuel and LPG gas stations on our interactive 2D & 3D map with turn-by-turn routing.',
+              title: 'Explore verified OILCOM Stations nationwide on 2D & 3D Maps.',
+              detail: 'Real-time turn-by-turn navigation to fuel and OILCOM Gas hubs.',
               route: 'stations' as AppRoute,
             },
             {
               title: 'Fast OILCOM Gas Cylinder Delivery',
-              detail:
-                'Order 6kg, 15kg, or 38kg LPG cylinders online with live order status and station dispatch.',
+              detail: 'Order 6kg, 15kg, or 38kg LPG cylinders online with live order status.',
               route: 'gas' as AppRoute,
             },
             {
               title: 'Earn OILCOM Rewards Points',
-              detail:
-                'Scan your verified member QR code at any OILCOM pump or depot to collect points and redeem vouchers.',
+              detail: 'Scan your verified member QR code at any station to earn points and vouchers.',
               route: 'rewards' as AppRoute,
             },
           ];
@@ -156,62 +197,62 @@ export function HomeDashboard({
     {
       route: 'fuel',
       title: lang === 'sw' ? 'Huduma za Mafuta' : 'Fuel Services',
-      subtitle: lang === 'sw' ? 'Petrol, Diesel & Kerosene' : 'Petrol, Diesel & Kerosene',
+      subtitle: 'Petrol, Diesel & LPG',
       icon: <Fuel className="w-5 h-5 text-white" />,
+      accentClass: 'bg-[#D92027]',
+    },
+    {
+      route: 'orders',
+      title: lang === 'sw' ? 'Usafirishaji Mafuta' : 'Fuel Logistics',
+      subtitle: activeOrder
+        ? `${activeOrder.orderNumber} · ${activeOrder.status}`
+        : lang === 'sw'
+          ? 'Salama na Kwa Wakati'
+          : 'Safe & Reliable',
+      icon: <Truck className="w-5 h-5 text-white" />,
+      accentClass: 'bg-[#D92027]',
+    },
+    {
+      route: 'stations',
+      title: lang === 'sw' ? 'Vituo vya Mafuta' : 'Fuel Stations',
+      subtitle: lang === 'sw' ? 'Kote Tanzania' : 'Across Tanzania',
+      icon: <Store className="w-5 h-5 text-white" />,
       accentClass: 'bg-[#D92027]',
     },
     {
       route: 'gas',
       title: lang === 'sw' ? 'OILCOM Gas (LPG)' : 'OILCOM Gas (LPG)',
-      subtitle: lang === 'sw' ? 'Mitungi 6kg, 15kg & 38kg' : '6kg, 15kg & 38kg Cylinders',
-      icon: <Flame className="w-5 h-5 text-[#071A4A]" />,
-      accentClass: 'bg-[#F5B800]',
-    },
-    {
-      route: 'stations',
-      title: lang === 'sw' ? 'Vituo vya Mafuta' : 'Station Network',
-      subtitle: lang === 'sw' ? 'Ramani & Maelekezo 3D' : '2D & 3D Map Locator',
-      icon: <MapPin className="w-5 h-5 text-white" />,
-      accentClass: 'bg-[#13419E]',
-    },
-    {
-      route: 'orders',
-      title: lang === 'sw' ? 'Usafirishaji & Oda' : 'Delivery & Orders',
-      subtitle: activeOrder
-        ? `${activeOrder.orderNumber} · ${activeOrder.status}`
-        : lang === 'sw'
-          ? 'Salama na Kwa Wakati'
-          : 'Safe & Reliable Tracking',
-      icon: <Truck className="w-5 h-5 text-white" />,
-      accentClass: 'bg-[#0B2A6F]',
+      subtitle: lang === 'sw' ? 'Mitungi 6kg, 15kg & 38kg' : '6kg, 15kg & 38kg LPG',
+      icon: <Flame className="w-5 h-5 text-white" />,
+      accentClass: 'bg-[#D92027]',
     },
     {
       route: effectiveRole === 'admin' ? 'admin' : 'rewards',
       title:
         effectiveRole === 'admin'
           ? lang === 'sw'
-            ? 'Kituo cha Utawala'
+            ? 'Usimamizi Mkuu'
             : 'Admin Console'
           : lang === 'sw'
-            ? 'Zawadi za OILCOM'
-            : 'OILCOM Rewards',
+            ? 'Zawadi & Ushirika'
+            : 'Rewards & Loyalty',
       subtitle:
         effectiveRole === 'admin'
           ? lang === 'sw'
-            ? 'Usimamizi & Takwimu'
-            : 'Management & Analytics'
+            ? 'Kituo cha Utawala'
+            : 'System Operations'
           : isGuest
             ? lang === 'sw'
-              ? 'Jisajili kupata pointi'
-              : 'Sign up to earn points'
+              ? 'Pamoja Tunashinda'
+              : 'Earn Member Points'
             : `${points.toLocaleString('en-US')} ${lang === 'sw' ? 'pointi' : 'pts'} · ${rewards?.tier || 'Bronze'}`,
       icon:
         effectiveRole === 'admin' ? (
           <ShieldCheck className="w-5 h-5 text-white" />
         ) : (
-          <Gift className="w-5 h-5 text-white" />
+          <Handshake className="w-5 h-5 text-white" />
         ),
-      accentClass: effectiveRole === 'admin' ? 'bg-[#0B2A6F]' : 'bg-[#D92027]',
+      accentClass: 'bg-[#D92027]',
     },
   ];
 
@@ -255,229 +296,415 @@ export function HomeDashboard({
   );
 
   return (
-    <div className="space-y-5 sm:space-y-7">
-      {/* SECTION 1: Hero Banner + Real OILCOM Station & Fleet Visual */}
-      <section className="relative overflow-hidden rounded-2xl bg-[#071A4A] text-white border border-blue-900/60 shadow-lg">
-        {/* Brand Tri-Color Top Stripe */}
-        <div className="h-1.5 w-full grid grid-cols-3">
-          <span className="bg-[#1D4ED8]" />
-          <span className="bg-[#D92027]" />
-          <span className="bg-[#F5B800]" />
-        </div>
+    <div className="w-full min-h-full flex flex-col bg-white dark:bg-[#060B18]">
+      {/* SECTION 1: Bright Royal-Cobalt Panoramic Hero + Translucent 5-Tile Bottom Dock */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#06247A] via-[#0F49CC] to-[#082A8C] text-white">
+        {/* Crisp Full-Right / Full-Bleed Hero Photo Layer */}
+        {activeSlide && !heroImgFailed && (
+          <div className="absolute inset-0 lg:left-[30%] overflow-hidden pointer-events-none">
+            <img
+              key={activeSlide.id}
+              src={activeSlide.imageUrl}
+              alt={
+                activeSlide.title ||
+                'OILCOM Fuel Station and Tanker Fleet — Energy for a Better Tomorrow'
+              }
+              referrerPolicy="no-referrer"
+              onError={() =>
+                setFailedUrls((prev) => ({ ...prev, [activeSlide.imageUrl]: true }))
+              }
+              className="w-full h-full object-cover object-center brightness-105 contrast-105 saturate-115 transition-opacity duration-500"
+            />
+            {/* Smooth Luminous Royal-Blue Feather Blending Left Typography Side Into Vibrant Photo */}
+            <div
+              className="hidden lg:block absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(90deg, #0935A8 0%, rgba(11,61,180,0.88) 14%, rgba(15,73,204,0.34) 32%, rgba(15,73,204,0) 56%)',
+              }}
+            />
+          </div>
+        )}
 
-        {/* Hero 2-Column Split (Balanced Height) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-          {/* Left Content Zone */}
-          <div className="lg:col-span-7 p-5 sm:p-8 lg:p-10 flex flex-col justify-between gap-6">
-            {/* Clean Member Metadata Header Bar (Zero-Pill Rule) */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
-              {isGuest ? (
-                <>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#F5B800]">
-                      OILCOM Tanzania Limited
-                    </p>
-                    <p className="text-[11px] text-blue-100/80">
-                      {lang === 'sw'
-                        ? 'Mafuta Safi · OILCOM Gas · Vituo Kote Nchini'
-                        : 'Clean Fuels · OILCOM Gas · Nationwide Stations'}
-                    </p>
-                  </div>
-                  {onOpenAuth && (
-                    <button
-                      type="button"
-                      onClick={onOpenAuth}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#F5B800] hover:bg-[#e5ab00] text-[#071A4A] text-xs font-bold cursor-pointer whitespace-nowrap shrink-0 transition-colors"
-                    >
-                      {lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 min-w-0">
-                    {user?.photoUrl ? (
-                      <img
-                        src={user.photoUrl}
-                        alt={user.fullName}
-                        referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-xl object-cover border border-[#F5B800]/70 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-[#F5B800] text-[#071A4A] font-display font-extrabold text-base flex items-center justify-center shrink-0">
-                        {firstName.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-blue-100/80 truncate">
-                        {t(lang, 'helloCustomer')},{' '}
-                        <span className="font-bold text-white">{firstName}</span>
-                      </p>
-                      <div className="flex items-center gap-2 text-[11px] text-[#F5B800] font-mono-num truncate">
-                        <span>{rewards?.customerCode || 'OILCOM'}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{rewards?.tier || 'Bronze'}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{points.toLocaleString('en-US')} pts</span>
-                      </div>
-                    </div>
-                  </div>
+        {/* Mobile/Tablet Readable Cobalt Gradient Overlay */}
+        <div
+          className="lg:hidden absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(110deg, rgba(6,32,108,0.88) 0%, rgba(11,55,168,0.68) 55%, rgba(8,36,112,0.45) 100%)',
+          }}
+        />
 
+        {/* Luminous Soft Bottom Reflection Band Behind Dock */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(6,26,84,0) 0%, rgba(5,21,70,0.68) 70%, rgba(5,19,62,0.92) 100%)',
+          }}
+        />
+
+        {/* Hero Inner Content Container */}
+        <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 pt-4 sm:pt-7 pb-4 sm:pb-5 flex flex-col justify-between gap-4 min-h-[395px] sm:min-h-[430px] lg:min-h-[460px]">
+          {/* Top Bar inside Hero: Signed-In Profile Badge + Slideshow Arrows + Admin Media Control */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            {!isGuest ? (
+              <div className="flex items-center gap-2.5 bg-[#061D5C]/75 backdrop-blur-md border border-white/20 rounded-xl px-3 py-1.5">
+                {user?.photoUrl ? (
+                  <img
+                    src={user.photoUrl}
+                    alt={user.fullName}
+                    referrerPolicy="no-referrer"
+                    className="w-7 h-7 rounded-lg object-cover border border-[#F5B800]/75 shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-lg bg-[#F5B800] text-[#071A4A] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                    {firstName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">
+                    {t(lang, 'helloCustomer')}, {firstName}
+                  </p>
+                  <p className="text-[11px] text-[#F5B800] font-mono-num truncate">
+                    {rewards?.customerCode || 'OILCOM'} · {points.toLocaleString('en-US')} pts
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div aria-hidden="true" className="hidden sm:block h-4" />
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              {heroSlides.length > 1 && (
+                <div className="flex items-center gap-1.5 bg-[#061A4D]/75 backdrop-blur-md border border-white/25 rounded-full px-2.5 py-1">
                   <button
                     type="button"
-                    onClick={() => onNavigate('rewards')}
-                    className="text-xs font-semibold text-[#F5B800] hover:underline inline-flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                    onClick={() =>
+                      setSlideIndex(
+                        (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
+                      )
+                    }
+                    aria-label="Previous photo"
+                    className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
                   >
-                    <Gift className="w-3.5 h-3.5" />
-                    <span>{lang === 'sw' ? 'Kadi ya QR' : 'Member QR'}</span>
+                    <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
-                </>
+                  <div className="flex items-center gap-1 px-1">
+                    {heroSlides.map((s, idx) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSlideIndex(idx)}
+                        aria-label={`Slide ${idx + 1}`}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                          idx === slideIndex % heroSlides.length
+                            ? 'w-4 bg-[#F5B800]'
+                            : 'w-1.5 bg-white/45 hover:bg-white/80'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSlideIndex((prev) => (prev + 1) % heroSlides.length)
+                    }
+                    aria-label="Next photo"
+                    className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {effectiveRole === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => setSlidesModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-full bg-[#F5B800] hover:bg-[#e5aa00] text-[#071A4A] text-xs font-extrabold inline-flex items-center gap-1.5 shadow-lg cursor-pointer transition-colors"
+                >
+                  <ImagePlus className="w-3.5 h-3.5" />
+                  <span>{lang === 'sw' ? 'Badilisha Picha' : 'Change Photo(s)'}</span>
+                </button>
               )}
             </div>
+          </div>
 
-            {/* Hero Editorial Core */}
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <OilcomWordmark className="h-9 sm:h-11" />
-                <span className="text-xs sm:text-sm italic font-medium text-blue-100/85">
+          {/* Center-Left Editorial Block Matching Reference Proportions */}
+          <div className="max-w-lg space-y-3.5 my-auto lg:pl-2">
+            <div className="space-y-1">
+              <OilcomWordmark className="h-14 sm:h-[68px] lg:h-[76px] drop-shadow-[0_6px_18px_rgba(3,14,52,0.5)]" />
+              <div className="inline-block">
+                <p className="text-sm sm:text-base italic font-bold text-white tracking-wide drop-shadow-xs">
                   Energy for a Better Tomorrow
-                </span>
+                </p>
+                <div className="mt-0.5 h-[2px] w-44 rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-transparent" />
               </div>
+            </div>
 
+            <div className="space-y-1.5">
               <h1
-                className="font-display font-extrabold tracking-tight leading-[1.08] text-white"
-                style={{ fontSize: 'clamp(1.85rem, 3.6vw, 3.15rem)' }}
+                className="font-display font-extrabold tracking-tight leading-[1.06] text-white drop-shadow-[0_4px_14px_rgba(3,14,52,0.5)]"
+                style={{ fontSize: 'clamp(1.95rem, 3.6vw, 3.1rem)' }}
               >
                 {lang === 'sw' ? (
                   <>
                     Nishati Bora,{' '}
-                    <span className="text-[#F5B800]">Maisha Bora.</span>
+                    <span className="italic text-[#FFD028]">Maisha Bora</span>
                   </>
                 ) : (
                   <>
                     Better Energy,{' '}
-                    <span className="text-[#F5B800]">Better Life.</span>
+                    <span className="italic text-[#FFD028]">Better Life</span>
                   </>
                 )}
               </h1>
 
-              <p className="text-sm sm:text-base text-blue-100/85 max-w-2xl leading-relaxed">
+              <p className="text-xs sm:text-[15px] italic text-blue-50 max-w-md leading-relaxed drop-shadow-xs">
                 {lang === 'sw'
-                  ? 'Tunaweka nishati karibu nawe, kila wakati, mahali popote. Pata Petrol na Diesel halisi, mitungi ya OILCOM Gas, na huduma ya vituo vilivyothibitishwa kote Tanzania.'
-                  : 'Putting reliable energy within your reach anytime, anywhere. Access clean Petrol and Diesel, certified OILCOM LPG cylinders, and our nationwide station network.'}
+                  ? 'Tunaweka nishati karibu nawe, kila wakati, mahali popote.'
+                  : 'Putting clean fuel, OILCOM LPG, and certified stations near you anytime, anywhere.'}
               </p>
             </div>
 
-            {/* Action Buttons Row */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => onNavigate('gas')}
-                className="px-5 py-2.5 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white text-sm font-bold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-md"
+                className="px-5 py-2.5 rounded-full bg-[#D92027] hover:bg-[#b81b21] border border-white/25 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-[0_6px_18px_rgba(217,32,39,0.45)]"
               >
-                <Flame className="w-4 h-4 text-[#F5B800]" />
-                <span>{lang === 'sw' ? 'Agiza Gesi au Mafuta' : 'Order Gas or Fuel'}</span>
+                <Fuel className="w-4 h-4 text-white" />
+                <span>{lang === 'sw' ? 'Huduma Zetu' : 'Our Services'}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('stations')}
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="px-5 py-2.5 rounded-full bg-[#072166]/65 hover:bg-[#0B2A6F]/90 backdrop-blur-sm border border-white/70 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-md"
               >
-                <MapPin className="w-4 h-4 text-[#F5B800]" />
-                <span>{lang === 'sw' ? 'Tazama Vituo Kote TZ' : 'Explore Station Map'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAboutModalOpen(true)}
-                className="px-3.5 py-2.5 text-sm font-semibold text-blue-100 hover:text-[#F5B800] underline-offset-4 hover:underline transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              >
-                {lang === 'sw' ? 'Kuhusu OILCOM' : 'About OILCOM'}
+                <MapPin className="w-4 h-4 text-[#FFD028]" />
+                <span>{lang === 'sw' ? 'Tazama Vituo' : 'View Stations'}</span>
               </button>
             </div>
           </div>
 
-          {/* Right Media Frame (Real OILCOM Station & Tanker Photo) */}
-          <div className="lg:col-span-5 relative min-h-[240px] sm:min-h-[300px] lg:min-h-full bg-[#0B2A6F] overflow-hidden">
-            {!heroImgFailed ? (
-              <img
-                src={HERO_TANKER_PHOTO}
-                alt="OILCOM Fuel Station and Tanker Fleet — Energy for a Better Tomorrow"
-                referrerPolicy="no-referrer"
-                onError={() => setHeroImgFailed(true)}
-                className="w-full h-full object-cover object-center lg:h-full"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-[#0B2A6F] via-[#13419E] to-[#071A4A] text-center">
-                <Fuel className="w-14 h-14 text-[#F5B800] mb-3" />
-                <p className="font-display font-bold text-lg text-white">OILCOM Tanzania</p>
-                <p className="text-xs text-blue-100/80 mt-1">
-                  Petrol · Diesel · Kerosene · OILCOM Gas
-                </p>
-              </div>
-            )}
-
-            {/* Measured contrast scrim */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#071A4A] via-[#071A4A]/25 to-transparent lg:bg-gradient-to-r lg:from-[#071A4A]/70 lg:via-transparent lg:to-transparent pointer-events-none" />
-
-            {/* Clean unboxed telemetry overlay */}
-            <div className="absolute bottom-3.5 inset-x-4 flex items-end justify-between gap-2 text-xs">
-              <div>
-                <p className="font-display font-bold text-white text-sm">
-                  {lang === 'sw' ? 'Usambazaji wa Uhakika' : 'Nationwide Distribution'}
-                </p>
-                <p className="text-[11px] text-blue-100/85">
-                  Petrol · Diesel · Kerosene · LPG
-                </p>
-              </div>
-              <span className="font-mono-num text-xs font-bold text-[#F5B800] shrink-0">
-                24/7 Tanzania
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Integrated 5-Card Quick Service Strip at Base of Hero */}
-        <div className="border-t border-white/15 bg-[#06153D]/95 p-3 sm:p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-            {quickDockItems.map((item) => (
-              <button
-                key={item.route}
-                type="button"
-                onClick={() => onNavigate(item.route)}
-                className="group text-left rounded-xl bg-white/5 hover:bg-white/12 border border-white/10 hover:border-[#F5B800]/60 px-3.5 py-3 flex items-center gap-3 transition-colors cursor-pointer"
-              >
-                <span
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.accentClass}`}
+          {/* Translucent Sapphire-Glass 5-Tile Navigation Dock Anchored at Hero Base */}
+          <div className="rounded-2xl bg-[#07236A]/82 backdrop-blur-md border border-white/25 p-1.5 sm:p-2 shadow-[0_14px_34px_rgba(3,12,48,0.45)]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1.5">
+              {quickDockItems.map((item) => (
+                <button
+                  key={item.route}
+                  type="button"
+                  onClick={() => onNavigate(item.route)}
+                  className="group text-left rounded-xl bg-white/[0.06] hover:bg-white/[0.15] border border-white/15 hover:border-[#FFD028]/75 px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
-                  {item.icon}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-display font-bold text-xs sm:text-[13px] text-white group-hover:text-[#F5B800] truncate">
-                    {item.title}
-                  </p>
-                  <p className="text-[11px] text-blue-100/75 truncate mt-0.5 tabular-nums">
-                    {item.subtitle}
-                  </p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-blue-200/60 group-hover:text-[#F5B800] shrink-0" />
-              </button>
-            ))}
+                  <span
+                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-white/30 shadow-sm ${item.accentClass}`}
+                  >
+                    {item.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display font-bold text-xs sm:text-[13px] text-white group-hover:text-[#FFD028] truncate">
+                      {item.title}
+                    </p>
+                    <p className="text-[11px] text-blue-100/85 truncate tabular-nums">
+                      {item.subtitle}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-blue-100/75 group-hover:text-[#FFD028] shrink-0" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Active Order Live Alert (Only rendered when user has an active in-flight order) */}
+      {/* SECTION 2: Kuhusu OILCOM (Bright Photo Split Card) + Dhamira / Maono / Thamani Pillars */}
+      <section
+        id="kuhusu-oilcom"
+        className="px-3 sm:px-6 lg:px-10 py-3.5 sm:py-4 bg-white dark:bg-[#060B18]"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+          {/* Left 5 cols: Kuhusu OILCOM Feature Card Matching Reference */}
+          <div className="lg:col-span-5 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 shadow-sm overflow-hidden grid grid-cols-1 sm:grid-cols-12">
+            <div className="sm:col-span-7 flex flex-col justify-between pb-3.5">
+              <div>
+                <div className="inline-block bg-[#D92027] text-white font-display font-extrabold text-sm sm:text-base px-5 py-1.5 rounded-br-2xl shadow-xs">
+                  {lang === 'sw' ? 'Kuhusu OILCOM' : 'About OILCOM'}
+                </div>
+                <p className="px-4 pt-2.5 text-xs text-neutral-700 dark:text-neutral-200 leading-relaxed">
+                  {lang === 'sw'
+                    ? 'OILCOM ni kampuni inayoongoza katika sekta ya nishati Tanzania. Tunatoa mafuta ya hali ya juu, usafirishaji salama na huduma bora kwa wateja wetu.'
+                    : 'OILCOM is a leading energy enterprise across Tanzania, delivering clean automotive fuels, OILCOM LPG gas, and dependable service.'}
+                </p>
+              </div>
+
+              <div className="px-4 pt-2.5 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAboutModalOpen(true)}
+                  className="px-4 py-1.5 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-xs font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap transition-colors shadow-xs"
+                >
+                  <span>{lang === 'sw' ? 'Soma Zaidi' : 'Read More'}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400 font-semibold tabular-nums">
+                  {stations.length}+ {lang === 'sw' ? 'Vituo' : 'Hubs'} · 24/7
+                </span>
+              </div>
+            </div>
+
+            {/* Bright Un-Darkened Depot/Tanker Photo Panel */}
+            <div className="sm:col-span-5 relative min-h-[145px] sm:min-h-full overflow-hidden">
+              <img
+                src={activeSlide?.imageUrl || DEFAULT_HERO_TANKER_PHOTO}
+                alt="OILCOM Tanzania Depot & Logistics"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover brightness-105 saturate-110"
+              />
+              <div
+                className="hidden sm:block absolute inset-y-0 left-0 w-10 pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 100%)',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Right 7 cols: 3 Colored Corporate Pillars (Dhamira, Maono, Thamani) */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Dhamira Yetu */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#0E368F] to-[#081F5B] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-blue-900/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#F5B800] text-[#071A4A] flex items-center justify-center shrink-0">
+                  <Target className="w-5 h-5" />
+                </div>
+                <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
+                  {lang === 'sw' ? 'Dhamira Yetu' : 'Our Mission'}
+                </h3>
+              </div>
+              <p className="text-xs text-blue-50/95 leading-relaxed">
+                {lang === 'sw'
+                  ? 'Kutoa nishati bora kwa wote, kwa ubora, usalama na huduma ya hali ya juu.'
+                  : 'Delivering quality energy for all through operational safety and reliable service.'}
+              </p>
+            </div>
+
+            {/* Maono Yetu */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#E2252C] to-[#B8161C] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-red-800/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-white text-[#D92027] flex items-center justify-center shrink-0">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
+                  {lang === 'sw' ? 'Maono Yetu' : 'Our Vision'}
+                </h3>
+              </div>
+              <p className="text-xs text-red-50/95 leading-relaxed">
+                {lang === 'sw'
+                  ? 'Kuwa kampuni bora ya nishati Afrika Mashariki.'
+                  : 'To be East Africa’s leading and most trusted energy brand.'}
+              </p>
+            </div>
+
+            {/* Thamani Zetu */}
+            <div className="rounded-2xl bg-gradient-to-br from-[#091E59] to-[#06133A] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-blue-900/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-white/15 text-[#FFD028] flex items-center justify-center shrink-0">
+                  <Award className="w-5 h-5" />
+                </div>
+                <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
+                  {lang === 'sw' ? 'Thamani Zetu' : 'Our Values'}
+                </h3>
+              </div>
+              <ul className="space-y-1 text-xs text-blue-50/95">
+                {(lang === 'sw'
+                  ? ['Uaminifu', 'Ubora', 'Ushirikiano', 'Huduma Bora']
+                  : ['Integrity', 'Quality', 'Teamwork', 'Excellence']
+                ).map((val) => (
+                  <li key={val} className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-[#FFD028] shrink-0" />
+                    <span className="truncate">{val}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 3: Habari Muhimu Full-Width Ticker Bar with Curved Bottom-Right Red/Gold Swoosh */}
+      {activeNews && (
+        <section
+          id="habari-muhimu"
+          className="relative bg-gradient-to-r from-[#071D59] via-[#0B2B78] to-[#061A4D] text-white flex flex-col sm:flex-row items-stretch overflow-hidden border-t border-b border-white/10"
+        >
+          <div className="bg-[#D92027] text-white pl-5 sm:pl-10 pr-7 py-2.5 flex items-center gap-2.5 font-display font-extrabold text-sm shrink-0 sm:rounded-r-full shadow-md z-10">
+            <Megaphone className="w-4 h-4 text-[#FFD028] shrink-0" />
+            <span>{lang === 'sw' ? 'Habari Muhimu:' : 'Highlights:'}</span>
+          </div>
+
+          <div className="flex-1 px-4 sm:px-6 lg:pr-32 py-2.5 flex items-center justify-between gap-3 min-w-0 z-10">
+            <button
+              type="button"
+              onClick={() => onNavigate(activeNews.route)}
+              className="text-left min-w-0 flex-1 cursor-pointer group"
+            >
+              <p className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-[#FFD028] truncate transition-colors">
+                {activeNews.title}{' '}
+                <span className="font-normal text-blue-100/85">
+                  {activeNews.detail}
+                </span>
+              </p>
+            </button>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  setNewsIndex((i) => (i - 1 + newsItems.length) % newsItems.length)
+                }
+                aria-label="Previous update"
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewsIndex((i) => (i + 1) % newsItems.length)}
+                aria-label="Next update"
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Signature Red & Gold Curved Bottom-Right Swoosh SVG */}
+          <svg
+            viewBox="0 0 180 56"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            className="hidden lg:block pointer-events-none absolute right-0 top-0 h-full w-36 z-0"
+          >
+            <path d="M25,56 C75,18 125,4 180,0 L180,56 Z" fill="#FFD028" />
+            <path d="M55,56 C100,24 140,12 180,10 L180,56 Z" fill="#D92027" />
+          </svg>
+        </section>
+      )}
+
+      {/* Active Order Live Alert (Only when user has an active in-flight order) */}
       {activeOrder && (
         <button
           type="button"
           onClick={() => onNavigate('orders')}
-          className="w-full text-left rounded-2xl bg-white dark:bg-[#0E172E] border border-[#F5B800] p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-amber-50/40 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
+          className="w-full text-left bg-white dark:bg-[#0E172E] border-b border-[#F5B800] px-4 sm:px-6 lg:px-10 py-3.5 flex items-center justify-between gap-4 hover:bg-amber-50/40 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-11 h-11 rounded-xl bg-[#0B2A6F] text-[#F5B800] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#0B2A6F] text-[#F5B800] flex items-center justify-center shrink-0">
               <Truck className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
@@ -491,29 +718,26 @@ export function HomeDashboard({
               <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate mt-0.5">
                 {activeOrder.itemsSummary}
               </p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                {activeOrder.deliveryAddress}
-              </p>
             </div>
           </div>
-          <span className="px-4 py-2 rounded-xl bg-[#0B2A6F] text-[#F5B800] text-xs font-bold inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+          <span className="px-4 py-2 rounded-full bg-[#0B2A6F] text-[#F5B800] text-xs font-bold inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap">
             <span>{lang === 'sw' ? 'Fuatilia' : 'Track'}</span>
             <ChevronRight className="w-4 h-4" />
           </span>
         </button>
       )}
 
-      {/* Role-Specific Tools Strip (for Admin / Business / Agent accounts) */}
+      {/* Role-Specific Operations Bar (Admin / Business / Agent) */}
       {roleExtras.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 divide-y md:divide-y-0 md:divide-x divide-neutral-200 dark:divide-blue-950 border-b border-neutral-200 dark:border-blue-950 bg-white dark:bg-[#0E172E]">
           {roleExtras.map((extra) => (
             <button
               key={extra.route}
               type="button"
               onClick={() => onNavigate(extra.route)}
-              className="text-left rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 hover:border-[#F5B800] transition-colors cursor-pointer flex items-center gap-3.5"
+              className="text-left px-5 lg:px-10 py-3.5 hover:bg-neutral-50 dark:hover:bg-blue-950/35 transition-colors cursor-pointer flex items-center gap-3.5"
             >
-              <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-blue-950/60 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-neutral-100 dark:bg-blue-950/60 flex items-center justify-center shrink-0">
                 {extra.icon}
               </div>
               <div className="min-w-0 flex-1">
@@ -530,120 +754,11 @@ export function HomeDashboard({
         </div>
       )}
 
-      {/* SECTION 2: Kuhusu OILCOM, Dhamira, Maono, Thamani & Bei Elekezi */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch">
-        {/* Left Feature Card: Kuhusu OILCOM */}
-        <div className="lg:col-span-5 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="bg-gradient-to-br from-[#071A4A] via-[#0B2A6F] to-[#13419E] p-6 flex items-center justify-between gap-4 border-b border-blue-900/40">
-              <div className="space-y-1">
-                <OilcomWordmark className="h-9" />
-                <h2 className="font-display font-bold text-lg text-white pt-1">
-                  {lang === 'sw' ? 'Kuhusu OILCOM Tanzania' : 'About OILCOM Tanzania'}
-                </h2>
-              </div>
-              <span className="font-mono-num text-xs font-bold text-[#F5B800] shrink-0">
-                TZ · EA
-              </span>
-            </div>
-
-            <div className="p-5 sm:p-6 space-y-3">
-              <p className="text-sm text-neutral-700 dark:text-neutral-200 leading-relaxed">
-                {lang === 'sw'
-                  ? 'OILCOM ni kampuni inayoongoza katika sekta ya nishati Tanzania na Afrika Mashariki. Tunatoa mafuta ya hali ya juu, gesi ya kupikia (LPG), usafirishaji salama na huduma za kisasa za kidijitali kwa wateja binafsi na biashara.'
-                  : 'OILCOM is a leading energy enterprise across Tanzania and East Africa, supplying high-grade automotive fuels, clean LPG cooking gas, bulk transport, and digital customer services.'}
-              </p>
-              <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 tabular-nums pt-1">
-                <span>
-                  {stations.length}+{' '}
-                  {lang === 'sw' ? 'Vituo Vilivyosajiliwa' : 'Registered Hubs'}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span>{lang === 'sw' ? 'Huduma 24/7' : '24/7 Operations'}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-5 sm:px-6 pb-5 sm:pb-6 flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setAboutModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
-            >
-              <span>{lang === 'sw' ? 'Soma Zaidi' : 'Read More'}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('stations')}
-              className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 hover:border-[#0B2A6F] dark:hover:border-[#F5B800] text-neutral-800 dark:text-neutral-100 text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors"
-            >
-              {lang === 'sw' ? 'Vituo Vyote Kwenye Ramani' : 'All Stations on Map'}
-            </button>
-          </div>
-        </div>
-
-        {/* Right 2x2 Pillar + Live Pricing Bento Grid */}
-        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Dhamira Yetu */}
-          <div className="rounded-2xl bg-[#0B2A6F] text-white p-5 sm:p-6 flex flex-col justify-between gap-4 border border-blue-900/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-[#F5B800] text-[#071A4A] flex items-center justify-center shrink-0">
-                <Target className="w-5 h-5" />
-              </div>
-              <h3 className="font-display font-bold text-base text-[#F5B800]">
-                {lang === 'sw' ? 'Dhamira Yetu' : 'Our Mission'}
-              </h3>
-            </div>
-            <p className="text-sm text-blue-50/90 leading-relaxed">
-              {lang === 'sw'
-                ? 'Kutoa nishati bora kwa wote — kwa ubora, usalama wa hali ya juu na huduma ya haraka kila mahali.'
-                : 'To deliver reliable, high-grade energy for everyone through operational safety and responsive service.'}
-            </p>
-          </div>
-
-          {/* Maono Yetu */}
-          <div className="rounded-2xl bg-[#D92027] text-white p-5 sm:p-6 flex flex-col justify-between gap-4 border border-red-800/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-white text-[#D92027] flex items-center justify-center shrink-0">
-                <Compass className="w-5 h-5" />
-              </div>
-              <h3 className="font-display font-bold text-base text-white">
-                {lang === 'sw' ? 'Maono Yetu' : 'Our Vision'}
-              </h3>
-            </div>
-            <p className="text-sm text-red-50/95 leading-relaxed">
-              {lang === 'sw'
-                ? 'Kuwa kampuni bora na inayoaminika zaidi katika usambazaji wa nishati Afrika Mashariki.'
-                : 'To be East Africa’s benchmark energy provider trusted for quality fuel, clean LPG, and modern logistics.'}
-            </p>
-          </div>
-
-          {/* Thamani Zetu */}
-          <div className="rounded-2xl bg-[#091C4E] text-white p-5 sm:p-6 flex flex-col justify-between gap-3 border border-blue-900/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-white/10 text-[#F5B800] flex items-center justify-center shrink-0">
-                <Award className="w-5 h-5" />
-              </div>
-              <h3 className="font-display font-bold text-base text-[#F5B800]">
-                {lang === 'sw' ? 'Thamani Zetu' : 'Our Core Values'}
-              </h3>
-            </div>
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:text-sm text-blue-50/90">
-              {(lang === 'sw'
-                ? ['Uaminifu', 'Ubora', 'Ushirikiano', 'Huduma Bora']
-                : ['Integrity', 'Quality', 'Teamwork', 'Service Excellence']
-              ).map((val) => (
-                <li key={val} className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-[#F5B800] shrink-0" />
-                  <span className="truncate">{val}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Live Catalog Pricing Card (Real Data from Firestore Catalog) */}
-          <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-5 sm:p-6 flex flex-col justify-between gap-3">
+      {/* SECTION 4: Below-the-Fold Live Catalog Rates, Account / Orders & Promotions */}
+      <section className="px-3 sm:px-6 lg:px-10 py-4 bg-[#EEF3FA] dark:bg-[#060B18]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+          {/* Live Catalog Pricing Card */}
+          <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between gap-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
                 {lang === 'sw' ? 'Bei Elekezi za Sasa' : 'Current Catalog Rates'}
@@ -657,7 +772,7 @@ export function HomeDashboard({
               </button>
             </div>
             <div className="divide-y divide-neutral-100 dark:divide-blue-950 text-xs sm:text-sm">
-              <div className="py-1.5 flex items-center justify-between gap-2">
+              <div className="py-2 flex items-center justify-between gap-2">
                 <span className="text-neutral-600 dark:text-neutral-300">
                   Petrol (Unleaded)
                 </span>
@@ -665,7 +780,7 @@ export function HomeDashboard({
                   {formatTzs(livePricing.petrol)}/L
                 </span>
               </div>
-              <div className="py-1.5 flex items-center justify-between gap-2">
+              <div className="py-2 flex items-center justify-between gap-2">
                 <span className="text-neutral-600 dark:text-neutral-300">
                   Diesel (AGO)
                 </span>
@@ -673,7 +788,7 @@ export function HomeDashboard({
                   {formatTzs(livePricing.diesel)}/L
                 </span>
               </div>
-              <div className="py-1.5 flex items-center justify-between gap-2">
+              <div className="py-2 flex items-center justify-between gap-2">
                 <span className="text-neutral-600 dark:text-neutral-300">
                   OILCOM Gas 15kg
                 </span>
@@ -683,130 +798,106 @@ export function HomeDashboard({
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* SECTION 3: Live Orders & Promotions / Habari Muhimu */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-        {/* Recent Orders or Guest Account Onboarding Card */}
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-5 sm:p-6 flex flex-col justify-between">
-          {isGuest ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+          {/* Guest Account Onboarding or Recent Orders */}
+          <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between">
+            {isGuest ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+                    {lang === 'sw'
+                      ? 'Akaunti ya Mteja na Biashara'
+                      : 'Customer & Business Account'}
+                  </h3>
+                  <span className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800]">
+                    OILCOM Digital
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
                   {lang === 'sw'
-                    ? 'Akaunti ya Mteja na Biashara'
-                    : 'Customer & Business Account'}
-                </h3>
-                <span className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800]">
-                  OILCOM Digital
-                </span>
-              </div>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                {lang === 'sw'
-                  ? 'Ingia au jisajili bure ili kuagiza mitungi ya OILCOM Gas nyumbani, kununua vocha za mafuta, kufuatilia usafirishaji na kukusanya pointi za zawadi.'
-                  : 'Sign in or register for free to order OILCOM LPG cylinders online, purchase fuel vouchers, track deliveries, and earn OILCOM Rewards points.'}
-              </p>
-              <ul className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300">
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
-                  <span>
-                    {lang === 'sw'
-                      ? 'Uagizaji wa gesi (6kg, 15kg, 38kg) na mafuta mtandaoni'
-                      : 'Online LPG cylinder (6kg, 15kg, 38kg) and fuel ordering'}
-                  </span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
-                  <span>
-                    {lang === 'sw'
-                      ? 'Kadi ya QR ya OILCOM Rewards na vocha za punguzo'
-                      : 'Verified OILCOM Rewards QR card and discount vouchers'}
-                  </span>
-                </li>
-              </ul>
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                {onOpenAuth && (
-                  <button
-                    type="button"
-                    onClick={onOpenAuth}
-                    className="px-4 py-2 rounded-xl bg-[#0B2A6F] hover:bg-[#092259] text-white text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    {lang === 'sw' ? 'Ingia au Jisajili Sasa' : 'Sign In or Register'}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onNavigate('stations')}
-                  className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-blue-900 hover:border-[#0B2A6F] dark:hover:border-[#F5B800] text-neutral-800 dark:text-neutral-100 text-xs font-semibold cursor-pointer transition-colors"
-                >
-                  {lang === 'sw' ? 'Tazama Vituo Kwanza' : 'Browse Stations First'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
-                  {lang === 'sw' ? 'Oda za Hivi Karibuni' : 'Recent Orders'}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('orders')}
-                  className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
-                >
-                  {lang === 'sw' ? 'Tazama Zote' : 'View All'}
-                </button>
-              </div>
-
-              {orders.length === 0 ? (
-                <div className="py-6 text-center space-y-3">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {lang === 'sw'
-                      ? 'Bado hujafanya oda yoyote.'
-                      : 'You have not placed any orders yet.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('gas')}
-                    className="px-4 py-2 rounded-xl bg-[#0B2A6F] hover:bg-[#092259] text-white text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    {lang === 'sw' ? 'Agiza OILCOM Gas Sasa' : 'Order OILCOM Gas Now'}
-                  </button>
-                </div>
-              ) : (
-                <div className="divide-y divide-neutral-100 dark:divide-blue-950">
-                  {orders.slice(0, 4).map((ord) => (
-                    <div
-                      key={ord.id}
-                      className="py-2.5 flex items-center justify-between gap-3"
+                    ? 'Jisajili bure kuagiza OILCOM Gas nyumbani, kununua vocha za mafuta na kukusanya pointi.'
+                    : 'Register free to order OILCOM LPG online, buy fuel vouchers, and earn Rewards points.'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {onOpenAuth && (
+                    <button
+                      type="button"
+                      onClick={onOpenAuth}
+                      className="px-4 py-2 rounded-full bg-[#0B2A6F] hover:bg-[#092259] text-white text-xs font-bold cursor-pointer transition-colors"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
-                          {ord.orderNumber} · {ord.itemsSummary}
-                        </p>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                          {ord.status.toUpperCase()} · {ord.fulfillmentType} ·{' '}
-                          {ord.paymentStatus}
-                        </p>
-                      </div>
-                      <span className="font-mono-num text-sm font-bold text-neutral-900 dark:text-white shrink-0">
-                        {formatTzs(ord.totalTzs)}
-                      </span>
-                    </div>
-                  ))}
+                      {lang === 'sw' ? 'Ingia / Jisajili' : 'Sign In / Register'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('stations')}
+                    className="px-3.5 py-2 rounded-full border border-neutral-200 dark:border-blue-900 hover:border-[#0B2A6F] text-neutral-800 dark:text-neutral-100 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    {lang === 'sw' ? 'Vituo' : 'Stations'}
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+                    {lang === 'sw' ? 'Oda za Hivi Karibuni' : 'Recent Orders'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('orders')}
+                    className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
+                  >
+                    {lang === 'sw' ? 'Zote' : 'View All'}
+                  </button>
+                </div>
 
-        {/* Promotions & Interactive Habari Muhimu */}
-        <div className="min-w-0 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-5 sm:p-6 flex flex-col justify-between gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-3">
+                {orders.length === 0 ? (
+                  <div className="py-4 text-center space-y-2.5">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {lang === 'sw'
+                        ? 'Bado hujafanya oda yoyote.'
+                        : 'No orders placed yet.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('gas')}
+                      className="px-4 py-2 rounded-full bg-[#0B2A6F] text-white text-xs font-bold cursor-pointer"
+                    >
+                      {lang === 'sw' ? 'Agiza Gesi Sasa' : 'Order Gas Now'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-100 dark:divide-blue-950">
+                    {orders.slice(0, 3).map((ord) => (
+                      <div
+                        key={ord.id}
+                        className="py-2 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold text-neutral-900 dark:text-white truncate">
+                            {ord.orderNumber} · {ord.itemsSummary}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                            {ord.status.toUpperCase()} · {ord.paymentStatus}
+                          </p>
+                        </div>
+                        <span className="font-mono-num text-xs font-bold text-neutral-900 dark:text-white shrink-0">
+                          {formatTzs(ord.totalTzs)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Promotions Card */}
+          <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between gap-3">
+            <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
-                {lang === 'sw' ? 'Promosheni & Matangazo' : 'Promotions & Highlights'}
+                {lang === 'sw' ? 'Promosheni & Rewards' : 'Promotions & Rewards'}
               </h3>
               <button
                 type="button"
@@ -816,102 +907,63 @@ export function HomeDashboard({
                 {t(lang, 'viewRewards')}
               </button>
             </div>
-
             {promotions.length > 0 ? (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {promotions.slice(0, 2).map((promo) => (
                   <div
                     key={promo.id}
-                    className="p-3.5 rounded-xl bg-neutral-50 dark:bg-blue-950/35 border border-neutral-200/80 dark:border-blue-900/50"
+                    className="p-2.5 rounded-xl bg-neutral-50 dark:bg-blue-950/35 border border-neutral-200/80 dark:border-blue-900/50"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                      <p className="font-semibold text-xs text-neutral-900 dark:text-white truncate">
                         {lang === 'sw' ? promo.titleSw : promo.titleEn}
                       </p>
-                      <span className="font-mono-num text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
+                      <span className="font-mono-num text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                         {promo.pointsMultiplier}x pts
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300 leading-snug">
+                    <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-300 line-clamp-1">
                       {lang === 'sw' ? promo.descriptionSw : promo.descriptionEn}
                     </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 py-3">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 {lang === 'sw'
-                  ? 'Hakuna promosheni maalum kwa sasa — endelea kukusanya pointi kwa kila ununuzi.'
-                  : 'No active multiplier campaign right now — continue earning points on every purchase.'}
+                  ? 'Endelea kukusanya pointi kwa kila ununuzi wa mafuta au gesi.'
+                  : 'Continue earning points on every fuel or LPG purchase.'}
               </p>
             )}
           </div>
-
-          {/* Habari Muhimu Switcher Bar (inspired by reference banner) */}
-          {activeNews && (
-            <div className="rounded-xl bg-[#071A4A] text-white p-3.5 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => onNavigate(activeNews.route)}
-                className="flex items-start gap-2.5 text-left min-w-0 flex-1 cursor-pointer group"
-              >
-                <Megaphone className="w-4 h-4 text-[#F5B800] shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#F5B800] group-hover:underline truncate">
-                    {lang === 'sw' ? 'Habari Muhimu' : 'Highlight'} · {activeNews.title}
-                  </p>
-                  <p className="text-[11px] text-blue-100/85 line-clamp-1 mt-0.5">
-                    {activeNews.detail}
-                  </p>
-                </div>
-              </button>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNewsIndex((i) => (i - 1 + newsItems.length) % newsItems.length)
-                  }
-                  aria-label="Previous update"
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewsIndex((i) => (i + 1) % newsItems.length)}
-                  aria-label="Next update"
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white cursor-pointer"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
-      {/* SECTION 4: Quiet Contact & Corporate Footer Strip */}
-      <footer className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-neutral-600 dark:text-neutral-300">
+      {/* SECTION 5: Full-Bleed Corporate Footer Strip */}
+      <footer
+        id="mawasiliano"
+        className="mt-auto bg-[#071A4A] text-blue-100/90 border-t border-white/15 px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+      >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="font-display font-bold text-neutral-900 dark:text-white">
+          <span className="font-display font-bold text-white">
             OILCOM Tanzania Ltd
           </span>
           <span className="inline-flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5 text-[#D92027]" />
+            <MapPin className="w-3.5 h-3.5 text-[#F5B800]" />
             Dar es Salaam, Tanzania
           </span>
           <a
             href="tel:+255736123456"
-            className="inline-flex items-center gap-1 hover:text-[#0B2A6F] dark:hover:text-[#F5B800]"
+            className="inline-flex items-center gap-1 hover:text-[#F5B800]"
           >
-            <Phone className="w-3.5 h-3.5 text-[#0B2A6F] dark:text-[#F5B800]" />
+            <Phone className="w-3.5 h-3.5 text-[#F5B800]" />
             +255 736 123 456
           </a>
           <a
             href="mailto:info@oilcom.co.tz"
-            className="inline-flex items-center gap-1 hover:text-[#0B2A6F] dark:hover:text-[#F5B800]"
+            className="inline-flex items-center gap-1 hover:text-[#F5B800]"
           >
-            <Mail className="w-3.5 h-3.5 text-[#0B2A6F] dark:text-[#F5B800]" />
+            <Mail className="w-3.5 h-3.5 text-[#F5B800]" />
             info@oilcom.co.tz
           </a>
         </div>
@@ -919,7 +971,7 @@ export function HomeDashboard({
           <button
             type="button"
             onClick={() => onNavigate('profile')}
-            className="font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
+            className="font-semibold text-[#F5B800] hover:underline cursor-pointer"
           >
             {lang === 'sw' ? 'Msaada & Mawasiliano' : 'Support & Contact'}
           </button>
@@ -988,7 +1040,7 @@ export function HomeDashboard({
                     setAboutModalOpen(false);
                     onNavigate('stations');
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#0B2A6F] text-white text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-[#0B2A6F] text-white text-xs font-bold cursor-pointer"
                 >
                   {lang === 'sw' ? 'Angalia Vituo Kwenye Ramani' : 'Explore Station Map'}
                 </button>
@@ -998,7 +1050,7 @@ export function HomeDashboard({
                     setAboutModalOpen(false);
                     onNavigate('gas');
                   }}
-                  className="px-4 py-2 rounded-xl bg-[#D92027] text-white text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-[#D92027] text-white text-xs font-bold cursor-pointer"
                 >
                   {lang === 'sw' ? 'Agiza Huduma' : 'Order Now'}
                 </button>
@@ -1006,6 +1058,16 @@ export function HomeDashboard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Admin Quick Media Manager Modal */}
+      {effectiveRole === 'admin' && (
+        <HomepageSlidesManagerModal
+          open={slidesModalOpen}
+          lang={lang}
+          slides={adminHomepageSlides ?? homepageSlides}
+          onClose={() => setSlidesModalOpen(false)}
+        />
       )}
     </div>
   );

@@ -20,6 +20,7 @@ import {
 } from './firebase';
 import { initiateSandboxPayment } from './api';
 import type {
+  HomepageSlide,
   OrderStatus,
   PaymentProvider,
   PaymentStatus,
@@ -739,4 +740,214 @@ export async function createStationRecord(
     ...stationData,
   };
 }
+
+export function isValidSlideImageSource(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (trimmed.length < 5 || trimmed.length > 680000) return false;
+  if (trimmed.startsWith('/assets/')) return true;
+  if (/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(trimmed)) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+export async function compressImageFileToDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Faili lazima liwe picha (JPG, PNG, WEBP).');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error(`Imeshindwa kusoma picha: ${file.name}`));
+      el.src = objectUrl;
+    });
+
+    const maxBytes = 600000;
+    const dimSteps = [1400, 1120, 900];
+    const qualitySteps = [0.85, 0.72, 0.58, 0.44, 0.34];
+
+    for (const maxWidth of dimSteps) {
+      const ratio = Math.min(1, maxWidth / Math.max(1, img.naturalWidth), 900 / Math.max(1, img.naturalHeight));
+      const targetW = Math.max(1, Math.round(img.naturalWidth * ratio));
+      const targetH = Math.max(1, Math.round(img.naturalHeight * ratio));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Browser canvas haipatikani kuchakata picha.');
+      }
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      for (const q of qualitySteps) {
+        let dataUrl = canvas.toDataURL('image/webp', q);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/jpeg', q);
+        }
+        if (dataUrl.length <= maxBytes) {
+          return dataUrl;
+        }
+        const jpgUrl = canvas.toDataURL('image/jpeg', q);
+        if (jpgUrl.length <= maxBytes) {
+          return jpgUrl;
+        }
+      }
+    }
+
+    throw new Error(`Picha "${file.name}" ni kubwa mno hata baada ya kupunguzwa ukubwa.`);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+export async function createHomepageSlide(input: {
+  imageUrl: string;
+  title?: string;
+  caption?: string;
+  sortOrder?: number;
+  active?: boolean;
+}): Promise<string> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Ingia kama Admin kwanza.');
+
+  const cleanUrl = input.imageUrl.trim();
+  if (!isValidSlideImageSource(cleanUrl)) {
+    throw new Error('Weka linki sahihi ya picha (https://...) au pakia picha halali.');
+  }
+
+  const slideId = makeId('slide');
+  const title = (input.title || '').trim().slice(0, 120);
+  const caption = (input.caption || '').trim().slice(0, 200);
+  const sortOrder = Math.max(0, Math.round(Number(input.sortOrder ?? Date.now() % 100000)));
+  const active = input.active !== false;
+
+  try {
+    await setDoc(doc(db, 'homepage_slides', slideId), {
+      title,
+      caption,
+      imageUrl: cleanUrl,
+      sortOrder,
+      active,
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, `homepage_slides/${slideId}`);
+  }
+
+  await writeAuditLog({
+    action: 'CREATE_HOMEPAGE_SLIDE',
+    targetCollection: 'homepage_slides',
+    targetId: slideId,
+    summary: `Added homepage slide ${title || slideId}`,
+  });
+
+  return slideId;
+}
+
+export async function updateHomepageSlide(
+  slideId: string,
+  patch: {
+    title?: string;
+    caption?: string;
+    imageUrl?: string;
+    sortOrder?: number;
+    active?: boolean;
+  }
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+  if (patch.title !== undefined) payload.title = patch.title.trim().slice(0, 120);
+  if (patch.caption !== undefined) payload.caption = patch.caption.trim().slice(0, 200);
+  if (patch.imageUrl !== undefined) {
+    const cleanUrl = patch.imageUrl.trim();
+    if (!isValidSlideImageSource(cleanUrl)) {
+      throw new Error('Linki au picha si sahihi.');
+    }
+    payload.imageUrl = cleanUrl;
+  }
+  if (patch.sortOrder !== undefined) {
+    payload.sortOrder = Math.max(0, Math.round(Number(patch.sortOrder)));
+  }
+  if (patch.active !== undefined) {
+    payload.active = Boolean(patch.active);
+  }
+
+  try {
+    await updateDoc(doc(db, 'homepage_slides', slideId), payload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `homepage_slides/${slideId}`);
+  }
+
+  await writeAuditLog({
+    action: 'UPDATE_HOMEPAGE_SLIDE',
+    targetCollection: 'homepage_slides',
+    targetId: slideId,
+    summary: `Updated homepage slide ${slideId}`,
+  });
+}
+
+export async function deleteHomepageSlide(slideId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'homepage_slides', slideId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `homepage_slides/${slideId}`);
+  }
+
+  await writeAuditLog({
+    action: 'DELETE_HOMEPAGE_SLIDE',
+    targetCollection: 'homepage_slides',
+    targetId: slideId,
+    summary: `Removed homepage slide ${slideId}`,
+  });
+}
+
+export async function swapHomepageSlideOrder(
+  slideA: HomepageSlide,
+  slideB: HomepageSlide
+): Promise<void> {
+  const orderA = slideA.sortOrder;
+  const orderB = slideB.sortOrder === slideA.sortOrder ? slideA.sortOrder + 1 : slideB.sortOrder;
+  try {
+    await Promise.all([
+      updateDoc(doc(db, 'homepage_slides', slideA.id), {
+        sortOrder: orderB,
+        updatedAt: serverTimestamp(),
+      }),
+      updateDoc(doc(db, 'homepage_slides', slideB.id), {
+        sortOrder: orderA,
+        updatedAt: serverTimestamp(),
+      }),
+    ]);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `homepage_slides/${slideA.id}`);
+  }
+}
+
+export async function clearAllHomepageSlides(slides: HomepageSlide[]): Promise<void> {
+  if (slides.length === 0) return;
+  try {
+    await Promise.all(
+      slides.map((s) => deleteDoc(doc(db, 'homepage_slides', s.id)))
+    );
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, 'homepage_slides');
+  }
+  await writeAuditLog({
+    action: 'RESET_HOMEPAGE_SLIDES',
+    targetCollection: 'homepage_slides',
+    targetId: 'all',
+    summary: `Cleared ${slides.length} custom homepage slides back to default banner`,
+  });
+}
+
 

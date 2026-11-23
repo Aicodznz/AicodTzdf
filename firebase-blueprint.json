@@ -497,6 +497,22 @@
         "updatedAt": { "type": "object" }
       },
       "required": ["stationId", "stationName", "fullName", "phone", "staffRole", "shift", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "HomepageSlide": {
+      "title": "HomepageSlide",
+      "description": "Admin-managed public hero photo or slideshow banner displayed on the OILCOM homepage.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "caption": { "type": "string", "maxLength": 200 },
+        "imageUrl": { "type": "string", "minLength": 5, "maxLength": 700000 },
+        "sortOrder": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "createdAt": { "type": "object" },
+        "updatedAt": { "type": "object" }
+      },
+      "required": ["imageUrl", "sortOrder", "active", "createdBy", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -526,6 +542,7 @@
     "/audit_logs/{logId}": { "schema": { "$ref": "#/entities/AuditLog" }, "description": "Immutable admin and security audit log." },
     "/system_settings/{settingId}": { "schema": { "$ref": "#/entities/SystemSettings" }, "description": "Configurable global OILCOM platform settings." },
     "/role_provisions/{provisionId}": { "schema": { "$ref": "#/entities/RoleProvision" }, "description": "Admin-created role invitations claimed on verified login." },
-    "/station_staff/{staffId}": { "schema": { "$ref": "#/entities/StationStaff" }, "description": "Staff members assigned to specific OILCOM fuel or gas stations." }
+    "/station_staff/{staffId}": { "schema": { "$ref": "#/entities/StationStaff" }, "description": "Staff members assigned to specific OILCOM fuel or gas stations." },
+    "/homepage_slides/{slideId}": { "schema": { "$ref": "#/entities/HomepageSlide" }, "description": "Public homepage hero images and slideshow photos managed by Admin." }
   }
 }

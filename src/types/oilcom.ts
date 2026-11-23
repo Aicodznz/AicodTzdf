@@ -378,6 +378,18 @@ export interface StationStaffMember {
   updatedAt?: unknown;
 }
 
+export interface HomepageSlide {
+  id: string;
+  title?: string;
+  caption?: string;
+  imageUrl: string;
+  sortOrder: number;
+  active: boolean;
+  createdBy: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
 export type AppRoute =
   | 'home'
   | 'fuel'

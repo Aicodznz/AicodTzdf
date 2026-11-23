@@ -19,11 +19,13 @@ import {
   Globe,
   Home,
   LogOut,
+  Mail,
   MapPin,
   Menu,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Phone,
   Search,
   ShieldCheck,
   Store,
@@ -73,6 +75,7 @@ import type {
   CustomerProfile,
   DeliveryRecord,
   GasOrder,
+  HomepageSlide,
   Invoice,
   Language,
   OilcomUser,
@@ -208,6 +211,8 @@ export default function App() {
   const [provisions, setProvisions] = useState<RoleProvision[]>([]);
   const [allUsersAdmin, setAllUsersAdmin] = useState<OilcomUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [homepageSlides, setHomepageSlides] = useState<HomepageSlide[]>([]);
+  const [adminHomepageSlides, setAdminHomepageSlides] = useState<HomepageSlide[]>([]);
 
   useEffect(() => {
     const onQuota = () => setMapsQuotaExceeded(true);
@@ -246,6 +251,27 @@ export default function App() {
       .catch(() => {
         // Keep env fallback
       });
+  }, []);
+
+  // Public pre-login Homepage hero slides listener (active slides visible to all visitors)
+  useEffect(() => {
+    const q = query(collection(db, 'homepage_slides'), where('active', '==', true));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const items = snap.docs
+          .map((d) => ({
+            id: d.id,
+            ...(d.data() as Omit<HomepageSlide, 'id'>),
+          }))
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        setHomepageSlides(items);
+      },
+      (err) => {
+        console.warn('Public homepage slides listener fallback:', err);
+      }
+    );
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -890,11 +916,28 @@ export default function App() {
           (err) => handleFirestoreError(err, OperationType.LIST, 'audit_logs')
         )
       );
+
+      unsubs.push(
+        onSnapshot(
+          collection(db, 'homepage_slides'),
+          (snap) => {
+            const items = snap.docs
+              .map((d) => ({
+                id: d.id,
+                ...(d.data() as Omit<HomepageSlide, 'id'>),
+              }))
+              .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            setAdminHomepageSlides(items);
+          },
+          (err) => handleFirestoreError(err, OperationType.LIST, 'homepage_slides/all')
+        )
+      );
     } else {
       setAllUsersAdmin([]);
       setAllAgentsAdmin([]);
       setProvisions([]);
       setAuditLogs([]);
+      setAdminHomepageSlides([]);
     }
 
     return () => {
@@ -1090,36 +1133,229 @@ export default function App() {
       setShowAuthScreen(true);
     };
 
+    const scrollToHomeSection = (sectionId: string) => {
+      if (guestRoute !== 'home') {
+        setGuestRoute('home');
+        window.setTimeout(() => {
+          document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 120);
+        return;
+      }
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     return (
-      <div className="min-h-screen flex flex-col bg-[#F4F7FB] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100">
+      <div className="min-h-screen flex flex-col bg-[#EEF3FA] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100">
         {quotaBanner}
 
-        {/* Clean 3-Zone Public Top Bar */}
-        <header className="sticky top-0 z-30 bg-[#0B2A6F] text-white border-b border-white/15 shadow-sm">
-          <div className="h-1 w-full grid grid-cols-3">
-            <span className="bg-[#2563EB]" />
-            <span className="bg-[#D92027]" />
-            <span className="bg-[#F5B800]" />
-          </div>
-          <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-7 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-8">
-            {/* Zone 1: Brand Wordmark */}
-            <button
-              type="button"
-              onClick={() => handleGuestNavigate('home')}
-              className="flex items-center shrink-0 cursor-pointer"
-            >
-              <OilcomWordmark className="h-9 sm:h-10" />
-            </button>
+        {/* Public Two-Tier OILCOM Corporate Header */}
+        <header className="sticky top-0 z-30 shadow-md">
+          {/* Tier 1: Deep Navy Utility Bar (Location, Phone, Email, Quick Contact & Language) */}
+          <div className="bg-[#061A4D] text-white border-b border-white/10">
+            <div className="w-full px-4 sm:px-6 lg:px-10 h-9 flex items-center justify-between gap-3 text-[11px] sm:text-xs">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => handleGuestNavigate('stations')}
+                  className="inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors truncate cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                  <span className="truncate">Dar es Salaam, Tanzania</span>
+                </button>
+                <span className="hidden sm:inline-block h-3.5 w-px bg-white/20 shrink-0" />
+                <a
+                  href="tel:+255736123456"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
+                >
+                  <Phone className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                  <span>+255 736 123 456</span>
+                </a>
+                <span className="hidden md:inline-block h-3.5 w-px bg-white/20 shrink-0" />
+                <a
+                  href="mailto:info@oilcom.co.tz"
+                  className="hidden md:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                  <span>info@oilcom.co.tz</span>
+                </a>
+              </div>
 
-            {/* Zone 2: Concise Single-Line Navigation Links */}
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-blue-100/90">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="hidden sm:flex items-center gap-1.5 pr-1">
+                  <a
+                    href="tel:+255736123456"
+                    aria-label={lang === 'sw' ? 'Piga Simu' : 'Call OILCOM'}
+                    className="w-6 h-6 rounded-full bg-[#1877F2] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
+                  >
+                    <Phone className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="mailto:info@oilcom.co.tz"
+                    aria-label={lang === 'sw' ? 'Tuma Barua Pepe' : 'Email OILCOM'}
+                    className="w-6 h-6 rounded-full bg-[#D92027] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
+                  >
+                    <Mail className="w-3 h-3" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleGuestNavigate('stations')}
+                    aria-label={lang === 'sw' ? 'Ramani ya Vituo' : 'Station Map'}
+                    className="w-6 h-6 rounded-full bg-[#16A34A] hover:opacity-90 text-white flex items-center justify-center transition-opacity cursor-pointer"
+                  >
+                    <MapPin className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <span className="hidden sm:inline-block h-4 w-px bg-white/20 shrink-0" />
+
+                <button
+                  type="button"
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                  aria-label="Toggle theme"
+                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#F5B800] cursor-pointer transition-colors"
+                >
+                  {theme === 'light' ? (
+                    <Moon className="w-3.5 h-3.5" />
+                  ) : (
+                    <Sun className="w-3.5 h-3.5" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
+                  className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+                >
+                  <svg
+                    viewBox="0 0 24 16"
+                    className="w-4 h-2.5 rounded-[2px] shrink-0"
+                    aria-hidden="true"
+                  >
+                    <rect width="24" height="16" fill="#1EB53A" />
+                    <polygon points="0,16 24,0 24,16" fill="#00A3DD" />
+                    <path d="M-2 17 L26 -1" stroke="#FCD116" strokeWidth="5.2" />
+                    <path d="M-2 17 L26 -1" stroke="#111111" strokeWidth="3.2" />
+                  </svg>
+                  <span>{lang === 'sw' ? 'Swahili' : 'English'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tier 2: Crisp White Main Navigation Bar with Signature Swoop Under Wordmark */}
+          <div className="relative bg-white dark:bg-[#0B1326] text-neutral-900 dark:text-white border-b border-neutral-200/80 dark:border-blue-950">
+            <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 h-14 sm:h-[62px] flex items-center justify-between gap-4 sm:gap-6">
+              {/* Brand Wordmark */}
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('home')}
-                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className="flex items-center shrink-0 cursor-pointer relative z-20 lg:translate-y-1"
+              >
+                <OilcomWordmark className="h-10 sm:h-12" />
+              </button>
+
+              {/* Center Navigation Links */}
+              <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-[13.5px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => handleGuestNavigate('home')}
+                  className={`px-4 py-1.5 rounded-full inline-flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                    guestRoute === 'home'
+                      ? 'bg-[#D92027] text-white shadow-[0_4px_12px_rgba(217,32,39,0.32)]'
+                      : 'text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027]'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>{t(lang, 'navHome')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToHomeSection('kuhusu-oilcom')}
+                  className="py-1.5 text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Kuhusu Sisi' : 'About Us'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGuestNavigate('gas')}
+                  className="py-1.5 text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Huduma Zetu' : 'Our Services'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGuestNavigate('stations')}
+                  className={`px-3 py-1.5 rounded-full transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    guestRoute === 'stations'
+                      ? 'bg-[#D92027] text-white shadow-sm'
+                      : 'text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800]'
+                  }`}
+                >
+                  {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGuestNavigate('fuel')}
+                  className="py-1.5 text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {t(lang, 'navFuel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToHomeSection('habari-muhimu')}
+                  className="py-1.5 text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Habari' : 'News'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollToHomeSection('mawasiliano')}
+                  className="py-1.5 text-[#081A4B] dark:text-neutral-200 hover:text-[#D92027] dark:hover:text-[#F5B800] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {lang === 'sw' ? 'Mawasiliano' : 'Contact'}
+                </button>
+              </nav>
+
+              {/* Right Primary Sign In / Register CTA */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingAuthRoute(null);
+                    setShowAuthScreen(true);
+                  }}
+                  className="px-4 sm:px-5 py-2 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-xs sm:text-[13px] font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_4px_14px_rgba(217,32,39,0.34)] transition-colors"
+                >
+                  <UserIcon className="w-3.5 h-3.5" />
+                  <span>{lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Signature Sculpted White Wave Swoop Dipping Under Wordmark Over Hero Sky */}
+            {guestRoute === 'home' && (
+              <svg
+                viewBox="0 0 1440 28"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+                className="hidden lg:block pointer-events-none absolute left-0 right-0 -bottom-[21px] w-full h-[22px] z-10 text-white dark:text-[#0B1326]"
+              >
+                <path
+                  d="M0,0 L1440,0 L1440,2 C1080,2 620,2 410,12 C285,18 220,27 115,27 C52,27 18,20 0,14 Z"
+                  fill="currentColor"
+                />
+              </svg>
+            )}
+
+            {/* Mobile quick navigation strip */}
+            <div className="lg:hidden border-t border-neutral-100 dark:border-blue-950 px-3 py-1.5 flex items-center gap-2.5 text-xs overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('home')}
+                className={`whitespace-nowrap shrink-0 px-3 py-1 rounded-full cursor-pointer font-bold ${
                   guestRoute === 'home'
-                    ? 'text-[#F5B800] font-bold'
-                    : 'hover:text-white'
+                    ? 'bg-[#D92027] text-white'
+                    : 'text-neutral-700 dark:text-neutral-200'
                 }`}
               >
                 {t(lang, 'navHome')}
@@ -1127,116 +1363,41 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('stations')}
-                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`whitespace-nowrap shrink-0 px-3 py-1 rounded-full cursor-pointer font-bold ${
                   guestRoute === 'stations'
-                    ? 'text-[#F5B800] font-bold'
-                    : 'hover:text-white'
+                    ? 'bg-[#D92027] text-white'
+                    : 'text-neutral-700 dark:text-neutral-200'
                 }`}
               >
-                {t(lang, 'navStations')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGuestNavigate('fuel')}
-                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                {t(lang, 'navFuel')}
+                {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
               </button>
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('gas')}
-                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
               >
                 {t(lang, 'navGas')}
               </button>
               <button
                 type="button"
-                onClick={() => handleGuestNavigate('rewards')}
-                className="hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                onClick={() => handleGuestNavigate('fuel')}
+                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
               >
-                {t(lang, 'navRewards')}
-              </button>
-            </nav>
-
-            {/* Zone 3: Language, Theme & Primary Sign-In Action */}
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
-                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white cursor-pointer whitespace-nowrap"
-              >
-                {lang.toUpperCase()}
+                {t(lang, 'navFuel')}
               </button>
               <button
                 type="button"
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                aria-label="Toggle theme"
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-[#F5B800] cursor-pointer"
+                onClick={() => scrollToHomeSection('kuhusu-oilcom')}
+                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
               >
-                {theme === 'light' ? (
-                  <Moon className="w-4 h-4" />
-                ) : (
-                  <Sun className="w-4 h-4" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingAuthRoute(null);
-                  setShowAuthScreen(true);
-                }}
-                className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#D92027] hover:bg-[#b81b21] text-white text-xs sm:text-sm font-bold cursor-pointer whitespace-nowrap shrink-0 transition-colors"
-              >
-                {lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}
+                {lang === 'sw' ? 'Kuhusu' : 'About'}
               </button>
             </div>
           </div>
-
-          {/* Mobile quick toggle row for Public Homepage <-> Station Map */}
-          <div className="md:hidden border-t border-white/10 px-3 py-1.5 flex items-center gap-4 text-xs overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              onClick={() => handleGuestNavigate('home')}
-              className={`whitespace-nowrap shrink-0 py-1 cursor-pointer ${
-                guestRoute === 'home' ? 'text-[#F5B800] font-bold' : 'text-blue-100/80'
-              }`}
-            >
-              {t(lang, 'navHome')}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGuestNavigate('stations')}
-              className={`whitespace-nowrap shrink-0 py-1 cursor-pointer ${
-                guestRoute === 'stations' ? 'text-[#F5B800] font-bold' : 'text-blue-100/80'
-              }`}
-            >
-              {t(lang, 'navStations')}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGuestNavigate('gas')}
-              className="whitespace-nowrap shrink-0 py-1 text-blue-100/80 cursor-pointer"
-            >
-              {t(lang, 'navGas')}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGuestNavigate('fuel')}
-              className="whitespace-nowrap shrink-0 py-1 text-blue-100/80 cursor-pointer"
-            >
-              {t(lang, 'navFuel')}
-            </button>
-          </div>
         </header>
 
-        {/* Public Page Content */}
-        <main
-          className={
-            guestRoute === 'stations'
-              ? 'flex-1 w-full min-w-0 p-0'
-              : 'flex-1 w-full max-w-7xl mx-auto min-w-0 p-2.5 sm:p-5 lg:p-7'
-          }
-        >
+        {/* Public Page Content — Full-Bleed Edge-to-Edge */}
+        <main className="flex-1 w-full min-w-0 p-0">
           {guestRoute === 'home' ? (
             <HomeDashboard
               lang={lang}
@@ -1247,6 +1408,7 @@ export default function App() {
               promotions={promotions}
               products={products}
               stations={stations}
+              homepageSlides={homepageSlides}
               onNavigate={handleGuestNavigate}
               onOpenAuth={() => {
                 setPendingAuthRoute(null);
@@ -1921,7 +2083,7 @@ export default function App() {
           {/* Main Content Container */}
           <main
             className={`flex-1 w-full mx-auto min-w-0 ${
-              route === 'stations'
+              route === 'stations' || route === 'home'
                 ? 'p-0 pb-14 lg:p-0 lg:pb-0 max-w-none'
                 : 'max-w-7xl p-2.5 sm:p-5 lg:p-7 pb-[72px] lg:pb-8'
             }`}
@@ -1936,6 +2098,10 @@ export default function App() {
                 promotions={promotions}
                 products={products}
                 stations={stations}
+                homepageSlides={homepageSlides}
+                adminHomepageSlides={
+                  bootstrappedAdmin ? adminHomepageSlides : homepageSlides
+                }
                 onNavigate={navigate}
               />
             )}
@@ -2066,6 +2232,9 @@ export default function App() {
                 inventory={inventory}
                 auditLogs={auditLogs}
                 settings={settings}
+                homepageSlides={
+                  bootstrappedAdmin ? adminHomepageSlides : homepageSlides
+                }
                 googleMapsApiKey={googleMapsApiKey}
               />
             )}
