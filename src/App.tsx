@@ -1148,110 +1148,110 @@ export default function App() {
       <div className="min-h-screen flex flex-col bg-[#EEF3FA] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100">
         {quotaBanner}
 
-        {/* Public Two-Tier OILCOM Corporate Header */}
-        <header className="sticky top-0 z-30 shadow-md">
-          {/* Tier 1: Deep Navy Utility Bar (Location, Phone, Email, Quick Contact & Language) */}
-          <div className="bg-[#061A4D] text-white border-b border-white/10">
-            <div className="w-full px-4 sm:px-6 lg:px-10 h-9 flex items-center justify-between gap-3 text-[11px] sm:text-xs">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-hidden">
+        {/* Tier 1: Deep Navy Utility Bar (scrolls naturally so sticky header stays compact on mobile) */}
+        <div className="bg-[#061A4D] text-white border-b border-white/10">
+          <div className="w-full px-3 sm:px-6 lg:px-10 h-9 flex items-center justify-between gap-2 sm:gap-3 text-[11px] sm:text-xs">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleGuestNavigate('stations')}
+                className="inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors truncate cursor-pointer"
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                <span className="truncate">Dar es Salaam, Tanzania</span>
+              </button>
+              <span className="hidden sm:inline-block h-3.5 w-px bg-white/20 shrink-0" />
+              <a
+                href="tel:+255736123456"
+                className="hidden sm:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
+              >
+                <Phone className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                <span>+255 736 123 456</span>
+              </a>
+              <span className="hidden md:inline-block h-3.5 w-px bg-white/20 shrink-0" />
+              <a
+                href="mailto:info@oilcom.co.tz"
+                className="hidden md:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
+                <span>info@oilcom.co.tz</span>
+              </a>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 pr-1">
+                <a
+                  href="tel:+255736123456"
+                  aria-label={lang === 'sw' ? 'Piga Simu' : 'Call OILCOM'}
+                  className="w-6 h-6 rounded-full bg-[#1877F2] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
+                >
+                  <Phone className="w-3 h-3" />
+                </a>
+                <a
+                  href="mailto:info@oilcom.co.tz"
+                  aria-label={lang === 'sw' ? 'Tuma Barua Pepe' : 'Email OILCOM'}
+                  className="w-6 h-6 rounded-full bg-[#D92027] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
+                >
+                  <Mail className="w-3 h-3" />
+                </a>
                 <button
                   type="button"
                   onClick={() => handleGuestNavigate('stations')}
-                  className="inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors truncate cursor-pointer"
+                  aria-label={lang === 'sw' ? 'Ramani ya Vituo' : 'Station Map'}
+                  className="w-6 h-6 rounded-full bg-[#16A34A] hover:opacity-90 text-white flex items-center justify-center transition-opacity cursor-pointer"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
-                  <span className="truncate">Dar es Salaam, Tanzania</span>
-                </button>
-                <span className="hidden sm:inline-block h-3.5 w-px bg-white/20 shrink-0" />
-                <a
-                  href="tel:+255736123456"
-                  className="hidden sm:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
-                >
-                  <Phone className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
-                  <span>+255 736 123 456</span>
-                </a>
-                <span className="hidden md:inline-block h-3.5 w-px bg-white/20 shrink-0" />
-                <a
-                  href="mailto:info@oilcom.co.tz"
-                  className="hidden md:inline-flex items-center gap-1.5 text-blue-100/95 hover:text-[#F5B800] transition-colors shrink-0"
-                >
-                  <Mail className="w-3.5 h-3.5 text-[#D92027] shrink-0" />
-                  <span>info@oilcom.co.tz</span>
-                </a>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="hidden sm:flex items-center gap-1.5 pr-1">
-                  <a
-                    href="tel:+255736123456"
-                    aria-label={lang === 'sw' ? 'Piga Simu' : 'Call OILCOM'}
-                    className="w-6 h-6 rounded-full bg-[#1877F2] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
-                  >
-                    <Phone className="w-3 h-3" />
-                  </a>
-                  <a
-                    href="mailto:info@oilcom.co.tz"
-                    aria-label={lang === 'sw' ? 'Tuma Barua Pepe' : 'Email OILCOM'}
-                    className="w-6 h-6 rounded-full bg-[#D92027] hover:opacity-90 text-white flex items-center justify-center transition-opacity"
-                  >
-                    <Mail className="w-3 h-3" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleGuestNavigate('stations')}
-                    aria-label={lang === 'sw' ? 'Ramani ya Vituo' : 'Station Map'}
-                    className="w-6 h-6 rounded-full bg-[#16A34A] hover:opacity-90 text-white flex items-center justify-center transition-opacity cursor-pointer"
-                  >
-                    <MapPin className="w-3 h-3" />
-                  </button>
-                </div>
-
-                <span className="hidden sm:inline-block h-4 w-px bg-white/20 shrink-0" />
-
-                <button
-                  type="button"
-                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                  aria-label="Toggle theme"
-                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#F5B800] cursor-pointer transition-colors"
-                >
-                  {theme === 'light' ? (
-                    <Moon className="w-3.5 h-3.5" />
-                  ) : (
-                    <Sun className="w-3.5 h-3.5" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
-                  className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
-                >
-                  <svg
-                    viewBox="0 0 24 16"
-                    className="w-4 h-2.5 rounded-[2px] shrink-0"
-                    aria-hidden="true"
-                  >
-                    <rect width="24" height="16" fill="#1EB53A" />
-                    <polygon points="0,16 24,0 24,16" fill="#00A3DD" />
-                    <path d="M-2 17 L26 -1" stroke="#FCD116" strokeWidth="5.2" />
-                    <path d="M-2 17 L26 -1" stroke="#111111" strokeWidth="3.2" />
-                  </svg>
-                  <span>{lang === 'sw' ? 'Swahili' : 'English'}</span>
+                  <MapPin className="w-3 h-3" />
                 </button>
               </div>
+
+              <span className="hidden sm:inline-block h-4 w-px bg-white/20 shrink-0" />
+
+              <button
+                type="button"
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                aria-label="Toggle theme"
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#F5B800] cursor-pointer transition-colors"
+              >
+                {theme === 'light' ? (
+                  <Moon className="w-3.5 h-3.5" />
+                ) : (
+                  <Sun className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setLang(lang === 'sw' ? 'en' : 'sw')}
+                className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-colors"
+              >
+                <svg
+                  viewBox="0 0 24 16"
+                  className="w-4 h-2.5 rounded-[2px] shrink-0"
+                  aria-hidden="true"
+                >
+                  <rect width="24" height="16" fill="#1EB53A" />
+                  <polygon points="0,16 24,0 24,16" fill="#00A3DD" />
+                  <path d="M-2 17 L26 -1" stroke="#FCD116" strokeWidth="5.2" />
+                  <path d="M-2 17 L26 -1" stroke="#111111" strokeWidth="3.2" />
+                </svg>
+                <span>{lang === 'sw' ? 'Swahili' : 'English'}</span>
+              </button>
             </div>
           </div>
+        </div>
 
+        {/* Public Sticky Corporate Navigation Bar */}
+        <header className="sticky top-0 z-30 shadow-md">
           {/* Tier 2: Crisp White Main Navigation Bar with Signature Swoop Under Wordmark */}
           <div className="relative bg-white dark:bg-[#0B1326] text-neutral-900 dark:text-white border-b border-neutral-200/80 dark:border-blue-950">
-            <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 h-14 sm:h-[62px] flex items-center justify-between gap-4 sm:gap-6">
+            <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-13 sm:h-[62px] flex items-center justify-between gap-2 sm:gap-6">
               {/* Brand Wordmark */}
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('home')}
                 className="flex items-center shrink-0 cursor-pointer relative z-20 lg:translate-y-1"
               >
-                <OilcomWordmark className="h-10 sm:h-12" />
+                <OilcomWordmark className="h-9 sm:h-12" />
               </button>
 
               {/* Center Navigation Links */}
@@ -1324,7 +1324,7 @@ export default function App() {
                     setPendingAuthRoute(null);
                     setShowAuthScreen(true);
                   }}
-                  className="px-4 sm:px-5 py-2 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-xs sm:text-[13px] font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_4px_14px_rgba(217,32,39,0.34)] transition-colors"
+                  className="px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-[11.5px] sm:text-[13px] font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_4px_14px_rgba(217,32,39,0.34)] transition-colors"
                 >
                   <UserIcon className="w-3.5 h-3.5" />
                   <span>{lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}</span>
@@ -1347,15 +1347,15 @@ export default function App() {
               </svg>
             )}
 
-            {/* Mobile quick navigation strip */}
-            <div className="lg:hidden border-t border-neutral-100 dark:border-blue-950 px-3 py-1.5 flex items-center gap-2.5 text-xs overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* Mobile Equal 4-Tab Bar (Fits cleanly with zero word clipping on narrow phones) */}
+            <div className="lg:hidden border-t border-neutral-100 dark:border-blue-950 px-2.5 py-1.5 grid grid-cols-4 gap-1 text-[11px]">
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('home')}
-                className={`whitespace-nowrap shrink-0 px-3 py-1 rounded-full cursor-pointer font-bold ${
+                className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
                   guestRoute === 'home'
-                    ? 'bg-[#D92027] text-white'
-                    : 'text-neutral-700 dark:text-neutral-200'
+                    ? 'bg-[#D92027] text-white shadow-xs'
+                    : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
                 }`}
               >
                 {t(lang, 'navHome')}
@@ -1363,10 +1363,10 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('stations')}
-                className={`whitespace-nowrap shrink-0 px-3 py-1 rounded-full cursor-pointer font-bold ${
+                className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
                   guestRoute === 'stations'
-                    ? 'bg-[#D92027] text-white'
-                    : 'text-neutral-700 dark:text-neutral-200'
+                    ? 'bg-[#D92027] text-white shadow-xs'
+                    : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
                 }`}
               >
                 {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
@@ -1374,23 +1374,16 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('gas')}
-                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
+                className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
               >
-                {t(lang, 'navGas')}
+                {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
               </button>
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('fuel')}
-                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
+                className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
               >
-                {t(lang, 'navFuel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToHomeSection('kuhusu-oilcom')}
-                className="whitespace-nowrap shrink-0 px-2.5 py-1 text-neutral-700 dark:text-neutral-200 font-semibold cursor-pointer"
-              >
-                {lang === 'sw' ? 'Kuhusu' : 'About'}
+                {lang === 'sw' ? 'Mafuta' : 'Fuel'}
               </button>
             </div>
           </div>

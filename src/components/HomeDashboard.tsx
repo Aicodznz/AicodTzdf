@@ -299,9 +299,9 @@ export function HomeDashboard({
     <div className="w-full min-h-full flex flex-col bg-white dark:bg-[#060B18]">
       {/* SECTION 1: Bright Royal-Cobalt Panoramic Hero + Translucent 5-Tile Bottom Dock */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#06247A] via-[#0F49CC] to-[#082A8C] text-white">
-        {/* Crisp Full-Right / Full-Bleed Hero Photo Layer */}
+        {/* Desktop / Tablet Full-Right / Full-Bleed Hero Photo Layer */}
         {activeSlide && !heroImgFailed && (
-          <div className="absolute inset-0 lg:left-[30%] overflow-hidden pointer-events-none">
+          <div className="hidden sm:block absolute inset-0 lg:left-[30%] overflow-hidden pointer-events-none">
             <img
               key={activeSlide.id}
               src={activeSlide.imageUrl}
@@ -323,21 +323,19 @@ export function HomeDashboard({
                   'linear-gradient(90deg, #0935A8 0%, rgba(11,61,180,0.88) 14%, rgba(15,73,204,0.34) 32%, rgba(15,73,204,0) 56%)',
               }}
             />
+            <div
+              className="hidden sm:block lg:hidden absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(110deg, rgba(6,32,108,0.88) 0%, rgba(11,55,168,0.68) 55%, rgba(8,36,112,0.45) 100%)',
+              }}
+            />
           </div>
         )}
 
-        {/* Mobile/Tablet Readable Cobalt Gradient Overlay */}
-        <div
-          className="lg:hidden absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(110deg, rgba(6,32,108,0.88) 0%, rgba(11,55,168,0.68) 55%, rgba(8,36,112,0.45) 100%)',
-          }}
-        />
-
         {/* Luminous Soft Bottom Reflection Band Behind Dock */}
         <div
-          className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
+          className="hidden sm:block absolute inset-x-0 bottom-0 h-28 pointer-events-none"
           style={{
             background:
               'linear-gradient(180deg, rgba(6,26,84,0) 0%, rgba(5,21,70,0.68) 70%, rgba(5,19,62,0.92) 100%)',
@@ -345,108 +343,113 @@ export function HomeDashboard({
         />
 
         {/* Hero Inner Content Container */}
-        <div className="relative z-10 w-full px-4 sm:px-6 lg:px-10 pt-4 sm:pt-7 pb-4 sm:pb-5 flex flex-col justify-between gap-4 min-h-[395px] sm:min-h-[430px] lg:min-h-[460px]">
+        <div className="relative z-10 w-full px-3.5 sm:px-6 lg:px-10 pt-4 sm:pt-7 pb-4 sm:pb-5 flex flex-col justify-between gap-4 sm:min-h-[430px] lg:min-h-[460px]">
           {/* Top Bar inside Hero: Signed-In Profile Badge + Slideshow Arrows + Admin Media Control */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            {!isGuest ? (
-              <div className="flex items-center gap-2.5 bg-[#061D5C]/75 backdrop-blur-md border border-white/20 rounded-xl px-3 py-1.5">
-                {user?.photoUrl ? (
-                  <img
-                    src={user.photoUrl}
-                    alt={user.fullName}
-                    referrerPolicy="no-referrer"
-                    className="w-7 h-7 rounded-lg object-cover border border-[#F5B800]/75 shrink-0"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-lg bg-[#F5B800] text-[#071A4A] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
-                    {firstName.slice(0, 1).toUpperCase()}
+          {(!isGuest || heroSlides.length > 1 || effectiveRole === 'admin') && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {!isGuest ? (
+                <div className="flex items-center gap-2.5 bg-[#061D5C]/75 backdrop-blur-md border border-white/20 rounded-xl px-3 py-1.5">
+                  {user?.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt={user.fullName}
+                      referrerPolicy="no-referrer"
+                      className="w-7 h-7 rounded-lg object-cover border border-[#F5B800]/75 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-lg bg-[#F5B800] text-[#071A4A] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                      {firstName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">
+                      {t(lang, 'helloCustomer')}, {firstName}
+                    </p>
+                    <p className="text-[11px] text-[#F5B800] font-mono-num truncate">
+                      {rewards?.customerCode || 'OILCOM'} · {points.toLocaleString('en-US')} pts
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div aria-hidden="true" className="hidden sm:block h-4" />
+              )}
+
+              <div className="flex items-center gap-2 ml-auto">
+                {heroSlides.length > 1 && (
+                  <div className="hidden sm:flex items-center gap-1.5 bg-[#061A4D]/75 backdrop-blur-md border border-white/25 rounded-full px-2.5 py-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSlideIndex(
+                          (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
+                        )
+                      }
+                      aria-label="Previous photo"
+                      className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="flex items-center gap-1 px-1">
+                      {heroSlides.map((s, idx) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSlideIndex(idx)}
+                          aria-label={`Slide ${idx + 1}`}
+                          className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                            idx === slideIndex % heroSlides.length
+                              ? 'w-4 bg-[#F5B800]'
+                              : 'w-1.5 bg-white/45 hover:bg-white/80'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSlideIndex((prev) => (prev + 1) % heroSlides.length)
+                      }
+                      aria-label="Next photo"
+                      className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 )}
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-white truncate">
-                    {t(lang, 'helloCustomer')}, {firstName}
-                  </p>
-                  <p className="text-[11px] text-[#F5B800] font-mono-num truncate">
-                    {rewards?.customerCode || 'OILCOM'} · {points.toLocaleString('en-US')} pts
-                  </p>
-                </div>
+
+                {effectiveRole === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setSlidesModalOpen(true)}
+                    className="px-3.5 py-1.5 rounded-full bg-[#F5B800] hover:bg-[#e5aa00] text-[#071A4A] text-xs font-extrabold inline-flex items-center gap-1.5 shadow-lg cursor-pointer transition-colors"
+                  >
+                    <ImagePlus className="w-3.5 h-3.5" />
+                    <span>{lang === 'sw' ? 'Badilisha Picha' : 'Change Photo(s)'}</span>
+                  </button>
+                )}
               </div>
-            ) : (
-              <div aria-hidden="true" className="hidden sm:block h-4" />
-            )}
-
-            <div className="flex items-center gap-2 ml-auto">
-              {heroSlides.length > 1 && (
-                <div className="flex items-center gap-1.5 bg-[#061A4D]/75 backdrop-blur-md border border-white/25 rounded-full px-2.5 py-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSlideIndex(
-                        (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
-                      )
-                    }
-                    aria-label="Previous photo"
-                    className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="flex items-center gap-1 px-1">
-                    {heroSlides.map((s, idx) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setSlideIndex(idx)}
-                        aria-label={`Slide ${idx + 1}`}
-                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                          idx === slideIndex % heroSlides.length
-                            ? 'w-4 bg-[#F5B800]'
-                            : 'w-1.5 bg-white/45 hover:bg-white/80'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSlideIndex((prev) => (prev + 1) % heroSlides.length)
-                    }
-                    aria-label="Next photo"
-                    className="p-0.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-
-              {effectiveRole === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => setSlidesModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-full bg-[#F5B800] hover:bg-[#e5aa00] text-[#071A4A] text-xs font-extrabold inline-flex items-center gap-1.5 shadow-lg cursor-pointer transition-colors"
-                >
-                  <ImagePlus className="w-3.5 h-3.5" />
-                  <span>{lang === 'sw' ? 'Badilisha Picha' : 'Change Photo(s)'}</span>
-                </button>
-              )}
             </div>
-          </div>
+          )}
 
-          {/* Center-Left Editorial Block Matching Reference Proportions */}
-          <div className="max-w-lg space-y-3.5 my-auto lg:pl-2">
+          {/* Editorial Block (Mobile avoids duplicate large logo; Desktop keeps exact brand stack) */}
+          <div className="max-w-lg space-y-2.5 sm:space-y-3.5 my-auto lg:pl-2">
             <div className="space-y-1">
-              <OilcomWordmark className="h-14 sm:h-[68px] lg:h-[76px] drop-shadow-[0_6px_18px_rgba(3,14,52,0.5)]" />
+              <div className="hidden sm:block">
+                <OilcomWordmark className="h-[64px] lg:h-[76px] drop-shadow-[0_6px_18px_rgba(3,14,52,0.5)]" />
+              </div>
               <div className="inline-block">
-                <p className="text-sm sm:text-base italic font-bold text-white tracking-wide drop-shadow-xs">
+                <p className="text-xs sm:text-base italic font-bold text-white tracking-wide drop-shadow-xs">
+                  <span className="sm:hidden text-[#FFD028] not-italic font-extrabold mr-1.5">OILCOM</span>
                   Energy for a Better Tomorrow
                 </p>
-                <div className="mt-0.5 h-[2px] w-44 rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-transparent" />
+                <div className="mt-0.5 h-[2px] w-40 sm:w-44 rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-transparent" />
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <h1
-                className="font-display font-extrabold tracking-tight leading-[1.06] text-white drop-shadow-[0_4px_14px_rgba(3,14,52,0.5)]"
-                style={{ fontSize: 'clamp(1.95rem, 3.6vw, 3.1rem)' }}
+                className="font-display font-extrabold tracking-tight leading-[1.08] text-white drop-shadow-[0_4px_14px_rgba(3,14,52,0.45)]"
+                style={{ fontSize: 'clamp(1.75rem, 3.6vw, 3.1rem)' }}
               >
                 {lang === 'sw' ? (
                   <>
@@ -461,59 +464,109 @@ export function HomeDashboard({
                 )}
               </h1>
 
-              <p className="text-xs sm:text-[15px] italic text-blue-50 max-w-md leading-relaxed drop-shadow-xs">
+              <p className="text-xs sm:text-[15px] italic text-blue-50/95 max-w-md leading-relaxed">
                 {lang === 'sw'
                   ? 'Tunaweka nishati karibu nawe, kila wakati, mahali popote.'
                   : 'Putting clean fuel, OILCOM LPG, and certified stations near you anytime, anywhere.'}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => onNavigate('gas')}
-                className="px-5 py-2.5 rounded-full bg-[#D92027] hover:bg-[#b81b21] border border-white/25 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-[0_6px_18px_rgba(217,32,39,0.45)]"
+                className="px-3.5 sm:px-5 py-2.5 rounded-full bg-[#D92027] hover:bg-[#b81b21] border border-white/25 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-[0_6px_18px_rgba(217,32,39,0.45)]"
               >
-                <Fuel className="w-4 h-4 text-white" />
+                <Fuel className="w-4 h-4 text-white shrink-0" />
                 <span>{lang === 'sw' ? 'Huduma Zetu' : 'Our Services'}</span>
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5 shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('stations')}
-                className="px-5 py-2.5 rounded-full bg-[#072166]/65 hover:bg-[#0B2A6F]/90 backdrop-blur-sm border border-white/70 text-white text-xs sm:text-sm font-bold inline-flex items-center gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-md"
+                className="px-3.5 sm:px-5 py-2.5 rounded-full bg-[#072166]/70 hover:bg-[#0B2A6F]/90 backdrop-blur-sm border border-white/70 text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 shadow-md"
               >
-                <MapPin className="w-4 h-4 text-[#FFD028]" />
+                <MapPin className="w-4 h-4 text-[#FFD028] shrink-0" />
                 <span>{lang === 'sw' ? 'Tazama Vituo' : 'View Stations'}</span>
               </button>
             </div>
           </div>
 
-          {/* Translucent Sapphire-Glass 5-Tile Navigation Dock Anchored at Hero Base */}
-          <div className="rounded-2xl bg-[#07236A]/82 backdrop-blur-md border border-white/25 p-1.5 sm:p-2 shadow-[0_14px_34px_rgba(3,12,48,0.45)]">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1.5">
-              {quickDockItems.map((item) => (
+          {/* Mobile Crisp 16:9 Showcase Photo Frame (Prevents Cropped Pillar Zoom Behind Text) */}
+          {activeSlide && !heroImgFailed && (
+            <div className="sm:hidden relative rounded-2xl overflow-hidden border border-white/25 shadow-xl aspect-[16/9] bg-[#061A4D]">
+              <img
+                key={`mobile-${activeSlide.id}`}
+                src={activeSlide.imageUrl}
+                alt={
+                  activeSlide.title ||
+                  'OILCOM Fuel Station and Tanker Fleet — Energy for a Better Tomorrow'
+                }
+                referrerPolicy="no-referrer"
+                onError={() =>
+                  setFailedUrls((prev) => ({ ...prev, [activeSlide.imageUrl]: true }))
+                }
+                className="w-full h-full object-cover object-center brightness-105 contrast-105 saturate-110"
+              />
+              {heroSlides.length > 1 && (
+                <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-[#061A4D]/80 backdrop-blur-md border border-white/25 rounded-full px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSlideIndex(
+                        (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
+                      )
+                    }
+                    aria-label="Previous photo"
+                    className="p-0.5 text-white cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] font-mono-num font-bold text-[#FFD028] px-1">
+                    {(slideIndex % heroSlides.length) + 1}/{heroSlides.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSlideIndex((prev) => (prev + 1) % heroSlides.length)
+                    }
+                    aria-label="Next photo"
+                    className="p-0.5 text-white cursor-pointer"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Translucent Sapphire-Glass 5-Tile Navigation Dock (Compact 2x2 + Full-Width 5th on Phone) */}
+          <div className="rounded-2xl bg-[#07236A]/85 backdrop-blur-md border border-white/25 p-1.5 sm:p-2 shadow-[0_14px_34px_rgba(3,12,48,0.45)]">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
+              {quickDockItems.map((item, idx) => (
                 <button
                   key={item.route}
                   type="button"
                   onClick={() => onNavigate(item.route)}
-                  className="group text-left rounded-xl bg-white/[0.06] hover:bg-white/[0.15] border border-white/15 hover:border-[#FFD028]/75 px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  className={`group text-left rounded-xl bg-white/[0.06] hover:bg-white/[0.15] border border-white/15 hover:border-[#FFD028]/75 px-2.5 sm:px-3 py-2 flex items-center gap-2 sm:gap-2.5 transition-colors cursor-pointer ${
+                    idx === quickDockItems.length - 1 ? 'col-span-2 lg:col-span-1' : ''
+                  }`}
                 >
                   <span
-                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-white/30 shadow-sm ${item.accentClass}`}
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 border border-white/30 shadow-sm ${item.accentClass}`}
                   >
                     {item.icon}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-display font-bold text-xs sm:text-[13px] text-white group-hover:text-[#FFD028] truncate">
+                    <p className="font-display font-bold text-[11.5px] sm:text-[13px] text-white group-hover:text-[#FFD028] truncate">
                       {item.title}
                     </p>
-                    <p className="text-[11px] text-blue-100/85 truncate tabular-nums">
+                    <p className="text-[10.5px] sm:text-[11px] text-blue-100/85 truncate tabular-nums">
                       {item.subtitle}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-blue-100/75 group-hover:text-[#FFD028] shrink-0" />
+                  <ChevronRight className="hidden sm:block w-4 h-4 text-blue-100/75 group-hover:text-[#FFD028] shrink-0" />
                 </button>
               ))}
             </div>
@@ -524,7 +577,7 @@ export function HomeDashboard({
       {/* SECTION 2: Kuhusu OILCOM (Bright Photo Split Card) + Dhamira / Maono / Thamani Pillars */}
       <section
         id="kuhusu-oilcom"
-        className="px-3 sm:px-6 lg:px-10 py-3.5 sm:py-4 bg-white dark:bg-[#060B18]"
+        className="px-3.5 sm:px-6 lg:px-10 py-3.5 sm:py-4 bg-white dark:bg-[#060B18]"
       >
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
           {/* Left 5 cols: Kuhusu OILCOM Feature Card Matching Reference */}
@@ -557,7 +610,7 @@ export function HomeDashboard({
             </div>
 
             {/* Bright Un-Darkened Depot/Tanker Photo Panel */}
-            <div className="sm:col-span-5 relative min-h-[145px] sm:min-h-full overflow-hidden">
+            <div className="sm:col-span-5 relative aspect-[16/9] sm:aspect-auto sm:min-h-full overflow-hidden">
               <img
                 src={activeSlide?.imageUrl || DEFAULT_HERO_TANKER_PHOTO}
                 alt="OILCOM Tanzania Depot & Logistics"
@@ -577,10 +630,10 @@ export function HomeDashboard({
           {/* Right 7 cols: 3 Colored Corporate Pillars (Dhamira, Maono, Thamani) */}
           <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Dhamira Yetu */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#0E368F] to-[#081F5B] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-blue-900/40">
+            <div className="rounded-2xl bg-gradient-to-br from-[#0E368F] to-[#081F5B] text-white p-3.5 sm:p-4 flex flex-col justify-between gap-2 shadow-sm border border-blue-900/40">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-[#F5B800] text-[#071A4A] flex items-center justify-center shrink-0">
-                  <Target className="w-5 h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#F5B800] text-[#071A4A] flex items-center justify-center shrink-0">
+                  <Target className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
                   {lang === 'sw' ? 'Dhamira Yetu' : 'Our Mission'}
@@ -594,10 +647,10 @@ export function HomeDashboard({
             </div>
 
             {/* Maono Yetu */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#E2252C] to-[#B8161C] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-red-800/40">
+            <div className="rounded-2xl bg-gradient-to-br from-[#E2252C] to-[#B8161C] text-white p-3.5 sm:p-4 flex flex-col justify-between gap-2 shadow-sm border border-red-800/40">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-white text-[#D92027] flex items-center justify-center shrink-0">
-                  <Compass className="w-5 h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white text-[#D92027] flex items-center justify-center shrink-0">
+                  <Compass className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
                   {lang === 'sw' ? 'Maono Yetu' : 'Our Vision'}
@@ -611,21 +664,21 @@ export function HomeDashboard({
             </div>
 
             {/* Thamani Zetu */}
-            <div className="rounded-2xl bg-gradient-to-br from-[#091E59] to-[#06133A] text-white p-4 flex flex-col justify-between gap-2.5 shadow-sm border border-blue-900/40">
+            <div className="rounded-2xl bg-gradient-to-br from-[#091E59] to-[#06133A] text-white p-3.5 sm:p-4 flex flex-col justify-between gap-2 shadow-sm border border-blue-900/40">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-white/15 text-[#FFD028] flex items-center justify-center shrink-0">
-                  <Award className="w-5 h-5" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/15 text-[#FFD028] flex items-center justify-center shrink-0">
+                  <Award className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <h3 className="font-display font-bold text-[15px] text-[#FFD028]">
                   {lang === 'sw' ? 'Thamani Zetu' : 'Our Values'}
                 </h3>
               </div>
-              <ul className="space-y-1 text-xs text-blue-50/95">
+              <ul className="grid grid-cols-2 sm:grid-cols-1 gap-x-3 gap-y-1 text-xs text-blue-50/95">
                 {(lang === 'sw'
                   ? ['Uaminifu', 'Ubora', 'Ushirikiano', 'Huduma Bora']
                   : ['Integrity', 'Quality', 'Teamwork', 'Excellence']
                 ).map((val) => (
-                  <li key={val} className="flex items-center gap-2">
+                  <li key={val} className="flex items-center gap-1.5 sm:gap-2">
                     <Check className="w-3.5 h-3.5 text-[#FFD028] shrink-0" />
                     <span className="truncate">{val}</span>
                   </li>
@@ -642,18 +695,41 @@ export function HomeDashboard({
           id="habari-muhimu"
           className="relative bg-gradient-to-r from-[#071D59] via-[#0B2B78] to-[#061A4D] text-white flex flex-col sm:flex-row items-stretch overflow-hidden border-t border-b border-white/10"
         >
-          <div className="bg-[#D92027] text-white pl-5 sm:pl-10 pr-7 py-2.5 flex items-center gap-2.5 font-display font-extrabold text-sm shrink-0 sm:rounded-r-full shadow-md z-10">
-            <Megaphone className="w-4 h-4 text-[#FFD028] shrink-0" />
-            <span>{lang === 'sw' ? 'Habari Muhimu:' : 'Highlights:'}</span>
+          <div className="flex items-center justify-between gap-2 z-10 sm:contents">
+            <div className="bg-[#D92027] text-white pl-4 sm:pl-10 pr-6 sm:pr-7 py-2 sm:py-2.5 flex items-center gap-2 font-display font-extrabold text-xs sm:text-sm shrink-0 rounded-r-full shadow-md">
+              <Megaphone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FFD028] shrink-0" />
+              <span>{lang === 'sw' ? 'Habari Muhimu:' : 'Highlights:'}</span>
+            </div>
+
+            <div className="sm:hidden flex items-center gap-1.5 pr-3.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setNewsIndex((i) => (i - 1 + newsItems.length) % newsItems.length)
+                }
+                aria-label="Previous update"
+                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewsIndex((i) => (i + 1) % newsItems.length)}
+                aria-label="Next update"
+                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 px-4 sm:px-6 lg:pr-32 py-2.5 flex items-center justify-between gap-3 min-w-0 z-10">
+          <div className="flex-1 px-3.5 sm:px-6 lg:pr-32 py-2.5 flex items-center justify-between gap-3 min-w-0 z-10">
             <button
               type="button"
               onClick={() => onNavigate(activeNews.route)}
               className="text-left min-w-0 flex-1 cursor-pointer group"
             >
-              <p className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-[#FFD028] truncate transition-colors">
+              <p className="text-xs sm:text-[13px] font-semibold text-white group-hover:text-[#FFD028] line-clamp-2 sm:truncate transition-colors leading-snug">
                 {activeNews.title}{' '}
                 <span className="font-normal text-blue-100/85">
                   {activeNews.detail}
@@ -661,7 +737,7 @@ export function HomeDashboard({
               </p>
             </button>
 
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() =>
