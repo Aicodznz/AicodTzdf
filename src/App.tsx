@@ -1251,14 +1251,14 @@ export default function App() {
         >
           {/* Tier 2: Crisp White Main Navigation Bar */}
           <div className="relative text-neutral-900 dark:text-white">
-            <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-[52px] sm:h-[62px] flex items-center justify-between gap-2 sm:gap-6">
+            <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-[60px] sm:h-[64px] flex items-center justify-between gap-2 sm:gap-6">
               {/* Brand Wordmark */}
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('home')}
                 className="flex items-center shrink-0 cursor-pointer relative z-20"
               >
-                <OilcomWordmark className="h-8 sm:h-11 lg:h-12" />
+                <OilcomWordmark className="h-11 sm:h-12 lg:h-[52px]" />
               </button>
 
               {/* Center Navigation Links (Desktop) */}
@@ -1331,7 +1331,7 @@ export default function App() {
                     setPendingAuthRoute(null);
                     setShowAuthScreen(true);
                   }}
-                  className="px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-[11.5px] sm:text-[13px] font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_4px_14px_rgba(217,32,39,0.34)] transition-colors"
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 rounded-full bg-[#D92027] hover:bg-[#b81b21] text-white text-[11px] sm:text-[13px] font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 shadow-[0_4px_14px_rgba(217,32,39,0.34)] transition-colors"
                 >
                   <UserIcon className="w-3.5 h-3.5" />
                   <span>{lang === 'sw' ? 'Ingia / Sajili' : 'Sign In / Register'}</span>
@@ -1767,7 +1767,7 @@ export default function App() {
                 onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
                 className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left"
               >
-                <OilcomWordmark className="h-8" />
+                <OilcomWordmark className="h-10" />
               </button>
               <span className="hidden lg:inline font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
                 {navItems.find((n) => n.route === route)?.label || 'OILCOM'}

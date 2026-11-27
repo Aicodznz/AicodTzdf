@@ -150,7 +150,54 @@ function buildTransparentWordmark(src: string): Promise<string> {
         }
 
         ctx.putImageData(imageData, 0, 0);
-        const resultUrl = canvas.toDataURL('image/png');
+
+        let minX = w;
+        let minY = h;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const alpha = data[(y * w + x) * 4 + 3];
+            if (alpha > 20) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        let resultUrl: string;
+        if (maxX > minX && maxY > minY) {
+          const pad = 2;
+          const cropX = Math.max(0, minX - pad);
+          const cropY = Math.max(0, minY - pad);
+          const cropW = Math.min(w, maxX + pad + 1) - cropX;
+          const cropH = Math.min(h, maxY + pad + 1) - cropY;
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = cropW;
+          cropCanvas.height = cropH;
+          const cropCtx = cropCanvas.getContext('2d');
+          if (cropCtx) {
+            cropCtx.drawImage(
+              canvas,
+              cropX,
+              cropY,
+              cropW,
+              cropH,
+              0,
+              0,
+              cropW,
+              cropH
+            );
+            resultUrl = cropCanvas.toDataURL('image/png');
+          } else {
+            resultUrl = canvas.toDataURL('image/png');
+          }
+        } else {
+          resultUrl = canvas.toDataURL('image/png');
+        }
+
         cachedTransparentWordmarkUrl = resultUrl;
         resolve(resultUrl);
       } catch {
@@ -248,7 +295,7 @@ export function OilcomWordmark({
       <img
         src={transparentWordmark || LOGO_OFFICIAL_SRC}
         alt="Oilcom"
-        className={`h-[88%] w-auto object-contain drop-shadow-[0_1px_10px_rgba(255,255,255,0.42)] transition-opacity duration-150 ${
+        className={`h-[94%] w-auto object-contain drop-shadow-[0_1px_10px_rgba(255,255,255,0.42)] transition-opacity duration-150 ${
           transparentWordmark ? 'opacity-100' : 'opacity-0'
         }`}
       />
