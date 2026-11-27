@@ -1765,9 +1765,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => navigate(getDefaultRouteForRole(effectiveRole))}
-                className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left"
+                className="lg:hidden flex items-center gap-1.5 cursor-pointer min-w-0 text-left overflow-hidden"
               >
-                <OilcomWordmark className="h-10" />
+                <OilcomWordmark className="h-8 min-[400px]:h-9 max-w-full" />
               </button>
               <span className="hidden lg:inline font-display font-bold text-sm text-neutral-900 dark:text-white truncate">
                 {navItems.find((n) => n.route === route)?.label || 'OILCOM'}
