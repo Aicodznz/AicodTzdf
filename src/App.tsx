@@ -38,6 +38,7 @@ import { AdminConsoleModule } from './components/AdminConsoleModule';
 import { AgentPortalModule } from './components/AgentPortalModule';
 import { AuthScreen } from './components/AuthScreen';
 import { BusinessPortalModule } from './components/BusinessPortalModule';
+import { CurvedBottomNav } from './components/CurvedBottomNav';
 import { FuelAndGasModule } from './components/FuelAndGasModule';
 import { HomeDashboard } from './components/HomeDashboard';
 import {
@@ -1241,7 +1242,13 @@ export default function App() {
         </div>
 
         {/* Public Sticky Corporate Navigation Bar */}
-        <header className="sticky top-0 z-30 shadow-sm lg:shadow-md bg-white dark:bg-[#0B1326] border-b border-neutral-200/90 dark:border-blue-950">
+        <header
+          className={`sticky top-0 z-30 bg-white dark:bg-[#0B1326] ${
+            guestRoute === 'home'
+              ? 'shadow-none border-b-0'
+              : 'shadow-sm lg:shadow-md border-b border-neutral-200/90 dark:border-blue-950'
+          }`}
+        >
           {/* Tier 2: Crisp White Main Navigation Bar */}
           <div className="relative text-neutral-900 dark:text-white">
             <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-[52px] sm:h-[62px] flex items-center justify-between gap-2 sm:gap-6">
@@ -1334,48 +1341,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Mobile Non-Sticky 4-Tab Bar (Scrolls cleanly so scrolled pages stay unobstructed) */}
-        <div className="lg:hidden bg-white dark:bg-[#0B1326] border-b border-neutral-200 dark:border-blue-950 px-2.5 py-1.5 grid grid-cols-4 gap-1 text-[11px]">
-          <button
-            type="button"
-            onClick={() => handleGuestNavigate('home')}
-            className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
-              guestRoute === 'home'
-                ? 'bg-[#D92027] text-white shadow-xs'
-                : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
-            }`}
-          >
-            {t(lang, 'navHome')}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGuestNavigate('stations')}
-            className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
-              guestRoute === 'stations'
-                ? 'bg-[#D92027] text-white shadow-xs'
-                : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
-            }`}
-          >
-            {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGuestNavigate('gas')}
-            className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
-          >
-            {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGuestNavigate('fuel')}
-            className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
-          >
-            {lang === 'sw' ? 'Mafuta' : 'Fuel'}
-          </button>
-        </div>
-
-        {/* Public Page Content — Full-Bleed Edge-to-Edge */}
-        <main className="flex-1 w-full min-w-0 p-0">
+        {/* Public Page Content — Full-Bleed Edge-to-Edge (with curved mobile bottom nav clearance) */}
+        <main className="flex-1 w-full min-w-0 p-0 pb-[74px] lg:pb-0">
           {guestRoute === 'home' ? (
             <HomeDashboard
               lang={lang}
@@ -1409,6 +1376,35 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* Modern Curved-Notch Mobile Bottom Navigation Bar */}
+        <CurvedBottomNav
+          ariaLabel={lang === 'sw' ? 'Menyu ya Chini' : 'Mobile Bottom Navigation'}
+          activeId={guestRoute}
+          onSelect={(nextRoute) => handleGuestNavigate(nextRoute)}
+          items={[
+            {
+              id: 'home',
+              label: t(lang, 'navHome'),
+              icon: Home,
+            },
+            {
+              id: 'stations',
+              label: lang === 'sw' ? 'Vituo Yetu' : 'Stations',
+              icon: MapPin,
+            },
+            {
+              id: 'gas',
+              label: lang === 'sw' ? 'Gesi LPG' : 'LPG Gas',
+              icon: Flame,
+            },
+            {
+              id: 'fuel',
+              label: lang === 'sw' ? 'Mafuta' : 'Fuel',
+              icon: Fuel,
+            },
+          ]}
+        />
       </div>
     );
   }
@@ -2062,8 +2058,8 @@ export default function App() {
           <main
             className={`flex-1 w-full mx-auto min-w-0 ${
               route === 'stations' || route === 'home'
-                ? 'p-0 pb-14 lg:p-0 lg:pb-0 max-w-none'
-                : 'max-w-7xl p-2.5 sm:p-5 lg:p-7 pb-[72px] lg:pb-8'
+                ? 'p-0 pb-[74px] lg:p-0 lg:pb-0 max-w-none'
+                : 'max-w-7xl p-2.5 sm:p-5 lg:p-7 pb-[82px] lg:pb-8'
             }`}
           >
             {route === 'home' && (effectiveRole === 'customer' || effectiveRole === 'admin') && (
@@ -2234,73 +2230,51 @@ export default function App() {
             )}
           </main>
 
-          {/* Strict Role-Scoped Mobile Bottom Navigation Bar */}
+          {/* Strict Role-Scoped Curved-Notch Mobile Bottom Navigation Bar */}
           {(() => {
             const mobileTabs: {
-              route: AppRoute;
+              id: AppRoute;
               label: string;
               icon: React.ComponentType<{ className?: string }>;
             }[] =
               effectiveRole === 'customer'
                 ? [
-                    { route: 'home', label: t(lang, 'navHome'), icon: Home },
-                    { route: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
-                    { route: 'stations', label: 'Maps', icon: MapPin },
-                    { route: 'rewards', label: 'Rewards', icon: Gift },
-                    { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                    { id: 'home', label: t(lang, 'navHome'), icon: Home },
+                    { id: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
+                    { id: 'stations', label: 'Maps', icon: MapPin },
+                    { id: 'rewards', label: 'Rewards', icon: Gift },
+                    { id: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
                   ]
                 : effectiveRole === 'admin'
                   ? [
-                      { route: 'admin', label: t(lang, 'navAdmin'), icon: ShieldCheck },
-                      { route: 'station_manager', label: lang === 'sw' ? 'Vituo' : 'Stations', icon: Building2 },
-                      { route: 'agent', label: t(lang, 'navAgent'), icon: Store },
-                      { route: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
-                      { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                      { id: 'admin', label: t(lang, 'navAdmin'), icon: ShieldCheck },
+                      { id: 'station_manager', label: lang === 'sw' ? 'Vituo' : 'Stations', icon: Building2 },
+                      { id: 'agent', label: t(lang, 'navAgent'), icon: Store },
+                      { id: 'orders', label: lang === 'sw' ? 'Oda' : 'Orders', icon: Truck },
+                      { id: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
                     ]
                   : effectiveRole === 'agent'
                     ? [
-                        { route: 'agent', label: t(lang, 'navAgent'), icon: Store },
-                        { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                        { id: 'agent', label: t(lang, 'navAgent'), icon: Store },
+                        { id: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
                       ]
                     : effectiveRole === 'station_manager' || effectiveRole === 'gas_manager'
                       ? [
-                          { route: 'station_manager', label: t(lang, 'navStationManager'), icon: Building2 },
-                          { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                          { id: 'station_manager', label: t(lang, 'navStationManager'), icon: Building2 },
+                          { id: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
                         ]
                       : [
-                          { route: 'business', label: t(lang, 'navBusiness'), icon: Briefcase },
-                          { route: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
+                          { id: 'business', label: t(lang, 'navBusiness'), icon: Briefcase },
+                          { id: 'profile', label: t(lang, 'navProfile'), icon: UserIcon },
                         ];
 
-            const gridColsClass =
-              mobileTabs.length === 2
-                ? 'grid-cols-2'
-                : mobileTabs.length === 3
-                  ? 'grid-cols-3'
-                  : 'grid-cols-5';
-
             return (
-              <nav
-                className={`lg:hidden fixed bottom-0 inset-x-0 z-30 h-14 bg-[#0B2A6F] border-t border-white/10 grid ${gridColsClass}`}
-              >
-                {mobileTabs.map((item) => {
-                  const Icon = item.icon;
-                  const active = route === item.route;
-                  return (
-                    <button
-                      key={item.route}
-                      type="button"
-                      onClick={() => navigate(item.route)}
-                      className={`flex flex-col items-center justify-center gap-0.5 text-[10px] sm:text-[11px] font-medium cursor-pointer ${
-                        active ? 'text-[#F5B800]' : 'text-blue-100/80'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="truncate max-w-full px-1">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+              <CurvedBottomNav
+                ariaLabel={lang === 'sw' ? 'Menyu ya Chini' : 'Mobile Bottom Navigation'}
+                items={mobileTabs}
+                activeId={route}
+                onSelect={(nextRoute) => navigate(nextRoute)}
+              />
             );
           })()}
         </div>

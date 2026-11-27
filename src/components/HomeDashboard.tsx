@@ -299,15 +299,28 @@ export function HomeDashboard({
     <div className="w-full min-h-full flex flex-col bg-white dark:bg-[#060B18]">
       {/* SECTION 1: Bright Royal-Cobalt Panoramic Hero + Translucent 5-Tile Bottom Dock */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#06247A] via-[#0F49CC] to-[#082A8C] text-white">
-        {/* Desktop White Swoop Wave Anchored at Top of Hero (scrolls cleanly with Hero) */}
+        {/* Mobile White Swoop Wave Under Oilcom Logo */}
         <svg
-          viewBox="0 0 1440 24"
+          viewBox="0 0 360 22"
           preserveAspectRatio="none"
           aria-hidden="true"
-          className="hidden lg:block pointer-events-none absolute top-0 inset-x-0 w-full h-[18px] z-20 text-white dark:text-[#0B1326]"
+          className="sm:hidden pointer-events-none absolute -top-px inset-x-0 w-full h-[18px] z-20 text-white dark:text-[#0B1326] drop-shadow-[0_3px_6px_rgba(3,14,52,0.14)]"
         >
           <path
-            d="M0,0 L1440,0 L1440,1 C1080,1 620,1 410,10 C285,15 220,23 115,23 C52,23 18,17 0,12 Z"
+            d="M0,0 L360,0 L360,1 C275,1 215,1 172,10 C138,17 98,21 56,21 C26,21 10,16 0,11 Z"
+            fill="currentColor"
+          />
+        </svg>
+
+        {/* Desktop / Tablet White Swoop Wave Anchored Seamlessly at Top of Hero */}
+        <svg
+          viewBox="0 0 1440 28"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          className="hidden sm:block pointer-events-none absolute -top-px inset-x-0 w-full h-[20px] lg:h-[22px] z-20 text-white dark:text-[#0B1326] drop-shadow-[0_3px_8px_rgba(3,14,52,0.14)]"
+        >
+          <path
+            d="M0,0 L1440,0 L1440,0 C1120,0 640,0 415,12 C280,19 205,27 115,27 C52,27 18,20 0,13 Z"
             fill="currentColor"
           />
         </svg>
@@ -356,7 +369,7 @@ export function HomeDashboard({
         />
 
         {/* Hero Inner Content Container */}
-        <div className="relative z-10 w-full px-3.5 sm:px-6 lg:px-10 pt-4 sm:pt-7 pb-4 sm:pb-5 flex flex-col justify-between gap-4 sm:min-h-[430px] lg:min-h-[460px]">
+        <div className="relative z-10 w-full px-3.5 sm:px-6 lg:px-10 pt-6 sm:pt-7 lg:pt-8 pb-4 sm:pb-5 flex flex-col justify-between gap-4 sm:min-h-[430px] lg:min-h-[468px]">
           {/* Top Bar inside Hero: Signed-In Profile Badge + Slideshow Arrows + Admin Media Control */}
           {(!isGuest || heroSlides.length > 1 || effectiveRole === 'admin') && (
             <div className="flex flex-wrap items-center justify-between gap-2">
