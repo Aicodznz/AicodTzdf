@@ -451,6 +451,7 @@ function StationsMapWorkspace({
   const [selectedStation, setSelectedStation] = useState<Station | null>(
     stations[0] || null
   );
+  const hasAutoSelectedStationRef = useRef(Boolean(stations[0]));
   const [selectedPlace, setSelectedPlace] = useState<DiscoveredPlace | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -987,7 +988,13 @@ function StationsMapWorkspace({
     ) {
       setSelectedStation(filteredStations[0] || null);
       setInfoOpen(false);
-    } else if (!selectedStation && !selectedPlace && filteredStations.length > 0) {
+    } else if (
+      !hasAutoSelectedStationRef.current &&
+      !selectedStation &&
+      !selectedPlace &&
+      filteredStations.length > 0
+    ) {
+      hasAutoSelectedStationRef.current = true;
       setSelectedStation(filteredStations[0]);
     }
   }, [filteredStations, selectedStation, selectedPlace]);
@@ -2631,7 +2638,7 @@ function StationsMapWorkspace({
           className={
             isFullscreen
               ? 'fixed inset-0 z-50 w-screen h-dvh bg-neutral-100 dark:bg-[#091022] overflow-hidden'
-              : 'w-full min-w-0 bg-neutral-100 dark:bg-[#091022] h-[calc(100dvh-7rem)] min-h-[440px] lg:h-[calc(100dvh-4rem)] relative overflow-hidden'
+              : 'w-full min-w-0 bg-neutral-100 dark:bg-[#091022] h-[calc(100dvh-9.5rem)] min-h-[420px] lg:h-[calc(100dvh-4rem)] relative overflow-hidden'
           }
         >
           {isNative3DActive ? (
@@ -4244,7 +4251,7 @@ function StationsMapWorkspace({
 
           {/* Mobile Compact Bottom Card (single unified card with photo, full scrollable details & close button) */}
           {activeTarget && !mobileListOpen && (
-            <div className="lg:hidden absolute bottom-6 inset-x-2.5 z-10 rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-2xl overflow-hidden flex flex-col max-h-[38dvh]">
+            <div className="lg:hidden absolute bottom-8 inset-x-2.5 z-20 rounded-2xl bg-white/95 dark:bg-[#0E172E]/95 backdrop-blur-md border border-neutral-200 dark:border-blue-900 shadow-2xl overflow-hidden flex flex-col max-h-[40dvh]">
               {/* Compact Header */}
               <div className="px-2.5 pt-2 pb-1.5 flex items-start gap-2.5 shrink-0">
                 {activeTarget.kind === 'place' && activeTarget.photoUrl ? (
@@ -4319,12 +4326,15 @@ function StationsMapWorkspace({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-0.5 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 relative z-10">
                   <button
                     type="button"
-                    onClick={() => setDetailsExpanded((v) => !v)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDetailsExpanded((v) => !v);
+                    }}
                     aria-label="Toggle details"
-                    className="p-1 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer transition-colors"
                   >
                     {detailsExpanded ? (
                       <ChevronDown className="w-4 h-4" />
@@ -4334,13 +4344,17 @@ function StationsMapWorkspace({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      hasAutoSelectedStationRef.current = true;
                       setSelectedStation(null);
                       setSelectedPlace(null);
                       setInfoOpen(false);
+                      setDetailsExpanded(false);
                     }}
-                    aria-label="Close details"
-                    className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-blue-950 cursor-pointer"
+                    aria-label={lang === 'sw' ? 'Funga maelezo' : 'Close details'}
+                    title={lang === 'sw' ? 'Funga' : 'Close'}
+                    className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-red-100 dark:bg-blue-950 dark:hover:bg-red-950/60 text-neutral-600 hover:text-[#D92027] dark:text-neutral-300 flex items-center justify-center cursor-pointer transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -4368,7 +4382,7 @@ function StationsMapWorkspace({
                         {activeTarget.hasGas && (
                           <span className="inline-flex items-center gap-1">
                             <Flame className="w-3 h-3 text-[#F5B800]" />
-                            {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
+                            O-GAS
                           </span>
                         )}
                         {activeTarget.hasFuel && (
@@ -4410,7 +4424,7 @@ function StationsMapWorkspace({
                         <div className="grid grid-cols-3 gap-1.5 text-center">
                           <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
                             <span className="text-[9px] text-neutral-500 block leading-none">
-                              LPG 6kg
+                              O-GAS 6kg
                             </span>
                             <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
                               {activeTarget.lpg6kgStock ?? 0}
@@ -4418,7 +4432,7 @@ function StationsMapWorkspace({
                           </div>
                           <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
                             <span className="text-[9px] text-neutral-500 block leading-none">
-                              LPG 15kg
+                              O-GAS 15kg
                             </span>
                             <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
                               {activeTarget.lpg15kgStock ?? 0}
@@ -4426,7 +4440,7 @@ function StationsMapWorkspace({
                           </div>
                           <div className="px-1.5 py-1 rounded-lg bg-amber-50/70 dark:bg-blue-950/40">
                             <span className="text-[9px] text-neutral-500 block leading-none">
-                              LPG 38kg
+                              O-GAS 38kg
                             </span>
                             <span className="font-mono-num font-bold text-neutral-900 dark:text-[#F5B800]">
                               {activeTarget.lpg38kgStock ?? 0}

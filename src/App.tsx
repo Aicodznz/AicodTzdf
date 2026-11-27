@@ -143,7 +143,6 @@ function getDefaultRouteForRole(role: UserRole): AppRoute {
 }
 
 export default function App() {
-  const [mapsQuotaExceeded, setMapsQuotaExceeded] = useState(false);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>(
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
   );
@@ -221,12 +220,6 @@ export default function App() {
   useEffect(() => {
     const id = window.setTimeout(() => setSplashDone(true), 3200);
     return () => window.clearTimeout(id);
-  }, []);
-
-  useEffect(() => {
-    const onQuota = () => setMapsQuotaExceeded(true);
-    window.addEventListener('gmp-quota-exceeded', onQuota);
-    return () => window.removeEventListener('gmp-quota-exceeded', onQuota);
   }, []);
 
   useEffect(() => {
@@ -1084,27 +1077,9 @@ export default function App() {
     };
   }, [searchText, products, stations, navItems]);
 
-  const quotaBanner = mapsQuotaExceeded && (
-    <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
-      <span>
-        Google Maps Platform quota reached. If you are the app owner, visit{' '}
-        <a
-          href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline font-semibold text-amber-950 hover:text-amber-800"
-        >
-          maps developer site
-        </a>{' '}
-        for instructions to update your account.
-      </span>
-    </div>
-  );
-
   if (!splashDone || !authReady || (fbUser && !profileLoaded)) {
     return (
       <>
-        {quotaBanner}
         <div
           className="min-h-[100dvh] flex flex-col items-center justify-between px-4 py-8 text-white relative overflow-hidden"
           style={{
@@ -1168,7 +1143,6 @@ export default function App() {
     if (showAuthScreen) {
       return (
         <>
-          {quotaBanner}
           <AuthScreen
             lang={lang}
             setLang={setLang}
@@ -1206,8 +1180,6 @@ export default function App() {
 
     return (
       <div className="min-h-screen flex flex-col bg-[#EEF3FA] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100">
-        {quotaBanner}
-
         {/* Tier 1: Deep Navy Utility Bar (scrolls naturally so sticky header stays compact on mobile) */}
         <div className="bg-[#061A4D] text-white border-b border-white/10">
           <div className="w-full px-3 sm:px-6 lg:px-10 h-9 flex items-center justify-between gap-2 sm:gap-3 text-[11px] sm:text-xs">
@@ -1471,7 +1443,6 @@ export default function App() {
   if (effectiveUser.status === 'suspended') {
     return (
       <>
-        {quotaBanner}
         <div className="min-h-screen flex items-center justify-center p-6 bg-[#F4F7FB] dark:bg-[#060B18]">
           <div className="max-w-md rounded-2xl bg-white dark:bg-[#0E172E] border border-red-200 dark:border-red-900 p-8 text-center space-y-4">
             <h2 className="font-display text-xl font-bold text-red-600">
@@ -1525,8 +1496,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#F4F7FB] dark:bg-[#060B18] text-neutral-900 dark:text-neutral-100 flex flex-col">
-      {quotaBanner}
-
       <div className="flex flex-1 min-h-0">
         {/* Desktop Collapsible Sidebar (260px expanded <-> 76px compact icon rail) */}
         <aside
