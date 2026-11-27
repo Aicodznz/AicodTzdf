@@ -1241,20 +1241,20 @@ export default function App() {
         </div>
 
         {/* Public Sticky Corporate Navigation Bar */}
-        <header className="sticky top-0 z-30 shadow-md">
-          {/* Tier 2: Crisp White Main Navigation Bar with Signature Swoop Under Wordmark */}
-          <div className="relative bg-white dark:bg-[#0B1326] text-neutral-900 dark:text-white border-b border-neutral-200/80 dark:border-blue-950">
-            <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-13 sm:h-[62px] flex items-center justify-between gap-2 sm:gap-6">
+        <header className="sticky top-0 z-30 shadow-sm lg:shadow-md bg-white dark:bg-[#0B1326] border-b border-neutral-200/90 dark:border-blue-950">
+          {/* Tier 2: Crisp White Main Navigation Bar */}
+          <div className="relative text-neutral-900 dark:text-white">
+            <div className="relative z-10 w-full px-3 sm:px-6 lg:px-10 h-[52px] sm:h-[62px] flex items-center justify-between gap-2 sm:gap-6">
               {/* Brand Wordmark */}
               <button
                 type="button"
                 onClick={() => handleGuestNavigate('home')}
-                className="flex items-center shrink-0 cursor-pointer relative z-20 lg:translate-y-1"
+                className="flex items-center shrink-0 cursor-pointer relative z-20"
               >
-                <OilcomWordmark className="h-9 sm:h-12" />
+                <OilcomWordmark className="h-8 sm:h-11 lg:h-12" />
               </button>
 
-              {/* Center Navigation Links */}
+              {/* Center Navigation Links (Desktop) */}
               <nav className="hidden lg:flex items-center gap-4 xl:gap-6 text-[13.5px] font-bold">
                 <button
                   type="button"
@@ -1331,63 +1331,48 @@ export default function App() {
                 </button>
               </div>
             </div>
-
-            {/* Signature Sculpted White Wave Swoop Dipping Under Wordmark Over Hero Sky */}
-            {guestRoute === 'home' && (
-              <svg
-                viewBox="0 0 1440 28"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-                className="hidden lg:block pointer-events-none absolute left-0 right-0 -bottom-[21px] w-full h-[22px] z-10 text-white dark:text-[#0B1326]"
-              >
-                <path
-                  d="M0,0 L1440,0 L1440,2 C1080,2 620,2 410,12 C285,18 220,27 115,27 C52,27 18,20 0,14 Z"
-                  fill="currentColor"
-                />
-              </svg>
-            )}
-
-            {/* Mobile Equal 4-Tab Bar (Fits cleanly with zero word clipping on narrow phones) */}
-            <div className="lg:hidden border-t border-neutral-100 dark:border-blue-950 px-2.5 py-1.5 grid grid-cols-4 gap-1 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleGuestNavigate('home')}
-                className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
-                  guestRoute === 'home'
-                    ? 'bg-[#D92027] text-white shadow-xs'
-                    : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
-                }`}
-              >
-                {t(lang, 'navHome')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGuestNavigate('stations')}
-                className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
-                  guestRoute === 'stations'
-                    ? 'bg-[#D92027] text-white shadow-xs'
-                    : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
-                }`}
-              >
-                {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGuestNavigate('gas')}
-                className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
-              >
-                {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleGuestNavigate('fuel')}
-                className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
-              >
-                {lang === 'sw' ? 'Mafuta' : 'Fuel'}
-              </button>
-            </div>
           </div>
         </header>
+
+        {/* Mobile Non-Sticky 4-Tab Bar (Scrolls cleanly so scrolled pages stay unobstructed) */}
+        <div className="lg:hidden bg-white dark:bg-[#0B1326] border-b border-neutral-200 dark:border-blue-950 px-2.5 py-1.5 grid grid-cols-4 gap-1 text-[11px]">
+          <button
+            type="button"
+            onClick={() => handleGuestNavigate('home')}
+            className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
+              guestRoute === 'home'
+                ? 'bg-[#D92027] text-white shadow-xs'
+                : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+            }`}
+          >
+            {t(lang, 'navHome')}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGuestNavigate('stations')}
+            className={`whitespace-nowrap px-1 py-1.5 rounded-full cursor-pointer font-bold text-center truncate transition-colors ${
+              guestRoute === 'stations'
+                ? 'bg-[#D92027] text-white shadow-xs'
+                : 'text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60'
+            }`}
+          >
+            {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGuestNavigate('gas')}
+            className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
+          >
+            {lang === 'sw' ? 'Gesi LPG' : 'LPG Gas'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGuestNavigate('fuel')}
+            className="whitespace-nowrap px-1 py-1.5 rounded-full text-[#081A4B] dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-blue-950/60 font-bold text-center truncate cursor-pointer transition-colors"
+          >
+            {lang === 'sw' ? 'Mafuta' : 'Fuel'}
+          </button>
+        </div>
 
         {/* Public Page Content — Full-Bleed Edge-to-Edge */}
         <main className="flex-1 w-full min-w-0 p-0">

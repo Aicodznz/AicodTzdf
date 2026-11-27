@@ -299,6 +299,19 @@ export function HomeDashboard({
     <div className="w-full min-h-full flex flex-col bg-white dark:bg-[#060B18]">
       {/* SECTION 1: Bright Royal-Cobalt Panoramic Hero + Translucent 5-Tile Bottom Dock */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#06247A] via-[#0F49CC] to-[#082A8C] text-white">
+        {/* Desktop White Swoop Wave Anchored at Top of Hero (scrolls cleanly with Hero) */}
+        <svg
+          viewBox="0 0 1440 24"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          className="hidden lg:block pointer-events-none absolute top-0 inset-x-0 w-full h-[18px] z-20 text-white dark:text-[#0B1326]"
+        >
+          <path
+            d="M0,0 L1440,0 L1440,1 C1080,1 620,1 410,10 C285,15 220,23 115,23 C52,23 18,17 0,12 Z"
+            fill="currentColor"
+          />
+        </svg>
+
         {/* Desktop / Tablet Full-Right / Full-Bleed Hero Photo Layer */}
         {activeSlide && !heroImgFailed && (
           <div className="hidden sm:block absolute inset-0 lg:left-[30%] overflow-hidden pointer-events-none">
@@ -541,34 +554,43 @@ export function HomeDashboard({
             </div>
           )}
 
-          {/* Translucent Sapphire-Glass 5-Tile Navigation Dock (Compact 2x2 + Full-Width 5th on Phone) */}
+          {/* Translucent Sapphire-Glass 5-Tile Navigation Dock (Centered Cards on Mobile = Zero Ellipsis) */}
           <div className="rounded-2xl bg-[#07236A]/85 backdrop-blur-md border border-white/25 p-1.5 sm:p-2 shadow-[0_14px_34px_rgba(3,12,48,0.45)]">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-1.5">
-              {quickDockItems.map((item, idx) => (
-                <button
-                  key={item.route}
-                  type="button"
-                  onClick={() => onNavigate(item.route)}
-                  className={`group text-left rounded-xl bg-white/[0.06] hover:bg-white/[0.15] border border-white/15 hover:border-[#FFD028]/75 px-2.5 sm:px-3 py-2 flex items-center gap-2 sm:gap-2.5 transition-colors cursor-pointer ${
-                    idx === quickDockItems.length - 1 ? 'col-span-2 lg:col-span-1' : ''
-                  }`}
-                >
-                  <span
-                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 border border-white/30 shadow-sm ${item.accentClass}`}
+              {quickDockItems.map((item, idx) => {
+                const isLast = idx === quickDockItems.length - 1;
+                return (
+                  <button
+                    key={item.route}
+                    type="button"
+                    onClick={() => onNavigate(item.route)}
+                    className={`group rounded-xl bg-white/[0.06] hover:bg-white/[0.15] border border-white/15 hover:border-[#FFD028]/75 transition-colors cursor-pointer ${
+                      isLast
+                        ? 'col-span-2 lg:col-span-1 flex items-center text-left px-3 py-2.5 gap-2.5'
+                        : 'flex flex-col sm:flex-row items-center text-center sm:text-left px-2 sm:px-3 py-2.5 sm:py-2 gap-1.5 sm:gap-2.5'
+                    }`}
                   >
-                    {item.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-display font-bold text-[11.5px] sm:text-[13px] text-white group-hover:text-[#FFD028] truncate">
-                      {item.title}
-                    </p>
-                    <p className="text-[10.5px] sm:text-[11px] text-blue-100/85 truncate tabular-nums">
-                      {item.subtitle}
-                    </p>
-                  </div>
-                  <ChevronRight className="hidden sm:block w-4 h-4 text-blue-100/75 group-hover:text-[#FFD028] shrink-0" />
-                </button>
-              ))}
+                    <span
+                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-white/30 shadow-sm ${item.accentClass}`}
+                    >
+                      {item.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display font-bold text-[12px] sm:text-[13px] text-white group-hover:text-[#FFD028] leading-tight sm:truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-[10.5px] sm:text-[11px] text-blue-100/85 mt-0.5 leading-tight sm:truncate tabular-nums">
+                        {item.subtitle}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      className={`${
+                        isLast ? 'block' : 'hidden sm:block'
+                      } w-4 h-4 text-blue-100/75 group-hover:text-[#FFD028] shrink-0`}
+                    />
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -609,10 +631,52 @@ export function HomeDashboard({
               </div>
             </div>
 
-            {/* Bright Un-Darkened Depot/Tanker Photo Panel */}
-            <div className="sm:col-span-5 relative aspect-[16/9] sm:aspect-auto sm:min-h-full overflow-hidden">
+            {/* Mobile Key Strengths Strip (Avoids Repeating Identical Tanker Photo When Only 1 Slide Exists) */}
+            {heroSlides.length <= 1 ? (
+              <div className="sm:hidden border-t border-neutral-100 dark:border-blue-950 bg-[#F6F9FE] dark:bg-blue-950/35 px-4 py-2.5 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="font-display font-extrabold text-xs text-[#0B2A6F] dark:text-[#FFD028]">
+                    24/7
+                  </p>
+                  <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-tight mt-0.5">
+                    {lang === 'sw' ? 'Huduma Kote' : 'Service'}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-display font-extrabold text-xs text-[#D92027] dark:text-[#FFD028]">
+                    LPG & Fuel
+                  </p>
+                  <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-tight mt-0.5">
+                    {lang === 'sw' ? 'Ubora Halisi' : 'Certified'}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-display font-extrabold text-xs text-[#0B2A6F] dark:text-[#FFD028] tabular-nums">
+                    {stations.length}+
+                  </p>
+                  <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-tight mt-0.5">
+                    {lang === 'sw' ? 'Vituo Halisi' : 'Stations'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="sm:hidden relative aspect-[16/9] overflow-hidden border-t border-neutral-100 dark:border-blue-950">
+                <img
+                  src={heroSlides[1].imageUrl}
+                  alt={heroSlides[1].title || 'OILCOM Tanzania'}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover brightness-105 saturate-110"
+                />
+              </div>
+            )}
+
+            {/* Bright Un-Darkened Depot/Tanker Photo Panel on Tablet/Desktop */}
+            <div className="hidden sm:block sm:col-span-5 relative sm:min-h-full overflow-hidden">
               <img
-                src={activeSlide?.imageUrl || DEFAULT_HERO_TANKER_PHOTO}
+                src={
+                  (heroSlides.length > 1 ? heroSlides[1].imageUrl : activeSlide?.imageUrl) ||
+                  DEFAULT_HERO_TANKER_PHOTO
+                }
                 alt="OILCOM Tanzania Depot & Logistics"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover brightness-105 saturate-110"
@@ -831,7 +895,7 @@ export function HomeDashboard({
       )}
 
       {/* SECTION 4: Below-the-Fold Live Catalog Rates, Account / Orders & Promotions */}
-      <section className="px-3 sm:px-6 lg:px-10 py-4 bg-[#EEF3FA] dark:bg-[#060B18]">
+      <section className="px-3.5 sm:px-6 lg:px-10 py-4 bg-[#EEF3FA] dark:bg-[#060B18]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
           {/* Live Catalog Pricing Card */}
           <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between gap-3">
@@ -842,7 +906,7 @@ export function HomeDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate('fuel')}
-                className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer whitespace-nowrap"
+                className="px-3 py-1 rounded-full bg-[#EEF3FA] dark:bg-blue-950/70 text-xs font-bold text-[#0B2A6F] dark:text-[#F5B800] hover:opacity-90 cursor-pointer whitespace-nowrap"
               >
                 {lang === 'sw' ? 'Agiza' : 'Order'}
               </button>
@@ -878,14 +942,14 @@ export function HomeDashboard({
           {/* Guest Account Onboarding or Recent Orders */}
           <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between">
             {isGuest ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
+              <div className="space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white leading-snug">
                     {lang === 'sw'
                       ? 'Akaunti ya Mteja na Biashara'
                       : 'Customer & Business Account'}
                   </h3>
-                  <span className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800]">
+                  <span className="text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] whitespace-nowrap shrink-0 pt-0.5">
                     OILCOM Digital
                   </span>
                 </div>
@@ -894,12 +958,12 @@ export function HomeDashboard({
                     ? 'Jisajili bure kuagiza OILCOM Gas nyumbani, kununua vocha za mafuta na kukusanya pointi.'
                     : 'Register free to order OILCOM LPG online, buy fuel vouchers, and earn Rewards points.'}
                 </p>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1">
                   {onOpenAuth && (
                     <button
                       type="button"
                       onClick={onOpenAuth}
-                      className="px-4 py-2 rounded-full bg-[#0B2A6F] hover:bg-[#092259] text-white text-xs font-bold cursor-pointer transition-colors"
+                      className="px-4 py-2 rounded-full bg-[#0B2A6F] hover:bg-[#092259] text-white text-xs font-bold cursor-pointer transition-colors text-center"
                     >
                       {lang === 'sw' ? 'Ingia / Jisajili' : 'Sign In / Register'}
                     </button>
@@ -907,9 +971,9 @@ export function HomeDashboard({
                   <button
                     type="button"
                     onClick={() => onNavigate('stations')}
-                    className="px-3.5 py-2 rounded-full border border-neutral-200 dark:border-blue-900 hover:border-[#0B2A6F] text-neutral-800 dark:text-neutral-100 text-xs font-semibold cursor-pointer transition-colors"
+                    className="px-3.5 py-2 rounded-full border border-neutral-200 dark:border-blue-900 hover:border-[#0B2A6F] text-neutral-800 dark:text-neutral-100 text-xs font-semibold cursor-pointer transition-colors text-center"
                   >
-                    {lang === 'sw' ? 'Vituo' : 'Stations'}
+                    {lang === 'sw' ? 'Vituo Yetu' : 'Stations'}
                   </button>
                 </div>
               </div>
@@ -969,16 +1033,16 @@ export function HomeDashboard({
             )}
           </div>
 
-          {/* Promotions Card */}
+          {/* Promotions Card (Full Unclipped Titles & Descriptions on Mobile) */}
           <div className="lg:col-span-4 rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col justify-between gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h3 className="font-display font-bold text-base text-neutral-900 dark:text-white">
                 {lang === 'sw' ? 'Promosheni & Rewards' : 'Promotions & Rewards'}
               </h3>
               <button
                 type="button"
                 onClick={() => onNavigate('rewards')}
-                className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer"
+                className="text-xs font-semibold text-[#0B2A6F] dark:text-[#F5B800] hover:underline cursor-pointer whitespace-nowrap"
               >
                 {t(lang, 'viewRewards')}
               </button>
@@ -988,17 +1052,17 @@ export function HomeDashboard({
                 {promotions.slice(0, 2).map((promo) => (
                   <div
                     key={promo.id}
-                    className="p-2.5 rounded-xl bg-neutral-50 dark:bg-blue-950/35 border border-neutral-200/80 dark:border-blue-900/50"
+                    className="p-3 rounded-xl bg-neutral-50 dark:bg-blue-950/35 border border-neutral-200/80 dark:border-blue-900/50"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-xs text-neutral-900 dark:text-white truncate">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-xs text-neutral-900 dark:text-white leading-snug sm:truncate">
                         {lang === 'sw' ? promo.titleSw : promo.titleEn}
                       </p>
                       <span className="font-mono-num text-[11px] font-bold text-[#0B2A6F] dark:text-[#F5B800] shrink-0">
                         {promo.pointsMultiplier}x pts
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-neutral-600 dark:text-neutral-300 line-clamp-1">
+                    <p className="mt-1 text-[11px] text-neutral-600 dark:text-neutral-300 leading-snug sm:line-clamp-1">
                       {lang === 'sw' ? promo.descriptionSw : promo.descriptionEn}
                     </p>
                   </div>
@@ -1018,32 +1082,39 @@ export function HomeDashboard({
       {/* SECTION 5: Full-Bleed Corporate Footer Strip */}
       <footer
         id="mawasiliano"
-        className="mt-auto bg-[#071A4A] text-blue-100/90 border-t border-white/15 px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+        className="mt-auto bg-[#071A4A] text-blue-100/90 border-t border-white/15 px-4 sm:px-6 lg:px-10 py-5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
       >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <span className="font-display font-bold text-white">
-            OILCOM Tanzania Ltd
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5 text-[#F5B800]" />
-            Dar es Salaam, Tanzania
-          </span>
-          <a
-            href="tel:+255736123456"
-            className="inline-flex items-center gap-1 hover:text-[#F5B800]"
-          >
-            <Phone className="w-3.5 h-3.5 text-[#F5B800]" />
-            +255 736 123 456
-          </a>
-          <a
-            href="mailto:info@oilcom.co.tz"
-            className="inline-flex items-center gap-1 hover:text-[#F5B800]"
-          >
-            <Mail className="w-3.5 h-3.5 text-[#F5B800]" />
-            info@oilcom.co.tz
-          </a>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 sm:gap-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-display font-bold text-white text-sm sm:text-xs">
+              OILCOM Tanzania Ltd
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-[#F5B800] shrink-0" />
+              Dar es Salaam, Tanzania
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <a
+              href="tel:+255736123456"
+              className="inline-flex items-center gap-1 hover:text-[#F5B800]"
+            >
+              <Phone className="w-3.5 h-3.5 text-[#F5B800] shrink-0" />
+              +255 736 123 456
+            </a>
+            <a
+              href="mailto:info@oilcom.co.tz"
+              className="inline-flex items-center gap-1 hover:text-[#F5B800]"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#F5B800] shrink-0" />
+              info@oilcom.co.tz
+            </a>
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t border-white/10 sm:border-t-0">
+          <span className="text-[11px] text-blue-200/70 sm:hidden">
+            Energy for a Better Tomorrow
+          </span>
           <button
             type="button"
             onClick={() => onNavigate('profile')}
