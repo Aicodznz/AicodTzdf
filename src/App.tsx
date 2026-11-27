@@ -42,6 +42,8 @@ import { CurvedBottomNav } from './components/CurvedBottomNav';
 import { FuelAndGasModule } from './components/FuelAndGasModule';
 import { HomeDashboard } from './components/HomeDashboard';
 import {
+  OILCOM_LPG_CYLINDERS_SRC,
+  OILCOM_TANKER_CUTOUT_SRC,
   OilcomCamelMark,
   OilcomFullLogo,
   OilcomWordmark,
@@ -174,6 +176,7 @@ export default function App() {
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const [bootstrappedAdmin, setBootstrappedAdmin] = useState(false);
   const [previewRole, setPreviewRole] = useState<UserRole | null>(null);
   const lastAutoRouteKeyRef = useRef<string>('');
@@ -214,6 +217,11 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [homepageSlides, setHomepageSlides] = useState<HomepageSlide[]>([]);
   const [adminHomepageSlides, setAdminHomepageSlides] = useState<HomepageSlide[]>([]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setSplashDone(true), 1650);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     const onQuota = () => setMapsQuotaExceeded(true);
@@ -1093,13 +1101,59 @@ export default function App() {
     </div>
   );
 
-  if (!authReady || (fbUser && !profileLoaded)) {
+  if (!splashDone || !authReady || (fbUser && !profileLoaded)) {
     return (
       <>
         {quotaBanner}
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#0B2A6F] text-white gap-4">
-          <OilcomFullLogo className="w-56 animate-pulse" />
-          <p className="text-xs text-blue-200/75">{t(lang, 'loading')}</p>
+        <div
+          className="min-h-[100dvh] flex flex-col items-center justify-between px-4 py-8 text-white relative overflow-hidden"
+          style={{
+            background:
+              'radial-gradient(ellipse 85% 58% at 50% 48%, rgba(29, 78, 216, 0.44), transparent 72%), linear-gradient(180deg, #09122A 0%, #0E2B72 52%, #06112B 100%)',
+          }}
+        >
+          {/* Top 3-Color OILCOM Bar */}
+          <div className="absolute top-0 inset-x-0 h-1.5 grid grid-cols-3">
+            <span className="bg-[#1D4ED8]" />
+            <span className="bg-[#D92027]" />
+            <span className="bg-[#F5B800]" />
+          </div>
+
+          {/* Top Brand Header */}
+          <div className="mt-4 sm:mt-6 flex flex-col items-center text-center">
+            <OilcomFullLogo className="w-44 sm:w-52 drop-shadow-[0_10px_28px_rgba(3,10,36,0.6)]" />
+            <p className="mt-2 text-xs sm:text-sm italic font-bold text-[#FFD028] tracking-wide">
+              Energy for a Better Tomorrow
+            </p>
+          </div>
+
+          {/* Center Composition: OILCOM Tanker + O-GAS Cylinders */}
+          <div className="relative w-full max-w-md sm:max-w-lg my-auto py-4 flex items-end justify-center">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-2 inset-x-8 h-10 rounded-full bg-[#3B82F6]/25 blur-2xl"
+            />
+            <img
+              src={OILCOM_TANKER_CUTOUT_SRC}
+              alt="OILCOM Fuel Tanker"
+              className="relative z-10 w-[64%] sm:w-[66%] -mr-4 h-auto max-h-[210px] sm:max-h-[260px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.72)]"
+            />
+            <img
+              src={OILCOM_LPG_CYLINDERS_SRC}
+              alt="O-GAS Cylinders"
+              className="relative z-20 w-[37%] sm:w-[34%] h-auto max-h-[205px] sm:max-h-[250px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.75)]"
+            />
+          </div>
+
+          {/* Bottom Loader Indicator */}
+          <div className="w-full max-w-[200px] flex flex-col items-center gap-2.5 pb-2">
+            <div className="w-full h-1.5 rounded-full bg-white/15 overflow-hidden">
+              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-[#3B82F6] animate-pulse" />
+            </div>
+            <p className="text-xs font-semibold text-blue-100/85 tracking-wide">
+              {t(lang, 'loading')}
+            </p>
+          </div>
         </div>
       </>
     );

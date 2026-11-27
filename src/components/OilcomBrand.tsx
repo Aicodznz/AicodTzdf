@@ -5,7 +5,9 @@ const LOGO_EMBLEM_SRC =
 const LOGO_OFFICIAL_SRC =
   '/assets/aistudio/Glossy_Oilcom_Logo_with_Camel_Emblem_5b45621d.png';
 export const OILCOM_LPG_CYLINDERS_SRC =
-  '/assets/aistudio/Vibrant_O-GAS_Cylinder_Display-removebg-preview_fe4ed4a1.png';
+  '/assets/aistudio/Branded_Yellow_LPG_Cylinders_Outdoors__1_-removebg-preview_0a230b59.png';
+export const OILCOM_TANKER_CUTOUT_SRC =
+  '/assets/aistudio/WhatsApp_Image_2026-11-21_at_11.41.08_PM-removebg-preview_bf693298.png';
 
 let cachedTransparentEmblemUrl: string | null = null;
 let transparentEmblemPromise: Promise<string> | null = null;

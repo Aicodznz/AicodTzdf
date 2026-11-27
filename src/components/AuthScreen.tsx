@@ -25,6 +25,7 @@ import { t } from '../i18n/translations';
 import type { Language, ThemeMode } from '../types/oilcom';
 import {
   OILCOM_LPG_CYLINDERS_SRC,
+  OILCOM_TANKER_CUTOUT_SRC,
   OilcomCamelMark,
   OilcomFullLogo,
 } from './OilcomBrand';
@@ -38,8 +39,6 @@ interface AuthScreenProps {
 }
 
 const INTRO_STORAGE_KEY = 'oilcom_auth_intro_v1';
-const HERO_TANKER_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-21_at_11.41.08_PM-removebg-preview_bf693298.png';
 
 export function AuthScreen({
   lang,
@@ -217,7 +216,7 @@ export function AuthScreen({
       visual: (
         <div className="relative -mx-4 w-[calc(100%+2rem)] flex items-center justify-center">
           <img
-            src={HERO_TANKER_SRC}
+            src={OILCOM_TANKER_CUTOUT_SRC}
             alt="OILCOM Energy Tanker"
             className="w-full h-auto max-h-[320px] sm:max-h-[360px] object-contain drop-shadow-[0_24px_44px_rgba(0,0,0,0.72)] -mt-6 block"
           />
