@@ -36,6 +36,29 @@
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes splash-progress {
+  0% {
+    transform: scaleX(0.05);
+  }
+  65% {
+    transform: scaleX(0.78);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes splash-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

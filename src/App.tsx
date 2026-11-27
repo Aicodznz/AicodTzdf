@@ -219,7 +219,7 @@ export default function App() {
   const [adminHomepageSlides, setAdminHomepageSlides] = useState<HomepageSlide[]>([]);
 
   useEffect(() => {
-    const id = window.setTimeout(() => setSplashDone(true), 1650);
+    const id = window.setTimeout(() => setSplashDone(true), 3200);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -1119,39 +1119,44 @@ export default function App() {
             <span className="bg-[#F5B800]" />
           </div>
 
-          {/* Top Brand Header */}
-          <div className="mt-4 sm:mt-6 flex flex-col items-center text-center">
-            <OilcomFullLogo className="w-44 sm:w-52 drop-shadow-[0_10px_28px_rgba(3,10,36,0.6)]" />
-            <p className="mt-2 text-xs sm:text-sm italic font-bold text-[#FFD028] tracking-wide">
-              Energy for a Better Tomorrow
-            </p>
+          <div aria-hidden="true" className="h-2 shrink-0" />
+
+          {/* Centered Brand Logo + Tanker & O-GAS Showcase */}
+          <div className="my-auto w-full max-w-md sm:max-w-lg flex flex-col items-center text-center gap-6 sm:gap-8 animate-[splash-fade-up_0.45s_ease-out_forwards]">
+            <div className="flex flex-col items-center">
+              <OilcomFullLogo className="w-44 sm:w-52 drop-shadow-[0_10px_28px_rgba(3,10,36,0.6)]" />
+              <p className="mt-2.5 text-xs sm:text-sm italic font-bold text-[#FFD028] tracking-wide">
+                Energy for a Better Tomorrow
+              </p>
+            </div>
+
+            <div className="relative w-full flex items-end justify-center pt-1">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-1 inset-x-8 h-10 rounded-full bg-[#3B82F6]/25 blur-2xl"
+              />
+              <img
+                src={OILCOM_TANKER_CUTOUT_SRC}
+                alt="OILCOM Fuel Tanker"
+                className="relative z-10 w-[64%] sm:w-[66%] -mr-4 h-auto max-h-[195px] sm:max-h-[245px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.72)]"
+              />
+              <img
+                src={OILCOM_LPG_CYLINDERS_SRC}
+                alt="O-GAS Cylinders"
+                className="relative z-20 w-[37%] sm:w-[34%] h-auto max-h-[190px] sm:max-h-[235px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.75)]"
+              />
+            </div>
           </div>
 
-          {/* Center Composition: OILCOM Tanker + O-GAS Cylinders */}
-          <div className="relative w-full max-w-md sm:max-w-lg my-auto py-4 flex items-end justify-center">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-2 inset-x-8 h-10 rounded-full bg-[#3B82F6]/25 blur-2xl"
-            />
-            <img
-              src={OILCOM_TANKER_CUTOUT_SRC}
-              alt="OILCOM Fuel Tanker"
-              className="relative z-10 w-[64%] sm:w-[66%] -mr-4 h-auto max-h-[210px] sm:max-h-[260px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.72)]"
-            />
-            <img
-              src={OILCOM_LPG_CYLINDERS_SRC}
-              alt="O-GAS Cylinders"
-              className="relative z-20 w-[37%] sm:w-[34%] h-auto max-h-[205px] sm:max-h-[250px] object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.75)]"
-            />
-          </div>
-
-          {/* Bottom Loader Indicator */}
-          <div className="w-full max-w-[200px] flex flex-col items-center gap-2.5 pb-2">
+          {/* Bottom Animated Progress Bar */}
+          <div className="w-full max-w-[230px] flex flex-col items-center gap-2.5 pb-3">
             <div className="w-full h-1.5 rounded-full bg-white/15 overflow-hidden">
-              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-[#3B82F6] animate-pulse" />
+              <div className="h-full w-full origin-left rounded-full bg-gradient-to-r from-[#D92027] via-[#F5B800] to-[#3B82F6] animate-[splash-progress_3.1s_cubic-bezier(0.22,1,0.36,1)_forwards]" />
             </div>
             <p className="text-xs font-semibold text-blue-100/85 tracking-wide">
-              {t(lang, 'loading')}
+              {lang === 'sw'
+                ? 'Inapakia huduma za OILCOM...'
+                : 'Loading OILCOM services...'}
             </p>
           </div>
         </div>
