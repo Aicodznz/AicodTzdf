@@ -1395,7 +1395,7 @@ export default function App() {
             },
             {
               id: 'gas',
-              label: lang === 'sw' ? 'Gesi LPG' : 'LPG Gas',
+              label: 'O-GAS',
               icon: Flame,
             },
             {

@@ -4,6 +4,8 @@ const LOGO_EMBLEM_SRC =
   '/assets/aistudio/Glossy_Camel_Crest_Emblem_a2cca961.png';
 const LOGO_OFFICIAL_SRC =
   '/assets/aistudio/Glossy_Oilcom_Logo_with_Camel_Emblem_5b45621d.png';
+export const OILCOM_LPG_CYLINDERS_SRC =
+  '/assets/aistudio/Vibrant_O-GAS_Cylinder_Display-removebg-preview_fe4ed4a1.png';
 
 let cachedTransparentEmblemUrl: string | null = null;
 let transparentEmblemPromise: Promise<string> | null = null;
@@ -476,17 +478,17 @@ export function GasCylinderGraphic({
       style={{ transform: `scale(${scale})` }}
       aria-hidden="true"
     >
-      <rect x="24" y="6" width="16" height="8" rx="3" fill="#D92027" />
-      <path d="M20 12C20 8.5 22.5 6 26 6H38C41.5 6 44 8.5 44 12V16H20V12Z" stroke="#F5B800" strokeWidth="2.5" />
-      <rect x="29" y="13" width="6" height="5" fill="#D92027" />
-      <rect x="14" y="18" width="36" height="44" rx="14" fill="#13419E" stroke="#0B2A6F" strokeWidth="2" />
-      <rect x="14" y="34" width="36" height="10" fill="#F5B800" />
-      <rect x="18" y="60" width="28" height="6" rx="2" fill="#0B2A6F" />
+      <rect x="24" y="6" width="16" height="8" rx="3" fill="#FFD028" />
+      <path d="M20 12C20 8.5 22.5 6 26 6H38C41.5 6 44 8.5 44 12V16H20V12Z" stroke="#EAB308" strokeWidth="2.5" />
+      <rect x="29" y="13" width="6" height="5" fill="#D97706" />
+      <rect x="14" y="18" width="36" height="44" rx="14" fill="#FFD028" stroke="#CA8A04" strokeWidth="2" />
+      <rect x="14" y="34" width="36" height="10" fill="#0B2A6F" />
+      <rect x="18" y="60" width="28" height="6" rx="2" fill="#CA8A04" />
       <text
         x="32"
         y="41.5"
         textAnchor="middle"
-        fill="#0B2A6F"
+        fill="#FFFFFF"
         fontSize="8.5"
         fontWeight="800"
         fontFamily="sans-serif"

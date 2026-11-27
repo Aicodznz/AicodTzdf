@@ -24,7 +24,7 @@ import { auth, db, googleProvider } from '../lib/firebase';
 import { t } from '../i18n/translations';
 import type { Language, ThemeMode } from '../types/oilcom';
 import {
-  GasCylinderGraphic,
+  OILCOM_LPG_CYLINDERS_SRC,
   OilcomCamelMark,
   OilcomFullLogo,
 } from './OilcomBrand';
@@ -39,7 +39,7 @@ interface AuthScreenProps {
 
 const INTRO_STORAGE_KEY = 'oilcom_auth_intro_v1';
 const HERO_TANKER_SRC =
-  '/assets/aistudio/WhatsApp_Image_2026-11-21_at_11.41.08_PM__1__e4bdacfd.jpeg';
+  '/assets/aistudio/WhatsApp_Image_2026-11-21_at_11.41.08_PM-removebg-preview_bf693298.png';
 
 export function AuthScreen({
   lang,
@@ -215,29 +215,31 @@ export function AuthScreen({
           ? 'Pata petroli, dizeli na huduma bora za vituo vya OILCOM kote Tanzania kwa urahisi.'
           : 'Refuel with trusted Petrol, Diesel, and fleet vouchers across OILCOM stations nationwide.',
       visual: (
-        <div className="relative w-full max-w-[330px] aspect-[4/3] mx-auto rounded-3xl overflow-hidden shadow-[0_24px_60px_rgba(6,18,54,0.75)] border border-white/10">
+        <div className="relative -mx-4 w-[calc(100%+2rem)] flex items-center justify-center">
           <img
             src={HERO_TANKER_SRC}
             alt="OILCOM Energy Tanker"
-            className="w-full h-full object-cover"
+            className="w-full h-auto max-h-[320px] sm:max-h-[360px] object-contain drop-shadow-[0_24px_44px_rgba(0,0,0,0.72)] -mt-6 block"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0B142C] via-transparent to-[#0B142C]/35" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B142C]/30 via-transparent to-[#0B142C]/30" />
         </div>
       ),
     },
     {
       title:
         lang === 'sw'
-          ? 'Gesi ya OILCOM,\nMpaka Mlangoni Kwako.'
-          : 'Clean LPG Gas,\nDelivered Fast.',
+          ? 'O-GAS Safi,\nMpaka Mlangoni Kwako.'
+          : 'Official O-GAS,\nDelivered Fast.',
       subtitle:
         lang === 'sw'
-          ? 'Agiza mitungi ya 6kg, 15kg au 38kg na ufuatilie usafirishaji mubashara.'
-          : 'Order 6kg, 15kg, or 38kg LPG cylinders from nearby dealers with live delivery tracking.',
+          ? 'Agiza mitungi ya O-GAS (6kg, 15kg au 38kg) na ufuatilie usafirishaji mubashara.'
+          : 'Order O-GAS 6kg, 15kg, or 38kg cylinders from nearby dealers with live delivery tracking.',
       visual: (
-        <div className="relative w-56 h-56 mx-auto rounded-full bg-gradient-to-b from-[#163682]/45 to-[#0B142C]/80 border border-blue-400/20 shadow-[0_24px_64px_rgba(29,78,216,0.35)] flex items-center justify-center">
-          <GasCylinderGraphic sizeKg={15} className="w-32 h-36" />
+        <div className="relative w-full flex items-center justify-center py-2">
+          <img
+            src={OILCOM_LPG_CYLINDERS_SRC}
+            alt="O-GAS Cylinders 6kg 15kg 38kg"
+            className="h-[275px] sm:h-[310px] w-auto max-w-[92%] object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.72)]"
+          />
         </div>
       ),
     },
@@ -251,8 +253,8 @@ export function AuthScreen({
           ? 'Tumia QR ya OILCOM Rewards kupata punguzo la papo hapo na vocha za zawadi.'
           : 'Scan your verified OILCOM Rewards QR code to collect points and redeem instant vouchers.',
       visual: (
-        <div className="relative w-64 py-6 mx-auto rounded-3xl bg-white/[0.04] border border-white/10 shadow-[0_24px_60px_rgba(6,18,54,0.6)] flex items-center justify-center">
-          <OilcomFullLogo className="w-44" />
+        <div className="relative w-full py-4 flex items-center justify-center">
+          <OilcomFullLogo className="w-56 sm:w-64 drop-shadow-[0_18px_40px_rgba(0,0,0,0.65)]" />
         </div>
       ),
     },
@@ -403,11 +405,11 @@ export function AuthScreen({
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-white/[0.06] border border-white/10 backdrop-blur-md">
-              <p className="font-semibold text-[#FF5C63]">OILCOM Gas & Fuel</p>
+              <p className="font-semibold text-[#FF5C63]">O-GAS & Fuel</p>
               <p className="mt-1 text-xs text-blue-100/75">
                 {lang === 'sw'
-                  ? '6kg, 15kg, 38kg & Vocha za Mafuta'
-                  : 'LPG Delivery & Prepaid Fuel'}
+                  ? 'O-GAS 6kg, 15kg, 38kg & Vocha za Mafuta'
+                  : 'O-GAS Delivery & Prepaid Fuel'}
               </p>
             </div>
             <div className="p-4 rounded-2xl bg-white/[0.06] border border-white/10 backdrop-blur-md">

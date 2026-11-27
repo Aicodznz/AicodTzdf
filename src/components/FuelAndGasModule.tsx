@@ -37,7 +37,11 @@ import type {
   Voucher,
 } from '../types/oilcom';
 import { MapLocationPickerModal } from './MapLocationPickerModal';
-import { formatTzs, GasCylinderGraphic } from './OilcomBrand';
+import {
+  formatTzs,
+  GasCylinderGraphic,
+  OILCOM_LPG_CYLINDERS_SRC,
+} from './OilcomBrand';
 
 interface FuelAndGasModuleProps {
   mode: 'gas' | 'fuel';
@@ -453,6 +457,31 @@ export function FuelAndGasModule({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-5 lg:gap-6 items-start">
         {/* Product Grid */}
         <div className="lg:col-span-2 space-y-3 sm:space-y-4 min-w-0">
+          {mode === 'gas' && (
+            <div className="rounded-2xl bg-gradient-to-r from-[#081A4B] via-[#123B96] to-[#0B2A6F] text-white p-4 sm:p-5 border border-white/15 shadow-sm flex items-center justify-between gap-4 overflow-hidden">
+              <div className="min-w-0 space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#FFD028]">
+                  O-GAS · OILCOM Tanzania
+                </p>
+                <h2 className="font-display text-base sm:text-lg font-extrabold leading-snug">
+                  {lang === 'sw'
+                    ? 'Mitungi Halisi ya O-GAS (6kg, 15kg & 38kg)'
+                    : 'Official O-GAS Cylinders (6kg, 15kg & 38kg)'}
+                </h2>
+                <p className="text-xs text-blue-100/85 max-w-md leading-relaxed">
+                  {lang === 'sw'
+                    ? 'Salama, nzito na yenye thamani halisi — agiza O-GAS ikufikie nyumbani au chukua kituo kilicho karibu nawe.'
+                    : 'Clean, sealed & safety-checked O-GAS cylinders — delivered fast to your doorstep or ready for station pickup.'}
+                </p>
+              </div>
+              <img
+                src={OILCOM_LPG_CYLINDERS_SRC}
+                alt="O-GAS Cylinders 6kg 15kg 38kg"
+                className="h-32 sm:h-40 w-auto object-contain shrink-0 drop-shadow-[0_12px_26px_rgba(0,0,0,0.52)]"
+              />
+            </div>
+          )}
+
           {mode === 'fuel' && (
             <div className="rounded-2xl bg-white dark:bg-[#0E172E] border border-neutral-200 dark:border-blue-950 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>

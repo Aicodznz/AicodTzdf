@@ -37,7 +37,11 @@ import {
   DEFAULT_HERO_TANKER_PHOTO,
   HomepageSlidesManagerModal,
 } from './HomepageSlidesManager';
-import { formatTzs, OilcomWordmark } from './OilcomBrand';
+import {
+  formatTzs,
+  OILCOM_LPG_CYLINDERS_SRC,
+  OilcomWordmark,
+} from './OilcomBrand';
 
 interface HomeDashboardProps {
   lang: Language;
@@ -221,8 +225,8 @@ export function HomeDashboard({
     },
     {
       route: 'gas',
-      title: lang === 'sw' ? 'OILCOM Gas (LPG)' : 'OILCOM Gas (LPG)',
-      subtitle: lang === 'sw' ? 'Mitungi 6kg, 15kg & 38kg' : '6kg, 15kg & 38kg LPG',
+      title: 'O-GAS (6kg, 15kg & 38kg)',
+      subtitle: lang === 'sw' ? 'Gesi Safi Nyumbani' : 'Fast O-GAS Delivery',
       icon: <Flame className="w-5 h-5 text-white" />,
       accentClass: 'bg-[#D92027]',
     },
@@ -943,13 +947,37 @@ export function HomeDashboard({
               </div>
               <div className="py-2 flex items-center justify-between gap-2">
                 <span className="text-neutral-600 dark:text-neutral-300">
-                  OILCOM Gas 15kg
+                  O-GAS 15kg
                 </span>
                 <span className="font-mono-num font-bold text-[#D92027] dark:text-[#F5B800]">
                   {formatTzs(livePricing.lpg15)}
                 </span>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('gas')}
+              className="mt-1 w-full rounded-xl bg-gradient-to-r from-[#081A4B] via-[#123B96] to-[#0B2A6F] px-3.5 py-2.5 text-white flex items-center justify-between gap-3 hover:brightness-105 transition-all cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={OILCOM_LPG_CYLINDERS_SRC}
+                  alt="O-GAS 6kg 15kg 38kg"
+                  className="h-16 w-auto object-contain shrink-0 drop-shadow-[0_6px_12px_rgba(0,0,0,0.48)]"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-[#FFD028] truncate">
+                    O-GAS · OILCOM
+                  </p>
+                  <p className="text-[11px] text-blue-100/90 truncate">
+                    {lang === 'sw'
+                      ? 'Mitungi 6kg, 15kg & 38kg · Agiza'
+                      : '6kg, 15kg & 38kg · Order Now'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#FFD028] shrink-0" />
+            </button>
           </div>
 
           {/* Guest Account Onboarding or Recent Orders */}
@@ -968,8 +996,8 @@ export function HomeDashboard({
                 </div>
                 <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
                   {lang === 'sw'
-                    ? 'Jisajili bure kuagiza OILCOM Gas nyumbani, kununua vocha za mafuta na kukusanya pointi.'
-                    : 'Register free to order OILCOM LPG online, buy fuel vouchers, and earn Rewards points.'}
+                    ? 'Jisajili bure kuagiza O-GAS nyumbani, kununua vocha za mafuta na kukusanya pointi.'
+                    : 'Register free to order O-GAS online, buy fuel vouchers, and earn Rewards points.'}
                 </p>
                 <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1">
                   {onOpenAuth && (
